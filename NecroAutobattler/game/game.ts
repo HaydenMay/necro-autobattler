@@ -414,7 +414,7 @@ export class Game {
         if (!this.cine && (this.phase === 'battle' || f.team === 1)) { v.holder.position.x = f.x; v.holder.position.z = f.z; if (f.alive || true) v.holder.rotation.y = f.yaw; }
         if (f.alive) { v.setHp(f.hp / f.maxHp); if (f.maxMana) v.setMana(f.mana / f.maxMana); }
         else v.setMana(null);
-        if (f.state !== 'attack' && f.alive) { const want = f.state === 'run' ? 'run' : 'idle'; if (this.lastState.get(f.id) !== want || (v.state !== want && v.state !== 'spawn')) { if (v.state !== 'spawn') { v.play(want as any); this.lastState.set(f.id, want); } } }
+        if (f.state !== 'attack' && f.alive && v.state !== 'cheer') { const want = f.state === 'run' ? 'run' : 'idle'; if (this.lastState.get(f.id) !== want || (v.state !== want && v.state !== 'spawn')) { if (v.state !== 'spawn') { v.play(want as any); this.lastState.set(f.id, want); } } }
         if (f.state === 'attack') this.lastState.set(f.id, 'attack');
       }
       if (b.winner >= 0 && !this.handled) { this.handled = true; this.resultAt = 1.4; }
@@ -458,7 +458,7 @@ export class Game {
 
   // ---- result cutscenes (plan sections 19-22): the Necromancer takes the hit, unleashes the repulsion shockwave, raises the fallen
   private playResult(kind: 'win' | 'loss' | 'final', done: () => void) {
-    const b = this.battle!, n = this.necro; this.cine = true; this.tweenCam(this.poses().necro, 1.1);
+    const b = this.battle!, n = this.necro; this.cine = true; if (kind !== 'win') this.tweenCam(this.poses().necro, 1.1);
     const home = () => {                                    // every fallen ally is pulled back to its grid tile and stands up
       n.cast(); audio.play('resurrect'); const c = n.crystalPos(); this.burst(c.x, c.z, [0.85, 0.5, 1, 0.9], [0.5, 0.2, 1, 0.7], 30);
       for (const f of b.fighters) {
@@ -469,7 +469,13 @@ export class Game {
           () => { v.holder.position.y = 0; this.burst(to.x, to.z, [0.75, 0.4, 1, 0.9], [0.4, 0.15, 0.9, 0.7], 10); });
       }
     };
-    if (kind === 'win') { n.cast(); audio.play('victory'); this.later(0.25, home); this.later(2.0, done); return; }
+    if (kind === 'win') {
+      // the survivors celebrate right where they stand (purely visual), THEN the camera swings to the Necromancer and the army is raised
+      audio.play('victory');
+      for (const f of b.fighters) if (f.team === 0 && f.alive) { const v = this.fvis.get(f.id); if (v) this.later(Math.random() * 0.35, () => v.play('cheer')); }
+      this.later(1.6, () => { this.tweenCam(this.poses().necro, 1.1); n.cast(); });
+      this.later(1.85, home); this.later(3.6, done); return;
+    }
     n.hurt(); audio.play('heartLost'); this.later(0.15, () => { const c = n.crystalPos(); this.burst(c.x, c.z, [1, 0.3, 0.3, 0.9], [0.8, 0.1, 0.2, 0.6], 16); });
     if (kind === 'final') { this.later(0.6, () => { n.defeat(); audio.play('defeat'); }); this.later(2.6, done); return; }
     this.later(1.0, () => {                                 // repulsion shockwave: survivors are flung back to where they started and heal to full

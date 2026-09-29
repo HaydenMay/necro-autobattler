@@ -171,7 +171,7 @@ class TripoVisual implements UnitVisual {
   update(dt: number) {
     this.deco.update(dt);
     if (this.cur && !this.cur.isStarted) {                                              // a one-shot clip finished
-      if (this.queued) { this.queued = false; this.play('idle'); } else if (this.flavorOn) { this.flavorOn = false; this.play('idle'); }
+      if (this.queued) { this.queued = false; this.play('idle'); } else if (this.flavorOn) { this.flavorOn = false; this.play('idle'); } else if (this.state === 'cheer') this.play('idle');
     }
     if (this.cfg.flavor && this.state === 'idle' && !this.flavorOn && this.holder.isEnabled()) { this.idleT += dt; if (this.idleT >= this.nextFlavor) this.startFlavor(); }
     if (this.state === 'spawn') this.spawnT += dt;

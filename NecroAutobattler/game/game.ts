@@ -15,6 +15,9 @@ import { PROTOTYPE_RULES } from '../core/prototype.ts';
 import { loadSave } from '../core/save.ts';
 import { Necromancer } from './necromancer.ts';
 import { audio } from './audio.ts';
+import { clearRun, loadRun, saveRun, serializeState } from '../core/runsave.ts';
+import type { RunSnapshot } from '../core/runsave.ts';
+import type { State } from '../core/rules.ts';
 import { createVisual, isTripo, loadAssets } from './visuals.ts';
 import type { Assets, UnitVisual } from './visuals.ts';
 import { Ui } from './ui.ts';
@@ -59,7 +62,7 @@ export class Game {
     this.necro = new Necromancer(scene, this.A.soft);       // stands just behind his army's back column, facing the battlefield
     this.necro.holder.position.set(-(FRONT_X + (GRID_COLS - 1) * GRID_SP) - 1.05, 0, 0); this.necro.holder.rotation.y = Math.PI / 2;
     this.arrowMats = [0, 1].map((t) => { const m = new BABYLON.StandardMaterial('am' + t, scene); m.diffuseColor = BABYLON.Color3.Black(); m.emissiveColor = t === 0 ? new BABYLON.Color3(0.75, 0.3, 1) : new BABYLON.Color3(1, 0.7, 0.25); m.disableLighting = true; return m; });
-    this.ui = new Ui(this); this.seed = +(qs.get('seed') || 1);
+    this.ui = new Ui(this); this.seed = +(qs.get('seed') || 1); if (qs.get('fps')) this.setShowFps(true);
 
     // Taps are detected here (not through Babylon) so they behave the same in Safari, the home-screen app and on desktop.
     let down: { x: number; y: number; t: number } | null = null;
@@ -72,9 +75,10 @@ export class Game {
     if ((window as any).visualViewport) (window as any).visualViewport.addEventListener('resize', onResize);
     if ((window as any).ResizeObserver) new (window as any).ResizeObserver(onResize).observe(canvas);
     if (qs.get('gallery')) { this.gallery(); return; }
-    this.startStage(this.seed);
+    const saved = qs.get('seed') ? null : loadRun();                // ?seed=N always starts fresh (debugging); otherwise pick up where the last visit left off
+    if (saved) this.restore(saved); else this.startStage(this.seed);
     let last = performance.now();
-    this.engine.runRenderLoop(() => { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now; if (!this.active) return; if (!this.frozen) this.frame(dt); scene.render(); });
+    this.engine.runRenderLoop(() => { const now = performance.now(), raw = now - last; const dt = Math.min(0.05, raw / 1000); last = now; if (!this.active) return; if (!this.frozen) this.frame(dt); scene.render(); this.perfTick(raw); });
   }
   /** The navigation shell hides the battle screen while another tab is open: pause the game so it costs nothing. */
   private active = true;
@@ -163,6 +167,66 @@ export class Game {
   }
 
   // -------------------------------------------------------------------------------------------- stage flow
+  /** Write the run to disk (calm moments only: build phase and the victory draft). */
+  private persistRun() {
+    try {
+      const s = this.s; if (!s) return;
+      if (s.status !== 'building') { clearRun(); return; }
+      if (this.phase !== 'build' && this.phase !== 'draft') return;
+      const snap: RunSnapshot = { v: 1, seed: this.seed, attempt: this.attempt, difficulty: difficultyName, phase: this.phase, draft: this.phase === 'draft' ? this.draft : null, state: serializeState(s) };
+      saveRun(snap);
+    } catch { /* never let saving break the game */ }
+  }
+  /** Rebuild the screen from a saved run (a reload, or Safari discarding the page). */
+  private restore(r: { snap: RunSnapshot; state: State }) {
+    const { snap, state } = r;
+    this.cine = false; this.flushTweens(); this.necro.revive(); setDifficulty(snap.difficulty);
+    this.seed = snap.seed; this.attempt = snap.attempt; this.s = state; this.seenMerges = state.stats.merges;
+    this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
+    this.sel = null; this.swapMode = false; this.draft = snap.phase === 'draft' ? snap.draft : null; this.phase = this.draft ? 'draft' : 'build';
+    this.setCam(this.poses().build); this.syncBuild(); this.ui.render(); this.toast(`Run restored: wave ${state.wave}/${stageWaves(state)}, ${state.hearts} heart${state.hearts === 1 ? '' : 's'}.`);
+  }
+
+  // ---- performance readout: rolling frame stats, per-battle summaries, optional on-screen FPS, and a paste-friendly report
+  showFps = false; perfNow = { fps: 0, avg: 0, p95: 0, worst: 0 }; perfLog: any[] = [];
+  private perfBuf = new Float32Array(240); private perfN = 0; private perfI = 0; private perfShownAt = 0; private instr: any = null; private fpsHud: HTMLElement | null = null;
+  private curBattle: { frames: number; sum: number; worst: number; slow: number; scale: number } | null = null;
+  setShowFps(on: boolean) {
+    this.showFps = on;
+    if (on && !this.fpsHud) { const h = document.createElement('div'); h.id = 'fpsHud'; (document.getElementById('battleHost') || document.body).appendChild(h); this.fpsHud = h; }
+    if (this.fpsHud) this.fpsHud.style.display = on ? 'block' : 'none';
+  }
+  private perfTick(ms: number) {
+    if (ms > 500) return;                                  // the tab was hidden or the phone paused us: not a real frame
+    this.perfBuf[this.perfI] = ms; this.perfI = (this.perfI + 1) % this.perfBuf.length; this.perfN = Math.min(this.perfBuf.length, this.perfN + 1);
+    const c = this.curBattle;
+    if (c && (this.phase === 'battle' || this.phase === 'transition')) { c.frames++; c.sum += ms; if (ms > c.worst) c.worst = ms; if (ms > 33.4) c.slow++; c.scale = Math.max(c.scale, this.timeScale); }
+    const now = performance.now(); if (now - this.perfShownAt < 500) return; this.perfShownAt = now;
+    const a = Array.from(this.perfBuf.subarray(0, this.perfN)).sort((x, y) => x - y), avg = a.reduce((n, x) => n + x, 0) / a.length;
+    this.perfNow = { fps: 1000 / avg, avg, p95: a[Math.floor(a.length * 0.95)] ?? 0, worst: a[a.length - 1] ?? 0 };
+    if (this.fpsHud && this.showFps) this.fpsHud.textContent = `${this.perfNow.fps.toFixed(0)} fps  ${this.perfNow.avg.toFixed(1)}ms  slow5% ${this.perfNow.p95.toFixed(0)}ms`;
+    this.ui.renderDebugLive();
+  }
+  private beginBattlePerf() { this.curBattle = { frames: 0, sum: 0, worst: 0, slow: 0, scale: this.timeScale }; }
+  private endBattlePerf() {
+    const c = this.curBattle; this.curBattle = null; if (!c || !c.frames) return;
+    this.perfLog.push({ wave: this.s.wave, attempt: this.attempt, speed: c.scale, fighters: this.battle ? this.battle.fighters.length : 0, fps: +(1000 / (c.sum / c.frames)).toFixed(0), worstMs: +c.worst.toFixed(0), slowPct: +((100 * c.slow) / c.frames).toFixed(1) });
+    if (this.perfLog.length > 12) this.perfLog.shift();
+  }
+  perfInfo() {
+    const sc = this.scene; if (!this.instr && BABYLON.SceneInstrumentation) this.instr = new BABYLON.SceneInstrumentation(sc);
+    return { ...this.perfNow, meshes: sc.getActiveMeshes().length, particles: sc.particleSystems.length, draws: this.instr ? this.instr.drawCallsCounter.current : -1 };
+  }
+  perfReport(): string {
+    const p = this.perfInfo(), gl: any = this.engine.getGlInfo ? this.engine.getGlInfo() : {};
+    const rows = this.perfLog.map((r) => `  wave ${r.wave} try ${r.attempt} at ${r.speed}x: ${r.fps} fps average, worst frame ${r.worstMs}ms, ${r.slowPct}% slow frames, ${r.fighters} fighters`);
+    return [`PERF ${new Date().toISOString()}`, `device: ${navigator.userAgent}`, `gpu: ${gl.renderer || '?'} (${gl.vendor || '?'})`,
+      `screen ${screen.width}x${screen.height}  viewport ${innerWidth}x${innerHeight}  dpr ${devicePixelRatio}  render ${this.engine.getRenderWidth()}x${this.engine.getRenderHeight()}  scaling level ${this.engine.getHardwareScalingLevel().toFixed(2)}`,
+      `now: ${p.fps.toFixed(0)} fps, average ${p.avg.toFixed(1)}ms, slowest 5% ${p.p95.toFixed(0)}ms, worst ${p.worst.toFixed(0)}ms | active meshes ${p.meshes}, particle systems ${p.particles}, draw calls ${p.draws}`,
+      `state: phase ${this.phase}, speed ${this.timeScale}x, camera ${this.camMode}, difficulty ${difficultyName}, wave ${this.s.wave}, units ${this.s.units.length}`,
+      `battles (newest last):`, ...(rows.length ? rows : ['  (none yet: play a battle, then copy this again)'])].join('\n');
+  }
+
   /** A run the player has really started (so Home can offer Continue). Null after a stage was won or lost, or before anything was done. */
   runInfo() { const s = this.s; if (!s || s.status !== 'building') return null; return (s.wave > 1 || s.units.length > 0 || this.attempt > 0 || s.stats.failures > 0) ? { wave: s.wave, total: stageWaves(s), hearts: s.hearts, difficulty: difficultyName } : null; }
   /** Fresh run with the currently equipped Soul Deck (Home > Start Battle calls this). */
@@ -180,6 +244,7 @@ export class Game {
   }
   private pos(cell: number) { return cellPos(0, cell); }
   syncBuild() {
+    this.persistRun();
     const merged = this.s.stats.merges > this.seenMerges; this.seenMerges = this.s.stats.merges;
     const grown = merged ? this.s.units.find((u) => { const gv = this.unitVis.get(u.id); return !!gv && gv.star !== u.star; }) : undefined;   // the unit that just gained a star
     const alive = new Set(this.s.units.map((u) => u.id));
@@ -263,7 +328,7 @@ export class Game {
   // -------------------------------------------------------------------------------------------- battle
   startBattle() {
     if (this.phase !== 'build' || !this.s.units.length) { if (!this.s.units.length) this.toast('Summon at least one unit first.'); return; }
-    this.flushTweens(); audio.play('start');
+    this.flushTweens(); audio.play('start'); this.beginBattlePerf();
     this.sel = null; this.swapMode = false; this.attempt++; this.handled = false; this.resultAt = -1;
     const s = this.s, units = s.units.slice();
     this.battle = new Battle(units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemyWave(s.wave, this.seed), this.seed * 131 + s.wave * 17 + this.attempt);
@@ -334,16 +399,17 @@ export class Game {
 
   private handleResult() {
     const b = this.battle!, s = this.s;
+    this.endBattlePerf();
     this.lastBattle = `wave ${s.wave} attempt ${this.attempt}: ${b.winner === 0 ? 'WON' : 'LOST'} in ${b.time.toFixed(1)}s, ${b.count(0)} of yours and ${b.count(1)} enemies left`;
     if (b.winner === 0) {
       this.playResult('win', () => {                        // the army is raised again, then the next wave / the draft
         this.cine = false;
-        if (advanceWave(s)) { this.phase = 'won'; this.ui.render(); return; }
-        this.draft = draftOptions(s); this.phase = 'draft'; this.ui.render();
+        if (advanceWave(s)) { this.phase = 'won'; clearRun(); this.ui.render(); return; }
+        this.draft = draftOptions(s); this.phase = 'draft'; this.persistRun(); this.ui.render();
       });
     } else {
       failWave(s); this.ui.render(); this.ui.pulseHearts();                   // the heart is lost the moment he is hit
-      if (s.status === 'lost') this.playResult('final', () => { this.cine = false; this.phase = 'lost'; this.ui.render(); });
+      if (s.status === 'lost') this.playResult('final', () => { this.cine = false; this.phase = 'lost'; clearRun(); this.ui.render(); });
       else this.playResult('loss', () => { this.toast('Your army fell. -1 heart, +1 card, same wave. Rebuild a different strategy.'); this.toBuild(); });
     }
   }

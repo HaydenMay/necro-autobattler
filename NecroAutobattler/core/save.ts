@@ -27,7 +27,7 @@ export function defaultSave(): Save {
   return { v: VERSION, deck: SOULS.slice(0, DECK_SIZE), souls, settings: { music: true, sfx: true }, difficulty: 'normal' };
 }
 
-function browserStore(): Store | null { try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; } }
+export function browserStore(): Store | null { try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; } }
 
 /** Repair whatever was stored: unknown Souls dropped, duplicates removed, deck capped, nothing empty. Old versions keep their progress. */
 export function sanitize(raw: any): Save {

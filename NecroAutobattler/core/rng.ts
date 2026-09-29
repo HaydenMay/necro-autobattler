@@ -1,14 +1,16 @@
 // Small seeded RNG (mulberry32). Same seed -> same run, so any bug report is reproducible.
+// `state()` / the `resume` argument let a saved run continue drawing exactly the cards it would have drawn.
 
 export interface Rng {
   next(): number;              // [0, 1)
   int(n: number): number;      // [0, n)
   pick<T>(items: readonly T[]): T;
   seed: number;
+  state(): number;             // the generator's current position, for saving a run
 }
 
-export function makeRng(seed: number): Rng {
-  let a = seed >>> 0;
+export function makeRng(seed: number, resume?: number): Rng {
+  let a = (resume ?? seed) >>> 0;
   const next = () => {
     a = (a + 0x6d2b79f5) >>> 0;
     let t = a;
@@ -21,5 +23,6 @@ export function makeRng(seed: number): Rng {
     next,
     int: (n) => Math.floor(next() * n),
     pick: (items) => items[Math.floor(next() * items.length)],
+    state: () => a,
   };
 }

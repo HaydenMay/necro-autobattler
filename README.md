@@ -15,6 +15,8 @@ Open the GitHub Pages link for this repository (Settings -> Pages shows the addr
 * **Swap** (once per round): discard a card or sell a unit you did not summon this round; you draw a *different* Soul.
 * Archer, Knight and Ogre have a **skill** that runs on a mana bar (blue, under the health bar): basic attacks and damage taken fill it, a full bar fires the skill (Split Arrow, Taunt, Smash) on the next attack and resets. Warrior, Goblin and Barbarian are passive-only.
 * **Sound:** music and sound effects are synthesized in the browser (no audio files). Each has its own on/off switch: the 🎵 / 🔊 buttons in the battle screen, or the **Settings** tab. Choices are saved on the device. Phones only allow sound after the first tap.
+* **Runs are saved** as you go (build screen and victory draft), so a reload or Safari discarding the page puts you back where you were; press Continue on Home. A fight in progress is not saved: you return to the build screen you pressed Battle from.
+* **Performance check:** gear -> Performance shows live FPS / frame time / draw calls, "Show FPS on the battle screen" adds a small readout, and "Copy perf report" copies device + per-battle stats to paste into chat. (`?fps=1` in the link turns the readout on.)
 * **Difficulty** (Easy / Normal / Hard / Nightmare) is picked on Home before a run and stays fixed for that run.
 * The **gear** button opens the debug panel: live star multipliers and unit stats, difficulty, "Test odds",
   a copy-paste state report and a "last tap" line for diagnosing touch problems. Add `?seed=7` to the link to replay the same draws.

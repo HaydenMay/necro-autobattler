@@ -70,9 +70,8 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
     .win { position:absolute; left:calc(var(--wl) * 1%); top:calc(var(--wt) * 1%); width:calc(var(--ww) * 1%); height:calc(var(--wh) * 1%); overflow:hidden; border-radius:6%; }
     .win .por { position:absolute; inset:0; }
     .frm { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-    .plate { position:absolute; left:calc(var(--wl) * 1%); width:calc(var(--ww) * 1%); top:calc(var(--pt) * 1%); height:calc(var(--ph) * 1%); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.05; }
-    .plate .nm { padding:0; font-size:calc(var(--sz) * .078); white-space:nowrap; text-shadow:0 1px 2px #000, 0 0 4px #000; }
-    .cnt { position:absolute; right:-7%; top:-5%; width:calc(var(--sz) * .26); height:calc(var(--sz) * .26); border-radius:50%; background:var(--c); color:#150a24; font-weight:900; font-size:calc(var(--sz) * .12); display:flex; align-items:center; justify-content:center; border:2px solid #fff8; box-shadow:0 2px 6px #000a; }
+    .plate { position:absolute; left:calc(var(--wl) * 1%); width:calc(var(--ww) * 1%); top:calc(var(--pt) * 1%); height:calc(var(--ph) * 1%); display:flex; align-items:center; justify-content:center; gap:calc(var(--sz) * .05); white-space:nowrap; text-shadow:0 1px 2px #000, 0 0 4px #000; }
+    .plate .pr { font-size:calc(var(--sz) * .075); font-weight:900; letter-spacing:.12em; text-transform:uppercase; } .plate .px { font-size:calc(var(--sz) * .11); font-weight:900; color:#fff; }
     .face.front.epic { box-shadow:0 0 40px var(--c), 0 0 12px var(--c); } .face.front.legend { animation:legend 1.1s ease-in-out infinite; }
     @keyframes legend { 50% { box-shadow:0 0 70px var(--c), 0 0 18px #fff; } }
     .por.art { position:relative; overflow:hidden; } .por.art img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 35%; filter:none; }
@@ -128,8 +127,7 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
                 <div class="face front" [attr.data-r]="r.rarity" [style.--c]="color(r.rarity)" [class.epic]="r.rarity === 'epic'" [class.legend]="r.rarity === 'legendary'">
                   <div class="win"><div class="por" [class.art]="art(r.soul)" [style.background]="bg(r.soul)"><img [src]="icon(r.soul)" alt=""></div></div>
                   <img class="frm" [src]="frameImg(r.rarity)" alt="" draggable="false">
-                  <div class="plate"><div class="nm">{{ name(r.soul) }}</div></div>
-                  <div class="cnt">&times;{{ r.copies }}</div>
+                  <div class="plate"><span class="pr" [style.color]="color(r.rarity)">{{ rarityName(r.rarity) }}</span><span class="px">&times;{{ r.copies }}</span></div>
                 </div>
               </div>
             </div>

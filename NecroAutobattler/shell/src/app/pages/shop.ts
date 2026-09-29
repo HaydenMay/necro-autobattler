@@ -12,12 +12,14 @@ import { range, skullIcon } from '../soul-ui';
   imports: [PackOpen],
   styles: [`
     :host { display:block; font-size:clamp(11px,1.9vmin,14px); }
-    .packs { display:flex; flex-wrap:wrap; gap:clamp(10px,2.4vmin,20px); margin:8px 0 16px; }
-    .pk { width:clamp(70px,12vmin,100px); padding:0; background:none; border:0; text-align:center; cursor:pointer; color:inherit; }
+    .packs { display:flex; flex-wrap:wrap; gap:clamp(14px,3vmin,28px); margin:8px 0 16px; }
+    .pk { position:relative; width:clamp(104px,19vmin,160px); padding:0 0 10px; padding:0; background:none; border:0; text-align:center; cursor:pointer; color:inherit; }
     .mp { display:block; width:100%; transition:transform .12s, filter .2s; filter:drop-shadow(0 6px 8px #000a) drop-shadow(0 0 10px var(--glow)); }
     .pk:hover .mp, .pk:active .mp { transform:translateY(-4px) scale(1.04); }
     .t1 { --glow:rgba(47,217,166,.25); } .t2 { --glow:rgba(47,217,166,.5); } .t3 { --glow:rgba(255,204,51,.6); }
     .row3 .sk img { width:1.2em; height:1.2em; margin-right:2px; vertical-align:middle; }
+    .pk::before { content:''; position:absolute; left:-8%; right:-8%; bottom:14px; height:28%; border-radius:50%; background:radial-gradient(ellipse at 50% 50%, var(--glow), transparent 70%); pointer-events:none; }
+    .pk .mp { position:relative; }
     .src { font-size:.85em; opacity:.75; margin-top:5px; }
     .badge2 { display:inline-block; min-width:1.6em; padding:0 .4em; border-radius:1em; background:#e03a5a; color:#fff; font-weight:800; font-size:.85em; text-align:center; margin-left:6px; }
     .row3 { display:flex; align-items:center; gap:10px; padding:5px 0; border-top:1px solid #35244f; } .row3:first-of-type { border-top:0; } .row3 .sk { min-width:4.2em; color:#dcbcff; letter-spacing:.06em; }

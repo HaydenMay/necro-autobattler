@@ -512,6 +512,14 @@ if TT and body_img:
     r, g, b = px[..., 0], px[..., 1], px[..., 2]; mx = px.max(-1); mn = px.min(-1); d = mx - mn + 1e-9
     hue = np.where(mx == r, ((g - b) / d) % 6, np.where(mx == g, (b - r) / d + 2, (r - g) / d + 4)) / 6.0; sat = d / (mx + 1e-9)
     mask = (hue >= TT['from_hue'][0]) & (hue <= TT['from_hue'][1]) & (sat > 0.28) & (mx > 0.25)
+    EB = TT.get('eye_box')          # optional: only texels that belong to the face's eye area (the painted eyes), not every purple speck in the texture
+    if EB:
+        me_ = body.data; uvl = me_.uv_layers.active.data; region = np.zeros(mask.shape, dtype=bool); rx, ry = int(0.03 * w), int(0.03 * h)
+        for lp in me_.loops:
+            co_ = me_.vertices[lp.vertex_index].co
+            if EB['z'][0] < co_.z < EB['z'][1] and abs(co_.x) < EB['x'] and co_.y < EB['y_max']:
+                u_, v_ = uvl[lp.index].uv; cx_, cy_ = int(u_ * w), int(v_ * h); region[max(0, cy_ - ry):cy_ + ry, max(0, cx_ - rx):cx_ + rx] = True
+        mask = mask & region; log('eye box kept', int(mask.sum()), 'texels')
     nh = np.where(mask, TT['to_hue'], hue); c = mx * sat; x = c * (1 - np.abs((nh * 6) % 2 - 1)); m0 = mx - c
     sector = (nh * 6).astype(int) % 6; z = np.zeros_like(c)
     R = np.select([sector == 0, sector == 1, sector == 2, sector == 3, sector == 4, sector == 5], [c, x, z, z, x, c]) + m0
@@ -521,6 +529,10 @@ if TT and body_img:
     img2 = bpy.data.images.new(NAME + '_enemy', w, h, alpha=False); img2.pixels = out.astype(np.float32).ravel().tolist()
     img2.filepath_raw = os.path.join(OUT, NAME + '_enemy.jpg'); img2.file_format = 'JPEG'; img2.save()      # JPEG: a 2048 px PNG is 6 MB
     log('team texture: recoloured', int(mask.sum()), 'pixels ->', NAME + '_enemy.jpg')
+    # eye mask (white where the glowing eyes are, same UVs as the colour map): the game drives its glow per state (dim when sleepy, bright when fighting)
+    imgE = bpy.data.images.new(NAME + '_eyes', w, h, alpha=False); m3 = np.stack([mask, mask, mask, np.ones_like(mask)], -1).astype(np.float32)
+    imgE.pixels = m3.ravel().tolist(); imgE.scale(1024, 1024); imgE.filepath_raw = os.path.join(OUT, NAME + '_eyes.png'); imgE.file_format = 'PNG'; imgE.save()
+    log('eye mask ->', NAME + '_eyes.png')
 
 if props.get('free'): props['free'].hide_render = True; props['free'].hide_viewport = True
 if CFG.get('export', {}).get('qa_sheets', True):

@@ -30,10 +30,12 @@ const AURA = [
 ];
 
 export interface Assets {
-  scene: any; soft: any; starTex: any[]; tripo: Partial<Record<SoulId, TripoCfg>>;
+  scene: any; soft: any; starTex: any[]; tripo: Partial<Record<SoulId, TripoCfg>>; emote: Record<string, any>;
   ringMat: any[]; haloMat: any; barBg: any; barFill: any[]; manaFill: any;
 }
-interface TripoCfg { container: any; enemyTex: any; clips: Record<VState, string>; matCache: Record<string, any>; baseMat?: any; top: number; scale: number }
+/** Flavour a unit can have: a clip it plays now and then when it has stood idle for a while, a small emote, and an eye-glow mask (eyes dim when sleepy, flare when it fights). */
+interface Flavor { clip: string; min: number; max: number; emote?: string }
+interface TripoCfg { container: any; enemyTex: any; clips: Record<VState, string>; matCache: Record<string, any>; baseMat?: any; top: number; scale: number; flavor?: Flavor; spawnEmote?: string; eyes?: string; eyeTex?: any }
 
 function dyn(scene: any, w: number, h: number, draw: (c: CanvasRenderingContext2D) => void, alpha = true) {
   const t = new BABYLON.DynamicTexture('dt', { width: w, height: h }, scene, true); draw(t.getContext()); t.update(); t.hasAlpha = alpha; return t;
@@ -44,17 +46,21 @@ export async function loadAssets(scene: any): Promise<Assets> {
   const starTex = [1, 2, 3].map((n) => dyn(scene, 192, 48, (c) => { c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.lineWidth = 5; c.strokeStyle = '#1a1020'; c.fillStyle = n === 3 ? '#ffd24a' : n === 2 ? '#d7e6ff' : '#f0d9a0'; const s = '★'.repeat(n); c.strokeText(s, 96, 38); c.fillText(s, 96, 38); }));
   const emissive = (r: number, g: number, b: number, a = 1) => { const m = new BABYLON.StandardMaterial('em', scene); m.diffuseColor = BABYLON.Color3.Black(); m.emissiveColor = new BABYLON.Color3(r, g, b); m.disableLighting = true; m.alpha = a; return m; };
   const A: Assets = {
-    scene, soft, starTex, tripo: {}, ringMat: [emissive(0.55, 0.2, 0.95, 0.9), emissive(0.95, 0.25, 0.2, 0.9)], haloMat: emissive(1, 0.82, 0.3, 0.95),
+    scene, soft, starTex, tripo: {}, emote: {}, ringMat: [emissive(0.55, 0.2, 0.95, 0.9), emissive(0.95, 0.25, 0.2, 0.9)], haloMat: emissive(1, 0.82, 0.3, 0.95),
     barBg: emissive(0.05, 0.05, 0.08, 0.7), barFill: [emissive(0.55, 0.35, 1), emissive(1, 0.4, 0.3)], manaFill: emissive(0.25, 0.75, 1),
   };
-  const defs: [SoulId, string, string, Record<VState, string>, number, number][] = [
+  // "Zzz" that floats up over a sleepy unit
+  const zzz = dyn(scene, 128, 128, (c) => { c.textAlign = 'center'; c.lineWidth = 9; c.strokeStyle = '#150d26'; c.fillStyle = '#e8d8ff'; c.lineJoin = 'round';
+    for (const [ch, size, x, y] of [['Z', 64, 34, 100], ['z', 48, 74, 66], ['z', 34, 104, 38]] as [string, number, number, number][]) { c.font = 'italic 900 ' + size + 'px sans-serif'; c.strokeText(ch, x, y); c.fillText(ch, x, y); } });
+  const zm = new BABYLON.StandardMaterial('zzz', scene); zm.diffuseTexture = zzz; zm.useAlphaFromDiffuseTexture = true; zm.emissiveColor = BABYLON.Color3.White(); zm.disableLighting = true; zm.backFaceCulling = false; A.emote['zzz'] = zm;
+  const defs: [SoulId, string, string, Record<VState, string>, number, number, any?][] = [
     ['warrior', 'skeleton_warrior.glb', 'skeleton_warrior_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Block' }, 1.05, 1.0],
     ['archer', 'SkeletonArcher.glb', 'SkeletonArcher_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Shoot', death: 'Death', spawn: 'Spawn', cheer: 'Flex' }, 1.05, 1.0],
-    ['ogre', 'Ogre.glb', 'Ogre_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.1, 1.12],
+    ['ogre', 'Ogre.glb', 'Ogre_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.1, 1.12, { flavor: { clip: 'Yawn', min: 9, max: 16, emote: 'zzz' }, spawnEmote: 'zzz', eyes: 'Ogre_eyes.png' }],
   ];
-  await Promise.all(defs.map(async ([soul, glb, enemy, clips, top, scale]) => {
+  await Promise.all(defs.map(async ([soul, glb, enemy, clips, top, scale, extra]) => {
     const container = await BABYLON.SceneLoader.LoadAssetContainerAsync('assets/', glb, scene);
-    A.tripo[soul] = { container, enemyTex: new BABYLON.Texture('assets/' + enemy, scene, false, false), clips, matCache: {}, top, scale };
+    A.tripo[soul] = { container, enemyTex: new BABYLON.Texture('assets/' + enemy, scene, false, false), clips, matCache: {}, top, scale, ...(extra || {}), eyeTex: extra && extra.eyes ? new BABYLON.Texture('assets/' + extra.eyes, scene, false, false) : undefined };
   }));
   return A;
 }
@@ -109,8 +115,9 @@ class Deco {
 class TripoVisual implements UnitVisual {
   holder: any; team: 0 | 1; star = 1; state: VState = 'idle'; top: number;
   private ent: any; private body: any; private anims: Record<string, any> = {}; private cur: any = null; private deco: Deco; private pick: any; private pulseT = 0; private base: number;
+  private uid = ''; private own: any = null; private idleT = 0; private nextFlavor = 1e9; private flavorOn = false; private queued = false; private spawnT = 0; private eyeK = 0.65; private emotes: { m: any; t: number; y0: number }[] = [];
   constructor(private A: Assets, private cfg: TripoCfg, soul: SoulId, team: 0 | 1, star: number) {
-    const s = A.scene, uid = Math.random().toString(36).slice(2, 7);
+    const s = A.scene, uid = Math.random().toString(36).slice(2, 7); this.uid = uid;
     this.ent = cfg.container.instantiateModelsToScene((n: string) => n + '_' + uid, false, { doNotInstantiate: true });
     this.holder = new BABYLON.TransformNode('unit_' + uid, s); this.ent.rootNodes[0].parent = this.holder;
     this.body = this.ent.rootNodes[0].getChildMeshes().find((m: any) => m.name.includes('_Body'));
@@ -118,12 +125,19 @@ class TripoVisual implements UnitVisual {
     this.ent.animationGroups.forEach((g: any) => { g.stop(); g.enableBlending = true; g.blendingSpeed = 0.12; this.anims[g.name.split('_')[0]] = g; });
     this.ent.rootNodes[0].getChildMeshes().forEach((m: any) => { m.alwaysSelectAsActiveMesh = true; m.isPickable = false; });
     this.top = cfg.top; this.base = cfg.scale; this.team = team;
+    if (cfg.flavor) this.nextFlavor = cfg.flavor.min + Math.random() * (cfg.flavor.max - cfg.flavor.min);
     this.deco = new Deco(A, this.holder, this.top, 0.3);
     this.pick = BABYLON.MeshBuilder.CreateCylinder('pick', { height: 1.3, diameter: 0.8 }, s); this.pick.parent = this.holder; this.pick.position.y = 0.6; this.pick.visibility = 0.001; this.pick.isPickable = true;
     this.setTeam(team); this.setStar(star); this.pick.metadata = { kind: 'unit', visual: this };
   }
   private applyMat() {
     const key = this.team + '_' + this.star, c = this.cfg;
+    if (c.eyeTex) {                                   // this unit has glowing eyes: it gets its own material so its glow can change on its own
+      if (!this.own) { this.own = c.baseMat.clone('own_' + this.uid); this.own.emissiveTexture = c.eyeTex; this.own.emissiveIntensity = this.eyeK; }
+      this.own.albedoTexture = this.team === 1 ? c.enemyTex : c.baseMat.albedoTexture; const t = TINT[this.star - 1]; this.own.albedoColor = new BABYLON.Color3(t[0], t[1], t[2]);
+      this.own.emissiveColor = this.team === 1 ? new BABYLON.Color3(1, 0.72, 0.2) : new BABYLON.Color3(0.78, 0.3, 1);
+      this.body.material = this.own; return;
+    }
     if (!c.matCache[key]) { const m = c.baseMat.clone('m_' + key); if (this.team === 1) m.albedoTexture = c.enemyTex; const t = TINT[this.star - 1]; m.albedoColor = new BABYLON.Color3(t[0], t[1], t[2]); c.matCache[key] = m; }
     this.body.material = c.matCache[key];
   }
@@ -134,16 +148,48 @@ class TripoVisual implements UnitVisual {
   pulse() { this.pulseT = 0.16; }
   play(state: VState, speed = 1) {
     const g = this.anims[this.cfg.clips[state]]; if (!g) return; const loop = state === 'idle' || state === 'run';
+    if (state === 'idle' && this.state === 'spawn' && this.cur && this.cur.isStarted && this.cfg.flavor) { this.queued = true; return; }   // let the wake-up play to the end
     if (loop && this.state === state && this.cur === g) return;
+    this.queued = false; this.flavorOn = false; this.idleT = 0;
     if (this.cur) this.cur.stop(); g.stop(); g.start(loop, speed, g.from, g.to);
     if (loop) g.goToFrame(g.from + Math.random() * (g.to - g.from));
     this.cur = g; this.state = state; this.deco.setAura(state !== 'death');
+    if (state === 'spawn') { this.spawnT = 0; if (this.cfg.spawnEmote) { this.emote(this.cfg.spawnEmote, 0.1); this.emote(this.cfg.spawnEmote, 0.7); } }
+  }
+  /** A little picture that floats up over the head and fades (a sleepy "Zzz"). */
+  private emote(kind: string, delay = 0) {
+    const mat = this.A.emote[kind]; if (!mat) return;
+    const pl = BABYLON.MeshBuilder.CreatePlane('emo', { size: 0.42 }, this.A.scene); pl.parent = this.holder; pl.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL; pl.material = mat; pl.isPickable = false; pl.visibility = 0;
+    const y0 = this.top + 0.02; pl.position.set(0.16, y0, 0); this.emotes.push({ m: pl, t: -delay, y0 });
+  }
+  /** After standing idle for a while: play the unit's flavour clip once (the Ogre yawns), then go back to idling. */
+  private startFlavor() {
+    const f = this.cfg.flavor!, g = this.anims[f.clip]; this.idleT = 0; if (!g) return;
+    if (this.cur) this.cur.stop(); g.stop(); g.start(false, 1, g.from, g.to); this.cur = g; this.flavorOn = true; this.nextFlavor = f.min + Math.random() * (f.max - f.min);
+    if (f.emote) { this.emote(f.emote, 0.4); this.emote(f.emote, 1.2); }
   }
   update(dt: number) {
     this.deco.update(dt);
+    if (this.cur && !this.cur.isStarted) {                                              // a one-shot clip finished
+      if (this.queued) { this.queued = false; this.play('idle'); } else if (this.flavorOn) { this.flavorOn = false; this.play('idle'); }
+    }
+    if (this.cfg.flavor && this.state === 'idle' && !this.flavorOn && this.holder.isEnabled()) { this.idleT += dt; if (this.idleT >= this.nextFlavor) this.startFlavor(); }
+    if (this.state === 'spawn') this.spawnT += dt;
+    for (let i = this.emotes.length - 1; i >= 0; i--) {
+      const e = this.emotes[i]; e.t += dt; if (e.t < 0) continue; const k = e.t / 1.9;
+      if (k >= 1) { e.m.dispose(); this.emotes.splice(i, 1); continue; }
+      e.m.visibility = Math.min(1, e.t / 0.2) * (1 - k * k); e.m.position.set(0.16 + 0.05 * Math.sin(e.t * 3), e.y0 + e.t * 0.2, 0); e.m.scaling.setAll(0.7 + 0.5 * k);
+    }
+    if (this.own) {                                                                      // eye glow follows the mood: dim when sleepy, bright when awake, flaring in a fight
+      let target = 0.65;
+      if (this.state === 'spawn') target = 0.08 + 0.92 * Math.max(0, Math.min(1, (this.spawnT / 1.67 - 0.45) / 0.3));
+      else if (this.state === 'idle') target = this.flavorOn ? 0.25 : 0.65;
+      else if (this.state === 'run') target = 1.0; else if (this.state === 'attack') target = 1.7; else if (this.state === 'cheer') target = 1.4; else if (this.state === 'death') target = 0.05;
+      this.eyeK += (target - this.eyeK) * Math.min(1, dt * 7); this.own.emissiveIntensity = this.eyeK;
+    }
     if (this.pulseT > 0) { this.pulseT -= dt; const k = 1 + 0.09 * Math.sin(Math.max(0, this.pulseT) / 0.16 * Math.PI); this.holder.scaling.setAll(BALANCE.star.scale[this.star - 1] * this.base * k); }
   }
-  dispose() { this.deco.dispose(); this.ent.animationGroups.forEach((g: any) => g.dispose()); this.ent.skeletons.forEach((s: any) => s.dispose()); this.pick.dispose(); this.ent.rootNodes[0].dispose(false, false); this.holder.dispose(); }
+  dispose() { this.emotes.forEach((e) => e.m.dispose()); if (this.own) this.own.dispose(); this.deco.dispose(); this.ent.animationGroups.forEach((g: any) => g.dispose()); this.ent.skeletons.forEach((s: any) => s.dispose()); this.pick.dispose(); this.ent.rootNodes[0].dispose(false, false); this.holder.dispose(); }
 }
 
 // ---------------------------------------------------------------------------------------------------- stand-ins

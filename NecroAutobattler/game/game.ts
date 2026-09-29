@@ -163,7 +163,9 @@ export class Game {
   }
 
   // -------------------------------------------------------------------------------------------- stage flow
-  /** Fresh run with the currently equipped Soul Deck (the shell's Campaign > Play button calls this). */
+  /** A run the player has really started (so Home can offer Continue). Null after a stage was won or lost, or before anything was done. */
+  runInfo() { const s = this.s; if (!s || s.status !== 'building') return null; return (s.wave > 1 || s.units.length > 0 || this.attempt > 0 || s.stats.failures > 0) ? { wave: s.wave, total: stageWaves(s), hearts: s.hearts } : null; }
+  /** Fresh run with the currently equipped Soul Deck (Home > Start Battle calls this). */
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
     this.cine = false; this.flushTweens(); if (this.necro) this.necro.revive();

@@ -33,7 +33,7 @@ Rebuild after editing: `./build_all.ps1` builds both the game bundle (`game/*.ts
 | Folder | What |
 |---|---|
 | `NecroAutobattler/core` | Pure game logic: rules (cards, Dominion, merge, waves, hearts), battle engine, unit stats, enemy waves. No graphics. |
-| `NecroAutobattler/shell` | The Angular navigation shell: tab rail (Battle, Campaign, Souls, Shop) and the pages. The 3D game is mounted once inside it and paused when another tab is open. Builds into `docs/`. |
+| `NecroAutobattler/shell` | The Angular navigation shell: tab rail (Home, Souls, Shop, Settings) and the pages. Home has the stage path and Start Battle; the fight opens full-screen from there. The 3D game is mounted once and paused whenever you are not in a run. Builds into `docs/`. |
 | `NecroAutobattler/game` | The Babylon.js game screen: visuals, star looks, UI, camera, debug panel. |
 | `NecroAutobattler/sim` | Simulations used for balance (`node sim/run.ts`, `campaign.ts`, `tune_waves.ts`, `inflow.ts`). |
 | `NecroAutobattler/tests` | `node --test tests/battle.test.ts tests/rules.test.ts` |

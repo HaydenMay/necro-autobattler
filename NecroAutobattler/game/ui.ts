@@ -13,6 +13,7 @@ const stars = (n: number) => '★'.repeat(n);
 export class Ui {
   private toastT = 0; private dbg: HTMLElement; private odds = '';
   constructor(private g: any) {
+    $('btnHome').onclick = () => window.dispatchEvent(new Event('necro-go-home'));
     $('btnBattle').onclick = () => g.startBattle(); $('btnSwap').onclick = () => g.toggleSwap();
     $('btnMerge').onclick = () => g.mergeSelected(); $('btnRemove').onclick = () => g.removeSelected();
     document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => (b.onclick = () => g.setSpeed(+b.dataset.speed!)));
@@ -68,8 +69,8 @@ export class Ui {
       ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>Victory Draft</h2><div class="sub">Wave cleared. Dominion is now ${s.cap}. Keep one:</div><div class="row">${g.draft.map((soul: SoulId, i: number) => `<div class="card big" data-i="${i}"><div class="cost">${cost(soul, 1)}</div><div class="ic">${ICON[soul]}</div><div class="nm">${SOUL_NAME[soul]}</div><div class="role">${ROLE_TEXT[soul]}</div></div>`).join('')}</div></div>`;
       ov.querySelectorAll<HTMLElement>('.card').forEach((c) => (c.onclick = () => g.pickDraft(+c.dataset.i!)));
     } else if (ph === 'won' || ph === 'lost') {
-      ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>${ph === 'won' ? 'Stage cleared!' : 'Stage lost'}</h2><div class="sub">${g.lastBattle}</div><button id="again">${ph === 'won' ? 'Play again' : 'Try again'}</button></div>`;
-      $('again').onclick = () => g.startStage(g.seed + 1);
+      ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>${ph === 'won' ? 'Stage cleared!' : 'Stage lost'}</h2><div class="sub">${g.lastBattle}</div><div class="row"><button id="again" class="go">${ph === 'won' ? 'Play again' : 'Try again'}</button><button id="toHome" class="blue">Home</button></div></div>`;
+      $('again').onclick = () => g.newRun(); $('toHome').onclick = () => window.dispatchEvent(new Event('necro-go-home'));
     }
     this.renderDebugLive();
   }

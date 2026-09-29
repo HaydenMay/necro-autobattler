@@ -64,7 +64,7 @@ type Filter = 'all' | 'skill' | 'passive';
         } @else { <div class="slot">+</div> }
       }
     </div>
-    <p class="note">A run only draws from your equipped Souls. Changes apply to your next run: start it with <b>Campaign &rarr; Play</b>.</p>
+    <p class="note">A run only draws from your equipped Souls. Changes apply to your next run: press <b>Start Battle</b> on Home. You need all {{ save.deckSize }} slots filled to start.</p>
     <div class="filters">
       @for (f of filters; track f) { <button class="chip" [class.on]="filter() === f" (click)="setFilter(f, $event)">{{ f === 'all' ? 'All' : f === 'skill' ? 'Skill' : 'Passive' }}</button> }
     </div>

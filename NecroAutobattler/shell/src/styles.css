@@ -59,10 +59,14 @@
 .rail a .ri { font-size:22px; line-height:26px; }
 .rail a.active { color:#fff; background:linear-gradient(#3a2260,#25153f); border-color:#7b55b8; box-shadow:0 0 12px rgba(160,80,255,.45); }
 .rail a.center { order:0; }
-#battleHost { position:fixed; top:0; bottom:0; left:var(--rail); right:0; transform:translateZ(0); display:none; --sal:0px; overflow:hidden; }
-#battleHost.on { display:block; }
-body.inbattle #battleHost { left:0; --sal:env(safe-area-inset-left,0px); }
-body.inbattle .rail { display:none; }
+/* the run is full-screen; it keeps its real size while hidden (so the game never measures a 0-size canvas) */
+#battleHost { position:fixed; inset:0; transform:translateZ(0); visibility:hidden; pointer-events:none; overflow:hidden; }
+#battleHost.on { visibility:visible; pointer-events:auto; }
+.rail.hide { display:none; }
+#btnHome { top:calc(var(--sat) + 6px); left:calc(var(--sal) + 6px); padding:4px 9px; font-size:clamp(15px,3vmin,20px); line-height:1; }
+body.inbattle #btnHome { display:none; }
+#enemy { top:calc(var(--sat) + clamp(40px,7vmin,52px)); }
+.blue { background:#3b78d8; border-color:#9cc0ff; }
 .page { z-index:10; position:fixed; top:0; bottom:0; left:var(--rail); right:0; overflow-y:auto; padding:calc(var(--sat) + 14px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) 16px; touch-action:pan-y; }
 .page h1 { margin:0 0 4px; font-size:24px; color:var(--gold); } .page .lead { margin:0 0 14px; opacity:.8; font-size:13px; max-width:60ch; }
 .box { background:var(--panel); border:1px solid var(--edge); border-radius:12px; padding:10px 12px; box-shadow:0 0 14px rgba(120,60,200,.25); }

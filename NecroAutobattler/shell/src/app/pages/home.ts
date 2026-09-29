@@ -4,6 +4,8 @@ import { SOULS } from '../../../../core/data.ts';
 import type { SoulId } from '../../../../core/data.ts';
 import { SOUL_NAME } from '../../../../core/balance.ts';
 import { PROTOTYPE_RULES } from '../../../../core/prototype.ts';
+import { DIFFICULTY_INFO } from '../../../../core/waves.ts';
+import type { Difficulty } from '../../../../core/save.ts';
 import { GameLink } from '../game-link.service';
 import { SaveService } from '../save.service';
 
@@ -22,6 +24,9 @@ const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}'
     .pip { position:relative; flex:none; width:clamp(20px,4vmin,30px); height:clamp(20px,4vmin,30px); border-radius:50%; background:#2b1c44; border:2px solid #6b46a3; display:flex; align-items:center; justify-content:center; font-size:.8em; font-weight:800; }
     .pip.done { background:#5a2fa0; border-color:#a45bff; } .pip.now { background:var(--go); border-color:var(--go-hi); color:var(--go-ink); box-shadow:0 0 12px var(--go); } .pip.boss { width:clamp(26px,5vmin,38px); height:clamp(26px,5vmin,38px); border-color:#ff7a7a; }
     .link { flex:1; height:3px; background:#3a2a5a; min-width:6px; } .link.done { background:#a45bff; }
+    .diffs { display:flex; gap:6px; flex-wrap:wrap; margin:clamp(6px,1.4vmin,10px) 0 4px; } .diffs button { padding:.35em .9em; border-radius:16px; font-size:.95em; font-weight:700; }
+    .diffs button.on { background:#3a2260; border-color:#ffd24a; color:#ffd24a; } .diffs button.nm.on { background:#5a1420; border-color:#ff7a7a; color:#ffb0b0; }
+    .diffs button[disabled] { opacity:.45; } .blurb { font-size:.9em; opacity:.75; min-height:1.3em; }
     .deck { display:flex; align-items:center; gap:8px; margin:clamp(6px,1.6vmin,12px) 0; flex-wrap:wrap; }
     .ic { display:inline-flex; width:clamp(24px,4.6vmin,34px); height:clamp(24px,4.6vmin,34px); align-items:center; justify-content:center; border-radius:8px; background:#2b1c44; border:1px solid #6b46a3; font-size:1.3em; }
     .ic.empty { border-style:dashed; opacity:.5; }
@@ -44,6 +49,10 @@ const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}'
             <span class="pip" [class.done]="w < current()" [class.now]="w === current()" [class.boss]="w === total">{{ w === total ? '&#9760;' : w }}</span>
           }
         </div>
+        <div class="diffs">
+          @for (d of diffs; track d.id) { <button [class.on]="shown() === d.id" [class.nm]="d.id === 'nightmare'" [disabled]="!!run()" (click)="pick($any(d.id))">{{ d.label }}{{ d.id === 'nightmare' ? ' ☠' : '' }}</button> }
+        </div>
+        <div class="blurb">{{ run() ? 'This run is on ' + label(shown()) + '. Finish or start over to change it.' : blurb() }}</div>
         <div class="deck">
           <span class="muted">Deck</span>
           @for (s of deckSlots(); track $index) { <span class="ic" [class.empty]="!s" [title]="s ? name(s) : 'empty slot'">{{ s ? icon(s) : '+' }}</span> }
@@ -71,6 +80,12 @@ export class Home {
   total = PROTOTYPE_RULES.stageWaves ?? 10;
   waves = Array.from({ length: this.total }, (_, i) => i + 1);
   confirming = signal(false);
+  diffs = DIFFICULTY_INFO;
+  /** The run's difficulty while a run is going, otherwise the picked one. */
+  shown = computed(() => (this.run()?.difficulty ?? this.save.difficulty()) as Difficulty);
+  blurb = computed(() => DIFFICULTY_INFO.find((d) => d.id === this.save.difficulty())?.blurb ?? '');
+  label = (id: string) => DIFFICULTY_INFO.find((d) => d.id === id)?.label ?? id;
+  pick(d: Difficulty) { if (!this.run()) this.save.setDifficulty(d); }
   private tick = signal(0);
   run = computed(() => { this.tick(); return this.link.runInfo(); });
   current = computed(() => this.run()?.wave ?? 1);

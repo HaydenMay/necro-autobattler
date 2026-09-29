@@ -19,7 +19,16 @@ export const DIFFICULTY: Record<string, string[]> = {
   easy: ['W1', 'K1 W1', 'O1 W1 G1', 'K1 A1 W1', 'O1 A1 G1', 'K1 O1 A1', 'K1 O1 A1 G1', 'O1 K1 A1 G1', 'O1 K1 A1 B1', 'O2 K1 A1 G1'],
   normal: ['W1 A1', 'K1 G1 W1', 'O1 A1 G1 W1', 'K1 O1 A1 W1', 'O1 K1 A1 G1 W1', 'A2 K1 O1 G1 W1', 'K1 O1 A1 G1 W1', 'O1 K1 A1 B1 G1', 'O1 K1 A2 B1 G1', 'O2 K1 A1 B1 G1 W1'],
   hard: ['W1 A1', 'K1 G1 W1 A1', 'O1 A1 G1 W1', 'K1 O1 A1 W1 G1', 'O1 K1 A2 G1 W1', 'A2 K1 O1 G1 W1 B1', 'K1 O1 A1 G1 W2', 'O1 K1 A2 B1 G1', 'O2 K1 A2 B1 G1', 'O2 K2 A1 B1 G1 W1'],
+  nightmare: ['W1 A1 G1', 'K1 G1 W1 A1', 'O1 A1 G1 W1 B1', 'K1 O1 A1 W1 G1', 'O1 K1 A2 G1 W1', 'A2 K1 O1 G1 W1 B1', 'K1 O1 A2 G1 W1 B1', 'O1 K2 A2 B1 G1', 'O2 K1 A2 B1 G1 W1', 'O2 K2 A2 B1 G1 W1'],
 };
+
+/** Names and one-line promises for the difficulty picker. Measured stage-clear rates (competent / careless stand-in): easy 98/90, normal 82/44, hard 56/16, nightmare 30/8. */
+export const DIFFICULTY_INFO = [
+  { id: 'easy', label: 'Easy', blurb: 'Smaller enemy armies. Relax and learn how merging works.' },
+  { id: 'normal', label: 'Normal', blurb: 'A fair fight. Most players clear it within a run or two.' },
+  { id: 'hard', label: 'Hard', blurb: 'Sharper armies. Mistakes cost hearts.' },
+  { id: 'nightmare', label: 'Nightmare', blurb: 'Stars and skills everywhere. Expect to lose hearts, and to earn the win.' },
+];
 export let difficultyName = 'normal';
 
 /** Hand-authored waves for Stage 1 (10 waves). Budgets ~ the player's cap at that wave. Edited in place by setDifficulty. */

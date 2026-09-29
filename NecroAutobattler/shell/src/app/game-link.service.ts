@@ -7,6 +7,6 @@ export class GameLink {
   constructor() { window.addEventListener('necro-game-ready', () => this.ready.set(true)); }
   private get game(): any { return (window as any).__game; }
   /** The run in progress (wave, hearts) or null when there is nothing to continue. */
-  runInfo(): { wave: number; total: number; hearts: number } | null { return this.ready() && this.game ? this.game.runInfo() : null; }
+  runInfo(): { wave: number; total: number; hearts: number; difficulty: string } | null { return this.ready() && this.game ? this.game.runInfo() : null; }
   newRun() { if (this.ready() && this.game) this.game.newRun(); }
 }

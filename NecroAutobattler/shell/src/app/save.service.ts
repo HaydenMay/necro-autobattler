@@ -1,6 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { DECK_SIZE, loadSave, updateSettings, writeSave } from '../../../core/save.ts';
-import type { Save } from '../../../core/save.ts';
+import { DECK_SIZE, loadSave, updateDifficulty, updateSettings, writeSave } from '../../../core/save.ts';
+import type { Difficulty, Save } from '../../../core/save.ts';
 import { SOULS } from '../../../core/data.ts';
 import type { SoulId } from '../../../core/data.ts';
 
@@ -11,6 +11,8 @@ export class SaveService {
   readonly deck = computed(() => this.state().deck);
   readonly deckSize = DECK_SIZE;
   readonly settings = computed(() => this.state().settings);
+  readonly difficulty = computed(() => this.state().difficulty);
+  setDifficulty(d: Difficulty) { const difficulty = updateDifficulty(d); this.state.set({ ...this.state(), difficulty }); }
 
   constructor() { window.addEventListener('necro-settings', () => this.state.set({ ...this.state(), settings: loadSave().settings })); }
 
@@ -36,5 +38,5 @@ export class SaveService {
   /** Fill every free slot (the roster is small, so this is usually "everything"). */
   recommended() { this.set({ ...this.state(), deck: SOULS.slice(0, DECK_SIZE) }); }
 
-  private set(s: Save) { const merged = { ...s, settings: loadSave().settings }; this.state.set(merged); writeSave(merged); }
+  private set(s: Save) { const merged = { ...s, settings: loadSave().settings, difficulty: this.state().difficulty }; this.state.set(merged); writeSave(merged); }
 }

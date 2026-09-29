@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newStage, draftOptions, discardRedraw } from '../core/rules.ts';
 import { PROTOTYPE_RULES } from '../core/prototype.ts';
-import { defaultSave, loadSave, sanitize, updateSettings, writeSave, DECK_SIZE } from '../core/save.ts';
+import { defaultSave, loadSave, sanitize, updateDifficulty, updateSettings, writeSave, DECK_SIZE } from '../core/save.ts';
 
 const fakeStore = () => { const m = new Map<string, string>(); return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) }; };
 
@@ -47,4 +47,15 @@ test('sound settings default on, persist, and ignore junk', () => {
   assert.deepEqual(sanitize({ settings: { music: 'no', sfx: false } }).settings, { music: true, sfx: false });
   const save = loadSave(st); save.deck = ['ogre']; writeSave(save, st);
   assert.equal(loadSave(st).settings.music, false, 'changing the deck keeps the sound settings');
+});
+
+test('difficulty defaults to normal, persists, and junk is ignored', () => {
+  const st = fakeStore();
+  assert.equal(loadSave(st).difficulty, 'normal');
+  assert.equal(updateDifficulty('nightmare', st), 'nightmare');
+  assert.equal(loadSave(st).difficulty, 'nightmare');
+  assert.equal(updateDifficulty('impossible' as any, st), 'nightmare', 'an unknown value changes nothing');
+  assert.equal(sanitize({ difficulty: 'lol' }).difficulty, 'normal');
+  const save = loadSave(st); save.deck = ['ogre']; writeSave(save, st);
+  assert.equal(loadSave(st).difficulty, 'nightmare', 'saving the deck keeps the difficulty');
 });

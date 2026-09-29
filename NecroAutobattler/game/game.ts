@@ -164,12 +164,12 @@ export class Game {
 
   // -------------------------------------------------------------------------------------------- stage flow
   /** A run the player has really started (so Home can offer Continue). Null after a stage was won or lost, or before anything was done. */
-  runInfo() { const s = this.s; if (!s || s.status !== 'building') return null; return (s.wave > 1 || s.units.length > 0 || this.attempt > 0 || s.stats.failures > 0) ? { wave: s.wave, total: stageWaves(s), hearts: s.hearts } : null; }
+  runInfo() { const s = this.s; if (!s || s.status !== 'building') return null; return (s.wave > 1 || s.units.length > 0 || this.attempt > 0 || s.stats.failures > 0) ? { wave: s.wave, total: stageWaves(s), hearts: s.hearts, difficulty: difficultyName } : null; }
   /** Fresh run with the currently equipped Soul Deck (Home > Start Battle calls this). */
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
     this.cine = false; this.flushTweens(); if (this.necro) this.necro.revive();
-    this.seed = seed; this.attempt = 0; this.s = newStage({ ...PROTOTYPE_RULES, pool: loadSave().deck }, seed); this.seenMerges = 0;
+    this.seed = seed; this.attempt = 0; const sv = loadSave(); setDifficulty(sv.difficulty); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build'; this.setCam(this.poses().build);
     this.syncBuild(); this.ui.render(); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');

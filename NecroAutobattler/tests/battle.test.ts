@@ -79,3 +79,17 @@ test('player cells map to the left, enemy cells to the right', () => {
   assert.ok(cellPos(0, 0).x < 0 && cellPos(1, 0).x > 0);
   assert.ok(Math.abs(cellPos(0, 3).x) < Math.abs(cellPos(0, 0).x), 'column 3 is the front line');
 });
+
+test('every difficulty has 10 waves that fit the grid, and they get bigger toward the end', async () => {
+  const { DIFFICULTY, setDifficulty, enemyWave, waveCost } = await import('../core/waves.ts');
+  for (const name of ['easy', 'normal', 'hard', 'nightmare']) {
+    assert.equal(DIFFICULTY[name].length, 10, name + ' needs 10 waves');
+    setDifficulty(name);
+    const costs = Array.from({ length: 10 }, (_, i) => waveCost(enemyWave(i + 1, 1)));
+    for (let w = 1; w <= 10; w++) assert.ok(enemyWave(w, 1).length <= 12, name + ' wave ' + w + ' has more units than the grid');
+    assert.ok(costs[9] > costs[0] * 2, name + ' last wave should be much bigger than the first');
+  }
+  const total = (n: string) => { setDifficulty(n); return Array.from({ length: 10 }, (_, i) => waveCost(enemyWave(i + 1, 1))).reduce((a, b) => a + b, 0); };
+  assert.ok(total('easy') < total('normal') && total('normal') < total('hard') && total('hard') < total('nightmare'), 'harder presets field more total enemy cost');
+  setDifficulty('normal');
+});

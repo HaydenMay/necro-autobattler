@@ -8,6 +8,7 @@ import {
   mergeDeployed, mergeFromHand, moveUnit, newStage, normalDraw, stageWaves, summon, swapSell, takeDraft,
 } from '../core/rules.ts';
 import type { State } from '../core/rules.ts';
+import { buildArena } from './arena.ts';
 import { Battle, cellPos, FRONT_X, GRID_SP, simulate } from '../core/battle.ts';
 import type { BEvent } from '../core/battle.ts';
 import { currentStageId, difficultyName, enemyPower, enemyWave, setDifficulty, setStageDifficulty } from '../core/waves.ts';
@@ -59,7 +60,7 @@ export class Game {
     this.camera = new BABYLON.FreeCamera('cam', new BABYLON.Vector3(0, 8, -9), scene); this.camera.minZ = 0.1; this.camera.maxZ = 200; this.camera.fov = 0.8; this.camera.inputs.clear();
 
     const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 60, height: 40 }, scene);
-    const gm = new BABYLON.StandardMaterial('gm', scene); gm.diffuseColor = new BABYLON.Color3(0.17, 0.15, 0.21); gm.specularColor = BABYLON.Color3.Black(); ground.material = gm; ground.isPickable = false;
+    ground.isPickable = false; const arena = buildArena(scene, ground); scene.onBeforeRenderObservable.add(() => arena.update(performance.now() / 1000));
     for (const team of [0, 1] as const) for (let c = 0; c < GRID_CELLS; c++) { const t = this.makeTile(team, c); if (team === 0) this.tiles.push(t); else t.setEnabled(false); }
 
     this.A = await loadAssets(scene);

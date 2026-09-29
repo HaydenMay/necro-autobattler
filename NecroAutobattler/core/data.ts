@@ -42,6 +42,8 @@ export interface Rules {
   startHand?: number;            // default 4
   draftPicks?: number;           // cards kept from the 3-card Victory Draft, default 1
   normalDrawWaves?: number[];    // waves (being entered) that also give the normal random draw; default = all
+  /** Souls this run may draw from (the equipped Soul Deck, max 6). Default: every Soul. */
+  pool?: SoulId[];
   stageWaves?: number;           // waves in this stage; default 10 (the playable prototype uses 3)
 }
 

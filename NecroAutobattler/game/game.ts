@@ -12,6 +12,7 @@ import { Battle, cellPos, FRONT_X, GRID_SP, simulate } from '../core/battle.ts';
 import type { BEvent } from '../core/battle.ts';
 import { difficultyName, enemyWave, setDifficulty } from '../core/waves.ts';
 import { PROTOTYPE_RULES } from '../core/prototype.ts';
+import { loadSave } from '../core/save.ts';
 import { createVisual, isTripo, loadAssets } from './visuals.ts';
 import type { Assets, UnitVisual } from './visuals.ts';
 import { Ui } from './ui.ts';
@@ -147,8 +148,10 @@ export class Game {
   }
 
   // -------------------------------------------------------------------------------------------- stage flow
+  /** Fresh run with the currently equipped Soul Deck (the shell's Campaign > Play button calls this). */
+  newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
-    this.seed = seed; this.attempt = 0; this.s = newStage(PROTOTYPE_RULES, seed);
+    this.seed = seed; this.attempt = 0; this.s = newStage({ ...PROTOTYPE_RULES, pool: loadSave().deck }, seed);
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build'; this.setCam(this.poses().build);
     this.syncBuild(); this.ui.render(); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');

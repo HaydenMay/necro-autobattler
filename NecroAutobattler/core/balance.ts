@@ -29,6 +29,8 @@ export interface Balance {
   taunt: { duration: number; radius: number };                              // Knight skill
   smash: { mult: number; radius: number };                                  // Ogre skill
   frenzy: { perSwing: number; maxStacks: number; resetAfter: number };      // Barbarian
+  /** PLACEHOLDER permanent-level growth (per level above 1). Shown on the Souls page; NOT applied in battles yet. */
+  level: { hp: number; dmg: number; copiesToLevel: number[] };
   sim: { separation: number; hitFraction: number; timeLimit: number; retargetEvery: number };
 }
 
@@ -55,6 +57,7 @@ export const DEFAULTS: Balance = {
   taunt: { duration: 3, radius: 4.5 },
   smash: { mult: 2.0, radius: 1.6 },
   frenzy: { perSwing: 0.12, maxStacks: 8, resetAfter: 0.6 },
+  level: { hp: 0.08, dmg: 0.08, copiesToLevel: [5, 10, 20, 40, 80, 120, 200, 300, 500] },
   sim: { separation: 0.6, hitFraction: 0.47, timeLimit: 120, retargetEvery: 0.5 },
 };
 
@@ -78,3 +81,16 @@ export const SOUL_NAME: Record<SoulId, string> = {
   warrior: 'Skeleton Warrior', archer: 'Skeleton Archer', goblin: 'Goblin',
   knight: 'Knight', ogre: 'Ogre', barbarian: 'Barbarian',
 };
+
+/** Ability blurbs for the Souls page, with the live numbers filled in. */
+export function abilityInfo(soul: SoulId): { kind: 'skill' | 'passive'; name: string; text: string } {
+  const B = BALANCE, pct = (x: number) => Math.round(x * 100) + '%';
+  switch (soul) {
+    case 'warrior': return { kind: 'passive', name: 'Phalanx', text: `Takes ${pct(B.phalanx.perAlly)} less damage for each other Skeleton Warrior within ${B.phalanx.radius}m (up to ${B.phalanx.maxStacks}).` };
+    case 'goblin': return { kind: 'passive', name: 'Opportunist', text: `Deals ${pct(B.opportunist.bonus)} more damage to an enemy that is fighting someone else, and prefers such targets.` };
+    case 'barbarian': return { kind: 'passive', name: 'Frenzy', text: `Attacks ${pct(B.frenzy.perSwing)} faster with every uninterrupted swing (up to ${B.frenzy.maxStacks} times).` };
+    case 'archer': return { kind: 'skill', name: 'Split Arrow', text: `Basic shots fire one arrow. When mana is full, the next shot fires at up to ${B.volley.targets} different enemies.` };
+    case 'knight': return { kind: 'skill', name: 'Taunt', text: `When mana is full, enemies within ${B.taunt.radius}m must attack him for ${B.taunt.duration}s.` };
+    case 'ogre': return { kind: 'skill', name: 'Smash', text: `When mana is full, the next swing deals ${B.smash.mult}x damage and hits enemies near the target for 60% as much.` };
+  }
+}

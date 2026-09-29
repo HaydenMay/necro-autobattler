@@ -29,8 +29,11 @@ export const dominionUsed = (s: State): number => s.units.reduce((n, u) => n + c
 export const dominionFree = (s: State): number => s.cap - dominionUsed(s);
 
 function log(s: State, msg: string) { s.log.push(`[w${s.wave}] ${msg}`); }
+/** The Souls this run draws from: the equipped deck, or everything if no deck was given. */
+export const poolOf = (s: State): SoulId[] => (s.rules.pool && s.rules.pool.length ? s.rules.pool : SOULS);
 function draw(s: State, why: string, not?: SoulId): SoulId {
-  const pool = not ? SOULS.filter((x) => x !== not) : SOULS;      // a swap never hands you back the Soul you gave up
+  const all = poolOf(s), others = not ? all.filter((x) => x !== not) : all;
+  const pool = others.length ? others : all;                       // a swap never hands you back the Soul you gave up (unless it is the only one equipped)
   const c = s.rng.pick(pool);
   s.hand.push(c); s.stats.drawn++;
   log(s, `draw ${c} (${why})`);
@@ -160,7 +163,8 @@ export function moveUnit(s: State, unitId: number, cell: number): boolean {
 
 /** Draft choices for after a cleared wave: 3 random cards, duplicates allowed. */
 export function draftOptions(s: State): SoulId[] {
-  return [s.rng.pick(SOULS), s.rng.pick(SOULS), s.rng.pick(SOULS)];
+  const p = poolOf(s);
+  return [s.rng.pick(p), s.rng.pick(p), s.rng.pick(p)];
 }
 
 /** Wave cleared: raise the cap, resolve the Victory Draft, draw 1 normal card. */

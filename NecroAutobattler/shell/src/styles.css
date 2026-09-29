@@ -74,3 +74,9 @@ a.btn, .btn { display:inline-block; background:linear-gradient(#8a2fe0,#5a1aa0);
 .btn[disabled], .btn.off { opacity:.4; pointer-events:none; }
 @media (max-height:520px) { :root { --rail: calc(60px + var(--sal)); } .rail a { font-size:10px; padding:6px 1px; } .rail a .ri { font-size:19px; line-height:22px; } .page h1 { font-size:20px; } }
 .page.hide { display:none; }
+
+/* ---- button colors: soulfire teal = the one main action; purple = brand / active tab; blue = neutral; red = enemy & danger; gold is kept for stars & rewards ---- */
+:root { --go:#2fd9a6; --go-hi:#8bf5d4; --go-lo:#0f8e69; --go-ink:#052a20; }
+button.go, a.btn, .btn, #btnBattle { background:linear-gradient(var(--go),var(--go-lo)); color:var(--go-ink); border-color:var(--go-hi); font-weight:800; }
+#btnBattle { box-shadow:0 0 16px rgba(47,217,166,.6); } #btnBattle:disabled { box-shadow:none; }
+.btn.off { background:#3a3550; color:#aaa; border-color:#555; }

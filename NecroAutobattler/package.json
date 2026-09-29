@@ -1,0 +1,13 @@
+{
+  "name": "necro-autobattler",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sim": "node sim/run.ts",
+    "trace": "node sim/run.ts --trace 7",
+    "test": "node --test tests/rules.test.ts"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

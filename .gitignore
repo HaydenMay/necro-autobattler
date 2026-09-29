@@ -1,0 +1,16 @@
+# Only the game and the asset pipeline scripts belong in this repo.
+# Everything at the top level is ignored unless it is listed below.
+/*
+!/.github/
+!/.gitignore
+!/README.md
+!/NecroAutobattler/
+!/Pipeline/
+
+# generated / large / private inputs
+node_modules/
+Pipeline/input/
+Pipeline/out/
+*.zip
+*.blend1
+__pycache__/

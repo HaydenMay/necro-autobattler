@@ -1,0 +1,292 @@
+// The playable prototype: build screen -> battle -> draft -> next wave, built on the tested rules + battle engine.
+declare const BABYLON: any;
+import { BALANCE, resetBalance, SOUL_NAME } from '../core/balance.ts';
+import { GRID_CELLS, GRID_COLS, GRID_ROWS, SOULS } from '../core/data.ts';
+import type { SoulId } from '../core/data.ts';
+import {
+  advanceWave, canMergeDeployed, canMergeFromHand, canSummon, cellFree, cost, discardRedraw, dismiss, dominionFree, dominionUsed, draftOptions, failWave,
+  mergeDeployed, mergeFromHand, moveUnit, newStage, normalDraw, stageWaves, summon, swapSell, takeDraft,
+} from '../core/rules.ts';
+import type { State } from '../core/rules.ts';
+import { Battle, cellPos, FRONT_X, GRID_SP, simulate } from '../core/battle.ts';
+import type { BEvent } from '../core/battle.ts';
+import { enemyWave } from '../core/waves.ts';
+import { PROTOTYPE_RULES } from '../core/prototype.ts';
+import { createVisual, isTripo, loadAssets } from './visuals.ts';
+import type { Assets, UnitVisual } from './visuals.ts';
+import { Ui } from './ui.ts';
+
+export type Phase = 'build' | 'transition' | 'battle' | 'draft' | 'won' | 'lost';
+type Sel = { type: 'card'; idx: number } | { type: 'unit'; id: number } | null;
+
+export class Game {
+  engine: any; scene: any; camera: any; A!: Assets; ui!: Ui;
+  s!: State; seed = 1; attempt = 0; phase: Phase = 'build'; battle: Battle | null = null; timeScale = 1;
+  sel: Sel = null; swapMode = false; confirmRemove = false; draft: SoulId[] | null = null; lastBattle = '';
+  private unitVis = new Map<number, UnitVisual>();        // unit id -> visual (your army, persists between waves)
+  private visToUnit = new Map<UnitVisual, number>();
+  private fvis = new Map<number, UnitVisual>();           // fighter id -> visual during a battle
+  private fUnit = new Map<number, number>();              // fighter id -> unit id (player side)
+  private lastState = new Map<number, string>();
+  private tiles: any[] = []; private tileMats: any[] = []; private ringFx: any[] = []; private arrows: any[] = []; private timers: { t: number; fn: () => void }[] = [];
+  private acc = 0; private camFrom: any = null; private camTo: any = null; private camT = 1; private camDur = 2.0; private resultAt = -1; private handled = false; private startStepAt = 0;
+  private arrowMats: any[] = []; private arrowMesh: any[] = [];
+
+  async init(canvas: HTMLCanvasElement) {
+    const qs = new URLSearchParams(location.search);
+    this.engine = new BABYLON.Engine(canvas, true, { antialias: true, powerPreference: 'high-performance' });
+    const dpr = window.devicePixelRatio || 1; this.engine.setHardwareScalingLevel(1 / Math.min(dpr, 1.5));
+    const scene = this.scene = new BABYLON.Scene(this.engine); scene.clearColor = new BABYLON.Color4(0.09, 0.07, 0.13, 1);
+    const hemi = new BABYLON.HemisphericLight('h', new BABYLON.Vector3(0.2, 1, 0.3), scene); hemi.intensity = 1.05; hemi.groundColor = new BABYLON.Color3(0.32, 0.26, 0.42);
+    const sun = new BABYLON.DirectionalLight('s', new BABYLON.Vector3(-0.4, -1, 0.55), scene); sun.intensity = 0.85;
+    this.camera = new BABYLON.FreeCamera('cam', new BABYLON.Vector3(0, 8, -9), scene); this.camera.minZ = 0.1; this.camera.maxZ = 200; this.camera.fov = 0.8; this.camera.inputs.clear();
+
+    const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 60, height: 40 }, scene);
+    const gm = new BABYLON.StandardMaterial('gm', scene); gm.diffuseColor = new BABYLON.Color3(0.17, 0.15, 0.21); gm.specularColor = BABYLON.Color3.Black(); ground.material = gm; ground.isPickable = false;
+    for (const team of [0, 1] as const) for (let c = 0; c < GRID_CELLS; c++) { const t = this.makeTile(team, c); if (team === 0) this.tiles.push(t); else t.setEnabled(false); }
+
+    this.A = await loadAssets(scene);
+    this.arrowMats = [0, 1].map((t) => { const m = new BABYLON.StandardMaterial('am' + t, scene); m.diffuseColor = BABYLON.Color3.Black(); m.emissiveColor = t === 0 ? new BABYLON.Color3(0.75, 0.3, 1) : new BABYLON.Color3(1, 0.7, 0.25); m.disableLighting = true; return m; });
+    this.ui = new Ui(this); this.seed = +(qs.get('seed') || 1);
+
+    scene.onPointerObservable.add((pi: any) => {
+      if (pi.type !== BABYLON.PointerEventTypes.POINTERTAP || this.phase !== 'build') return;
+      const p = scene.pick(scene.pointerX, scene.pointerY, (m: any) => !!(m.metadata && m.metadata.kind));
+      if (!p.hit) return; const md = p.pickedMesh.metadata;
+      if (md.kind === 'tile') this.onTile(md.cell); else if (md.kind === 'unit') this.onUnitVisual(md.visual);
+    });
+    window.addEventListener('resize', () => this.engine.resize());
+    if (qs.get('gallery')) { this.gallery(); return; }
+    this.startStage(this.seed);
+    let last = performance.now();
+    this.engine.runRenderLoop(() => { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now; this.frame(dt); scene.render(); });
+  }
+
+  // -------------------------------------------------------------------------------------------- scene helpers
+  private makeTile(team: 0 | 1, cell: number) {
+    const p = cellPos(team, cell), t = BABYLON.MeshBuilder.CreatePlane('tile' + cell, { size: GRID_SP * 0.92 }, this.scene);
+    t.rotation.x = Math.PI / 2; t.position.set(p.x, 0.015, p.z);
+    const m = new BABYLON.StandardMaterial('tm', this.scene); m.diffuseColor = BABYLON.Color3.Black(); m.emissiveColor = team === 0 ? new BABYLON.Color3(0.18, 0.12, 0.42) : new BABYLON.Color3(0.42, 0.12, 0.12); m.alpha = 0.5; m.disableLighting = true; t.material = m;
+    if (team === 0) { t.metadata = { kind: 'tile', cell }; this.tileMats[cell] = m; } else t.isPickable = false;
+    return t;
+  }
+  private tint(cell: number, mode: 'normal' | 'free' | 'sel' | 'partner') {
+    const m = this.tileMats[cell]; const c = { normal: [0.18, 0.12, 0.42, 0.5], free: [0.2, 0.75, 0.55, 0.7], sel: [1, 0.82, 0.3, 0.85], partner: [0.85, 0.35, 1, 0.85] }[mode];
+    m.emissiveColor = new BABYLON.Color3(c[0], c[1], c[2]); m.alpha = c[3];
+  }
+  later(sec: number, fn: () => void) { this.timers.push({ t: sec, fn }); }
+  private fxRing(x: number, z: number, color: any, r0: number, r1: number, dur: number) {
+    const m = BABYLON.MeshBuilder.CreateTorus('fx', { diameter: 1, thickness: 0.035, tessellation: 28 }, this.scene); m.position.set(x, 0.05, z); m.isPickable = false;
+    const mm = new BABYLON.StandardMaterial('fxm', this.scene); mm.emissiveColor = color; mm.disableLighting = true; mm.alpha = 0.9; m.material = mm; this.ringFx.push({ m, mm, t: 0, r0, r1, dur });
+  }
+  private burst(x: number, z: number, c1: number[], c2: number[], count: number) {
+    const ps = new BABYLON.ParticleSystem('b', 60, this.scene); ps.particleTexture = this.A.soft; ps.emitter = new BABYLON.Vector3(x, 0.05, z); ps.minEmitBox = new BABYLON.Vector3(-0.2, 0, -0.2); ps.maxEmitBox = new BABYLON.Vector3(0.2, 0.05, 0.2);
+    ps.color1 = new BABYLON.Color4(...(c1 as [number, number, number, number])); ps.color2 = new BABYLON.Color4(...(c2 as [number, number, number, number])); ps.colorDead = new BABYLON.Color4(0.1, 0, 0.2, 0);
+    ps.minSize = 0.12; ps.maxSize = 0.34; ps.minLifeTime = 0.4; ps.maxLifeTime = 0.9; ps.emitRate = 0; ps.manualEmitCount = count; ps.direction1 = new BABYLON.Vector3(-1, 1.3, -1); ps.direction2 = new BABYLON.Vector3(1, 2.4, 1);
+    ps.minEmitPower = 0.8; ps.maxEmitPower = 2; ps.gravity = new BABYLON.Vector3(0, -2, 0); ps.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD; ps.targetStopDuration = 1.2; ps.disposeOnStop = true; ps.start();
+  }
+
+  // -------------------------------------------------------------------------------------------- camera
+  private poses() {
+    const asp = this.engine.getRenderWidth() / this.engine.getRenderHeight(), tanV = Math.tan(this.camera.fov / 2);
+    const half = FRONT_X + (GRID_COLS - 1) * GRID_SP + 1.4;
+    const d = Math.max(half / (tanV * asp), ((GRID_ROWS * GRID_SP) / 2 + 2) / (tanV * 0.55), 8);
+    const battle = { pos: new BABYLON.Vector3(-0.1 * d, 0.42 * d + 0.5, -0.86 * d), tgt: new BABYLON.Vector3(0, 0.35, 0) };
+    const cx = -(FRONT_X + ((GRID_COLS - 1) * GRID_SP) / 2), d2 = Math.max(((GRID_COLS * GRID_SP) / 2 + 0.7) / (tanV * asp), ((GRID_ROWS * GRID_SP) / 2 + 1.0) / (tanV * 0.72), 5.2);
+    const build = { pos: new BABYLON.Vector3(cx, 0.74 * d2, -0.62 * d2), tgt: new BABYLON.Vector3(cx, 0, 0.55) };
+    return { battle, build };
+  }
+  private setCam(p: any) { this.camera.position.copyFrom(p.pos); this.camera.setTarget(p.tgt.clone()); }
+  private tweenCam(to: any, dur: number) { this.camFrom = { pos: this.camera.position.clone(), tgt: this.camera.getTarget().clone() }; this.camTo = to; this.camT = 0; this.camDur = dur; }
+
+  // -------------------------------------------------------------------------------------------- stage flow
+  startStage(seed: number) {
+    this.seed = seed; this.attempt = 0; this.s = newStage(PROTOTYPE_RULES, seed);
+    this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
+    this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build'; this.setCam(this.poses().build);
+    this.syncBuild(); this.ui.render(); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');
+  }
+  private clearBattle() {
+    this.fvis.forEach((v, id) => { if (!this.fUnit.has(id)) v.dispose(); }); this.fvis.clear(); this.fUnit.clear(); this.lastState.clear(); this.battle = null;
+    this.arrows.forEach((a) => a.mesh.dispose()); this.arrows = [];
+  }
+  private pos(cell: number) { return cellPos(0, cell); }
+  syncBuild() {
+    const alive = new Set(this.s.units.map((u) => u.id));
+    for (const [id, v] of this.unitVis) if (!alive.has(id)) { this.visToUnit.delete(v); const p = v.holder.position; this.burst(p.x, p.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 16); v.dispose(); this.unitVis.delete(id); }
+    for (const u of this.s.units) {
+      let v = this.unitVis.get(u.id); const p = this.pos(u.cell);
+      if (!v) { v = createVisual(this.A, u.soul, 0, u.star); this.unitVis.set(u.id, v); this.visToUnit.set(v, u.id); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.play('spawn'); this.summonFx(p.x, p.z); const vv = v; this.later(1.1, () => { if (this.phase === 'build') vv.play('idle'); }); }
+      else { v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; if (v.star !== u.star) { v.setStar(u.star); v.pulse(); this.fxRing(p.x, p.z, new BABYLON.Color3(1, 0.85, 0.4), 0.2, 1.4, 0.6); this.burst(p.x, p.z, [1, 0.85, 0.4, 0.9], [0.8, 0.4, 1, 0.8], 24); } }
+    }
+    for (let c = 0; c < GRID_CELLS; c++) this.tint(c, 'normal');
+    const sel = this.sel;
+    if (sel && sel.type === 'card' && this.phase === 'build') {
+      for (let c = 0; c < GRID_CELLS; c++) if (cellFree(this.s, c)) this.tint(c, canSummon(this.s, sel.idx) ? 'free' : 'normal');
+      for (const u of this.s.units) if (canMergeFromHand(this.s, sel.idx, u.id)) this.tint(u.cell, 'partner');     // the card can merge into this unit
+    }
+    if (sel && sel.type === 'unit') {
+      const u = this.s.units.find((x) => x.id === sel.id);
+      if (u) { this.tint(u.cell, 'sel'); for (const o of this.s.units) if (canMergeDeployed(u, o)) this.tint(o.cell, 'partner'); for (let c = 0; c < GRID_CELLS; c++) if (cellFree(this.s, c)) this.tint(c, 'free'); }
+    }
+  }
+  private summonFx(x: number, z: number) { this.burst(x, z, [0.7, 0.3, 1, 0.9], [0.35, 0.1, 0.7, 0.8], 30); this.fxRing(x, z, new BABYLON.Color3(0.7, 0.3, 1), 0.2, 1.2, 0.7); }
+
+  // ---- player actions (build phase)
+  toast(msg: string) { this.ui.toast(msg); }
+  onCard(idx: number) {
+    if (this.phase !== 'build') return;
+    if (this.swapMode) { if (discardRedraw(this.s, idx)) { this.toast('Swapped: drew a different Soul.'); this.swapMode = false; } else this.toast('Swap already used this round.'); }
+    else this.sel = this.sel && this.sel.type === 'card' && this.sel.idx === idx ? null : { type: 'card', idx };
+    this.confirmRemove = false; this.syncBuild(); this.ui.render();
+  }
+  onTile(cell: number) {
+    const s = this.s, sel = this.sel; if (this.phase !== 'build') return;
+    const here = s.units.find((u) => u.cell === cell); if (here) { this.onUnitVisual(this.unitVis.get(here.id)!); return; }
+    if (sel && sel.type === 'card') {
+      if (canSummon(s, sel.idx)) { summon(s, sel.idx, cell); this.sel = null; }
+      else { const soul = s.hand[sel.idx]; this.toast(`Not enough Dominion: ${SOUL_NAME[soul]} costs ${cost(soul, 1)}, you have ${dominionFree(s)} free.`); }
+    } else if (sel && sel.type === 'unit') { if (moveUnit(s, sel.id, cell)) this.sel = null; }
+    this.confirmRemove = false; this.syncBuild(); this.ui.render();
+  }
+  onUnitVisual(v: UnitVisual) {
+    const id = this.visToUnit.get(v); if (id === undefined || this.phase !== 'build') return;
+    const s = this.s, u = s.units.find((x) => x.id === id)!;
+    if (this.swapMode) { if (swapSell(s, id)) { this.toast(`Sold ${SOUL_NAME[u.soul]}: drew a different Soul.`); this.swapMode = false; } else this.toast(u.fresh ? "You can't sell a unit you summoned this round." : 'Swap already used this round.'); }
+    else if (this.sel && this.sel.type === 'card' && s.hand[this.sel.idx] === u.soul && u.star === 1 && s.rules.merge === 'handIntoOneStar') {
+      if (mergeFromHand(s, this.sel.idx, id)) { this.sel = { type: 'unit', id }; this.toast(`Merged the card into a 2-star ${SOUL_NAME[u.soul]}!`); }
+      else this.toast(`Not enough Dominion to merge: it needs ${cost(u.soul, 2) - cost(u.soul, 1)} more, you have ${dominionFree(s)} free.`);
+    }
+    else if (this.sel && this.sel.type === 'unit' && this.sel.id !== id) {
+      const a = s.units.find((x) => x.id === (this.sel as any).id)!;
+      if (canMergeDeployed(a, u)) { mergeDeployed(s, a.id, u.id); this.sel = { type: 'unit', id: a.id }; this.toast(`Merged into a ${a.star}-star ${SOUL_NAME[a.soul]}!`); } else this.sel = { type: 'unit', id };
+    } else this.sel = this.sel && this.sel.type === 'unit' && this.sel.id === id ? null : { type: 'unit', id };
+    this.confirmRemove = false; this.syncBuild(); this.ui.render();
+  }
+  mergeSelected() {
+    const s = this.s, sel = this.sel; if (!sel || sel.type !== 'unit') return;
+    const a = s.units.find((x) => x.id === sel.id); const b = a && s.units.find((o) => canMergeDeployed(a, o));
+    if (a && b) { mergeDeployed(s, a.id, b.id); this.toast(`Merged into a ${a.star}-star ${SOUL_NAME[a.soul]}!`); } else this.toast('No matching unit (same Soul and stars) to merge with.');
+    this.syncBuild(); this.ui.render();
+  }
+  removeSelected() {
+    const sel = this.sel; if (!sel || sel.type !== 'unit') return;
+    if (!this.confirmRemove) { this.confirmRemove = true; this.toast('Tap Remove again to confirm. The card is gone for this stage.'); this.ui.render(); return; }
+    dismiss(this.s, sel.id); this.sel = null; this.confirmRemove = false; this.syncBuild(); this.ui.render();
+  }
+  toggleSwap() { if (this.phase !== 'build') return; if (this.s.discardUsed) { this.toast('Swap already used this round.'); return; } this.swapMode = !this.swapMode; this.sel = null; if (this.swapMode) this.toast('Swap: tap a hand card to discard, or a unit (not summoned this round) to sell.'); this.syncBuild(); this.ui.render(); }
+
+  // -------------------------------------------------------------------------------------------- battle
+  startBattle() {
+    if (this.phase !== 'build' || !this.s.units.length) { if (!this.s.units.length) this.toast('Summon at least one unit first.'); return; }
+    this.sel = null; this.swapMode = false; this.attempt++; this.handled = false; this.resultAt = -1;
+    const s = this.s, units = s.units.slice();
+    this.battle = new Battle(units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemyWave(s.wave, this.seed), this.seed * 131 + s.wave * 17 + this.attempt);
+    this.fvis.clear(); this.fUnit.clear(); this.lastState.clear();
+    this.battle.fighters.forEach((f) => {
+      if (f.team === 0) { const u = units[f.id - 1]; const v = this.unitVis.get(u.id)!; this.fvis.set(f.id, v); this.fUnit.set(f.id, u.id); v.setHp(1); }
+      else { const v = createVisual(this.A, f.soul, 1, f.star); v.holder.position.set(f.x, 0, f.z); v.holder.rotation.y = -Math.PI / 2; v.play('spawn'); v.setHp(1); this.fvis.set(f.id, v); this.later(1.1, () => { if (v.state === 'spawn') v.play('idle'); }); this.burst(f.x, f.z, [0.7, 0.6, 0.5, 0.7], [0.4, 0.35, 0.3, 0.6], 14); }
+    });
+    for (let c = 0; c < GRID_CELLS; c++) this.tint(c, 'normal');
+    this.phase = 'transition'; this.startStepAt = 1.0; this.acc = 0; this.tweenCam(this.poses().battle, 2.2); this.syncBuild(); this.ui.render();
+  }
+  private applyEvents(evs: BEvent[]) {
+    const b = this.battle!;
+    for (const e of evs) {
+      if (e.t === 'swing') { const v = this.fvis.get(e.id); if (v) v.play('attack', e.speed); }
+      else if (e.t === 'hit') { const v = this.fvis.get(e.to); if (v) v.pulse(); }
+      else if (e.t === 'arrow') { const f = b.byId(e.from)!, to = b.byId(e.to)!; this.spawnArrow(f.team, f.x, f.z, to.x, to.z, e.dur); }
+      else if (e.t === 'death') { const v = this.fvis.get(e.id); if (v) { v.play('death'); v.setHp(null); const f = b.byId(e.id)!; this.burst(f.x, f.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 12); if (f.team === 1) this.later(5, () => { if (this.fvis.get(e.id) === v && this.phase !== 'build') { v.holder.setEnabled(false); } }); } }
+      else if (e.t === 'taunt') { const f = b.byId(e.id)!; this.fxRing(f.x, f.z, new BABYLON.Color3(1, 0.85, 0.3), 0.3, BALANCE.taunt.radius, 0.6); }
+      else if (e.t === 'smash') this.fxRing(e.x, e.z, new BABYLON.Color3(1, 0.5, 0.2), 0.2, e.r * 1.6, 0.45);
+    }
+  }
+  private spawnArrow(team: number, x0: number, z0: number, x1: number, z1: number, dur: number) {
+    let mesh = this.arrowMesh.pop();
+    if (!mesh) { mesh = BABYLON.MeshBuilder.CreateCylinder('arrow', { height: 0.55, diameter: 0.035 }, this.scene); mesh.rotation.x = Math.PI / 2; mesh.isPickable = false; const holder = new BABYLON.TransformNode('ar', this.scene); mesh.parent = holder; mesh = holder; }
+    mesh.setEnabled(true); mesh.getChildMeshes()[0].material = this.arrowMats[team];
+    this.arrows.push({ mesh, x0, z0, x1, z1, t: 0, dur });
+  }
+
+  private frame(dt: number) {
+    for (let i = this.timers.length - 1; i >= 0; i--) { this.timers[i].t -= dt; if (this.timers[i].t <= 0) { const f = this.timers[i].fn; this.timers.splice(i, 1); f(); } }
+    for (let i = this.ringFx.length - 1; i >= 0; i--) { const r = this.ringFx[i]; r.t += dt; const u = r.t / r.dur, s = r.r0 + (r.r1 - r.r0) * u; r.m.scaling.set(s, s, s); r.mm.alpha = 0.9 * (1 - u); if (u >= 1) { r.m.dispose(); r.mm.dispose(); this.ringFx.splice(i, 1); } }
+    if (this.camT < 1) { this.camT = Math.min(1, this.camT + dt / this.camDur); const e = this.camT * this.camT * (3 - 2 * this.camT); this.camera.position = BABYLON.Vector3.Lerp(this.camFrom.pos, this.camTo.pos, e); this.camera.setTarget(BABYLON.Vector3.Lerp(this.camFrom.tgt, this.camTo.tgt, e)); }
+    for (const v of this.unitVis.values()) v.update(dt);
+    this.fvis.forEach((v, id) => { if (!this.fUnit.has(id)) v.update(dt); });
+
+    const b = this.battle;
+    if ((this.phase === 'transition' || this.phase === 'battle') && b) {
+      if (this.phase === 'transition') { this.startStepAt -= dt; if (this.startStepAt <= 0) { this.phase = 'battle'; this.ui.render(); } }
+      if (this.phase === 'battle') {
+        this.acc += dt * this.timeScale;
+        while (this.acc >= 1 / 30 && b.winner < 0) { b.step(1 / 30); this.acc -= 1 / 30; this.applyEvents(b.drain()); }
+      }
+      for (const f of b.fighters) {
+        const v = this.fvis.get(f.id); if (!v) continue;
+        if (this.phase === 'battle' || f.team === 1) { v.holder.position.x = f.x; v.holder.position.z = f.z; if (f.alive || true) v.holder.rotation.y = f.yaw; }
+        if (f.alive) v.setHp(f.hp / f.maxHp);
+        if (f.state !== 'attack' && f.alive) { const want = f.state === 'run' ? 'run' : 'idle'; if (this.lastState.get(f.id) !== want || (v.state !== want && v.state !== 'spawn')) { if (v.state !== 'spawn') { v.play(want as any); this.lastState.set(f.id, want); } } }
+        if (f.state === 'attack') this.lastState.set(f.id, 'attack');
+      }
+      if (b.winner >= 0 && !this.handled) { this.handled = true; this.resultAt = 1.4; }
+      if (this.resultAt > 0) { this.resultAt -= dt; if (this.resultAt <= 0) this.handleResult(); }
+    }
+    for (let i = this.arrows.length - 1; i >= 0; i--) {
+      const a = this.arrows[i]; a.t += dt * this.timeScale; const u = Math.min(1, a.t / a.dur);
+      const px = a.x0 + (a.x1 - a.x0) * u, pz = a.z0 + (a.z1 - a.z0) * u, py = 0.75 + Math.sin(u * Math.PI) * 0.9 - u * 0.25;
+      const u2 = Math.min(1, u + 0.03), qx = a.x0 + (a.x1 - a.x0) * u2, qz = a.z0 + (a.z1 - a.z0) * u2, qy = 0.75 + Math.sin(u2 * Math.PI) * 0.9 - u2 * 0.25;
+      a.mesh.position.set(px, py, pz); a.mesh.lookAt(new BABYLON.Vector3(qx, qy, qz));
+      if (u >= 1) { a.mesh.setEnabled(false); this.arrowMesh.push(a.mesh); this.arrows.splice(i, 1); }
+    }
+  }
+
+  private handleResult() {
+    const b = this.battle!, s = this.s;
+    this.lastBattle = `wave ${s.wave} attempt ${this.attempt}: ${b.winner === 0 ? 'WON' : 'LOST'} in ${b.time.toFixed(1)}s, ${b.count(0)} of yours and ${b.count(1)} enemies left`;
+    if (b.winner === 0) {
+      if (advanceWave(s)) { this.phase = 'won'; this.ui.render(); return; }
+      this.draft = draftOptions(s); this.phase = 'draft'; this.ui.render();
+    } else {
+      failWave(s);
+      if (s.status === 'lost') { this.phase = 'lost'; this.ui.render(); return; }
+      this.toast('Your army fell. -1 heart, +1 card, same wave. Rebuild a different strategy.'); this.toBuild();
+    }
+  }
+  pickDraft(idx: number) { if (!this.draft) return; takeDraft(this.s, this.draft, idx); this.draft = null; normalDraw(this.s); this.toBuild(); }
+  private toBuild() {
+    this.clearBattle();
+    for (const u of this.s.units) {                       // resurrection: everyone rises again at full health
+      const v = this.unitVis.get(u.id)!; const p = this.pos(u.cell); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.holder.setEnabled(true); v.setHp(null); v.play('spawn'); this.summonFx(p.x, p.z);
+      this.later(1.1, () => v.play('idle'));
+    }
+    this.phase = 'build'; this.sel = null; this.tweenCam(this.poses().build, 1.8); this.syncBuild(); this.ui.render();
+  }
+  setSpeed(k: number) { this.timeScale = k; this.ui.render(); }
+
+  // -------------------------------------------------------------------------------------------- debug helpers
+  applyBalanceChange() { this.unitVis.forEach((v, id) => { const u = this.s.units.find((x) => x.id === id); if (u) v.setStar(u.star); }); }
+  testOdds(n = 200) {
+    const slots = this.s.units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemies = enemyWave(this.s.wave, this.seed); let win = 0, t = 0;
+    for (let i = 0; i < n; i++) { const r = simulate(slots, enemies, 5000 + i); if (r.winner === 0) win++; t += r.time; }
+    return { win: Math.round((win / n) * 100), avgTime: +(t / n).toFixed(1), n };
+  }
+  addCard(soul: SoulId) { this.s.hand.push(soul); this.s.stats.drawn++; this.ui.render(); }
+  addDominion(n: number) { this.s.cap += n; this.ui.render(); }
+  report(): string {
+    const s = this.s, en = enemyWave(s.wave, this.seed);
+    return [`seed ${this.seed}  wave ${s.wave}/${stageWaves(s)}  hearts ${s.hearts}  dominion ${dominionUsed(s)}/${s.cap}  phase ${this.phase}  attempt ${this.attempt}`,
+      `hand: ${s.hand.join(', ') || '(empty)'}`, `army: ${s.units.map((u) => `${u.soul}${u.star}@${u.cell}`).join(' ') || '(none)'}`, `enemy: ${en.map((e) => e.soul + e.star).join(' ')}`,
+      `swap used: ${s.discardUsed}`, `last battle: ${this.lastBattle || '-'}`, `log tail:`, ...s.log.slice(-8), `balance: ${JSON.stringify({ star: BALANCE.star, stats: BALANCE.stats })}`].join('\n');
+  }
+  resetBalanceAll() { resetBalance(); this.applyBalanceChange(); }
+
+  // -------------------------------------------------------------------------------------------- gallery (star looks)
+  gallery() {
+    document.body.classList.add('gallery'); const vis: UnitVisual[] = []; let team: 0 | 1 = 0;
+    const rebuild = () => { vis.forEach((v) => v.dispose()); vis.length = 0; SOULS.forEach((soul, i) => [1, 2, 3].forEach((st, j) => { const v = createVisual(this.A, soul, team, st); v.holder.position.set((i - 2.5) * 2.5, 0, (j - 1) * -2.4); v.holder.rotation.y = Math.PI * 0.85; v.play('idle'); vis.push(v); })); };
+    rebuild(); this.camera.position.set(0, 5.6, -14.5); this.camera.setTarget(new BABYLON.Vector3(0, 0.5, -0.4)); this.camera.fov = 0.85;
+    (window as any).__gallery = { setTeam: (t: 0 | 1) => { team = t; rebuild(); }, vis };
+    let last = performance.now(); this.engine.runRenderLoop(() => { const n = performance.now(), dt = Math.min(0.05, (n - last) / 1000); last = n; vis.forEach((v) => v.update(dt)); this.scene.render(); });
+  }
+}

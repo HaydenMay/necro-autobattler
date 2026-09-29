@@ -5,7 +5,7 @@ import { BALANCE, ROLE_TEXT, SOUL_NAME, abilityInfo } from '../../../../core/bal
 import { canAfford, copiesNeeded, isMaxLevel } from '../../../../core/progress.ts';
 import { RARITIES, RARITY_NAME, RARITY_OF } from '../../../../core/packs.ts';
 import { SaveService } from '../save.service';
-import { checkIcon, closeIcon, gemIcon, soulIcon, upgradeIcon } from '../soul-ui';
+import { artBg, checkIcon, closeIcon, gemIcon, hasArt, rarityColor, soulArt, upgradeIcon } from '../soul-ui';
 
 const BG: Record<SoulId, string> = {
   warrior: 'linear-gradient(#6b4a8f,#2c1b45)', archer: 'linear-gradient(#5a4a9a,#251a4a)', goblin: 'linear-gradient(#4f7a3a,#1d2d17)',
@@ -56,6 +56,13 @@ type Filter = 'all' | 'skill' | 'passive';
     .acts { display:flex; gap:var(--gap); grid-column:1 / -1; } .acts button { flex:1; padding:.5em .4em; font-size:1em; font-weight:800; }
     .grey { background:#7d8394; border-color:#b8bfd0; color:#e8ebf4; } .grey small { display:block; font-weight:600; opacity:.85; font-size:.75em; }
     .port img { width:62%; height:62%; object-fit:contain; filter:drop-shadow(0 2px 3px #000a); } .big img { width:64%; height:78%; object-fit:contain; filter:drop-shadow(0 3px 5px #000a); }
+    /* portrait cards: the figure stands on the card's bottom edge and its head pops up over the top frame */
+    .port.art, .big.art, .cport.art, .fxcard.art { position:relative; overflow:visible; }
+    .port.art { min-height:clamp(70px,14.5vmin,108px); border-radius:7px 7px 0 0; }
+    .port.art img, .big.art img, .cport.art img, .fxcard.art img { position:absolute; left:50%; bottom:2%; width:auto; height:124%; max-width:none; transform:translateX(-50%); object-fit:contain; filter:drop-shadow(0 3px 4px #000c); pointer-events:none; }
+    .big.art { height:clamp(84px,27vmin,158px); } .fxcard.art { border-radius:18px; } .cport.art { width:clamp(58px,13vmin,80px); }
+    .tile.art { box-shadow:0 2px 8px #000a, inset 0 0 0 1px rgba(255,255,255,.08); } .tile.art.eq { box-shadow:0 0 12px rgba(47,217,166,.6), inset 0 0 0 1px rgba(47,217,166,.5); }
+    .nplate { position:absolute; left:0; right:0; bottom:0; z-index:1; padding:8px 3px 2px; font-size:clamp(8px,1.5vmin,10.5px); font-weight:800; line-height:1.05; text-shadow:0 1px 2px #000; background:linear-gradient(transparent,#000d); }
     .tick img { width:80%; height:80%; } .x img { width:78%; height:78%; } .rarlab { display:flex; align-items:center; gap:4px; font-size:.9em; opacity:.9; margin-top:2px; } .rarlab img { width:1.3em; height:1.3em; }
     .sortlab { opacity:.6; margin-left:10px; align-self:center; font-size:.9em; } .arr { width:1em; height:1em; vertical-align:-.15em; margin-left:3px; } .arr.down { transform:rotate(180deg); }
     .upbtn { position:absolute; left:6px; right:6px; bottom:6px; height:clamp(16px,3vmin,22px); z-index:4; padding:0; border-radius:10px; font-size:.85em; font-weight:800; display:flex; align-items:center; justify-content:center; gap:3px;
@@ -99,8 +106,8 @@ type Filter = 'all' | 'skill' | 'passive';
     <div class="box strip">
       @for (i of slots(); track $index) {
         @if (i) {
-          <button class="tile eq slotfull" (click)="openDetail(i, $event)">
-            <span class="gem">{{ cost(i) }}</span><span class="port" [style.background]="bg(i)"><img [src]="icon(i)" alt=""></span><span class="lv">LV {{ save.progress(i).level }}</span></button>
+          <button class="tile eq slotfull" [class.art]="art(i)" [style.border-color]="rc(i)" (click)="openDetail(i, $event)">
+            <span class="gem">{{ cost(i) }}</span><span class="port" [class.art]="art(i)" [style.background]="bg(i)"><img [src]="icon(i)" alt=""></span><span class="lv">LV {{ save.progress(i).level }}</span></button>
         } @else { <div class="slot">+</div> }
       }
     </div>
@@ -113,9 +120,9 @@ type Filter = 'all' | 'skill' | 'passive';
     <div class="grid2">
       @for (s of shown(); track s) {
         <div class="tw">
-          <button class="tile" [class.lift]="pop() === s" [class.eq]="save.isEquipped(s)" [class.flash]="flashId() === s" (click)="tapTile(s, $event)">
+          <button class="tile" [class.art]="art(s)" [style.border-color]="rc(s)" [class.lift]="pop() === s" [class.eq]="save.isEquipped(s)" [class.flash]="flashId() === s" (click)="tapTile(s, $event)">
             <span class="gem">{{ cost(s) }}</span>@if (save.isEquipped(s)) { <span class="tick"><img [src]="checkIcon" alt=""></span> }@if (canLevel(s)) { <span class="uparrow"><img [src]="upgradeIcon" alt=""></span> }
-            <span class="port" [style.background]="bg(s)"><img [src]="icon(s)" alt=""></span><span class="lv">Level {{ save.progress(s).level }}</span>
+            <span class="port" [class.art]="art(s)" [style.background]="bg(s)"><img [src]="icon(s)" alt="">@if (art(s)) { <span class="nplate">{{ name(s) }}</span> }</span><span class="lv">Level {{ save.progress(s).level }}</span>
             <span class="bar" [class.ready]="canLevel(s)" [class.max]="isMax(s)"><i [style.width.%]="pct(s)"></i><b>{{ isMax(s) ? 'Max' : save.progress(s).copies + '/' + need(s) }}</b></span>
           </button>
           @if (pop() === s) {
@@ -133,7 +140,7 @@ type Filter = 'all' | 'skill' | 'passive';
       <div class="scrim" (click)="detail.set(null)">
         <div class="modal" (click)="$event.stopPropagation()">
           <button class="x" (click)="detail.set(null)"><img [src]="closeIcon" alt="Close"></button>
-          <div><div class="big" [style.background]="bg(d)"><img [src]="icon(d)" alt=""></div>
+          <div><div class="big" [class.art]="art(d)" [style.background]="bg(d)" [style.border-color]="rc(d)"><img [src]="icon(d)" alt=""></div>
             <div class="nm">{{ name(d) }}</div><div class="sub">Level {{ save.progress(d).level }}</div><div class="rarlab"><img [src]="gem(rarityOf(d))" alt="">{{ rarityName(d) }}</div>
             <div class="note">{{ role(d) }}</div></div>
           <div>
@@ -176,7 +183,7 @@ type Filter = 'all' | 'skill' | 'passive';
     @if (confirming(); as c) {
       <div class="scrim cscrim" (click)="cancelUpgrade()">
         <div class="cbox" (click)="$event.stopPropagation()">
-          <div class="chead"><div class="cport" [style.background]="bg(c)"><img [src]="icon(c)" alt=""></div>
+          <div class="chead"><div class="cport" [class.art]="art(c)" [style.background]="bg(c)" [style.border-color]="rc(c)"><img [src]="icon(c)" alt=""></div>
             <div><div class="ctitle">Upgrade {{ name(c) }}?</div><div class="csub">Level {{ save.progress(c).level }} &rarr; <b>Level {{ save.progress(c).level + 1 }}</b></div></div></div>
           <div class="cstats">
             <div class="cs"><span>Health</span><b>{{ statAt(c, 'hp', save.progress(c).level) }} &rarr; {{ statAt(c, 'hp', save.progress(c).level + 1) }}</b></div>
@@ -198,7 +205,7 @@ type Filter = 'all' | 'skill' | 'passive';
           <div class="fxcardwrap">
             <span class="fxring"></span>
             @for (sp of fxSparks; track $index) { <i class="fxspark" [style.--dx]="sp.dx + 'px'" [style.--dy]="sp.dy + 'px'" [style.animation-delay]="(600 + sp.delay) + 'ms'"></i> }
-            <div class="fxcard" [style.background]="bg(f.soul)"><img [src]="icon(f.soul)" alt=""></div>
+            <div class="fxcard" [class.art]="art(f.soul)" [style.background]="bg(f.soul)"><img [src]="icon(f.soul)" alt=""></div>
           </div>
           <div class="fxstat"><span class="lab">Health</span><span class="val">{{ hpShown() }}</span><span class="plus">+{{ f.hp1 - f.hp0 }}</span></div>
           <div class="fxstat"><span class="lab">Damage</span><span class="val">{{ dmgShown() }}</span><span class="plus">+{{ f.dmg1 - f.dmg0 }}</span></div>
@@ -234,7 +241,7 @@ export class Souls {
     return [...base].sort((a, b) => (val(a) - val(b)) * d || SOULS.indexOf(a) - SOULS.indexOf(b));      // ties keep the roster order
   });
 
-  icon = (s: SoulId) => soulIcon(s); bg = (s: SoulId) => BG[s]; name = (s: SoulId) => SOUL_NAME[s]; role = (s: SoulId) => ROLE_TEXT[s];
+  icon = (s: SoulId) => soulArt(s); art = (s: SoulId) => hasArt(s); rc = (s: SoulId) => (hasArt(s) ? rarityColor(s) : null); bg = (s: SoulId) => (hasArt(s) ? artBg(s) : BG[s]); name = (s: SoulId) => SOUL_NAME[s]; role = (s: SoulId) => ROLE_TEXT[s];
   cost = (s: SoulId) => COST[s][0]; base = (s: SoulId) => BALANCE.stats[s]; ability = (s: SoulId) => abilityInfo(s);
   need = (s: SoulId) => copiesNeeded(this.save.progress(s).level, s);
   isMax = (s: SoulId) => isMaxLevel(this.save.progress(s).level);

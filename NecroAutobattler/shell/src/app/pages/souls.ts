@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { SOULS, COST } from '../../../../core/data.ts';
 import type { SoulId } from '../../../../core/data.ts';
 import { BALANCE, ROLE_TEXT, SOUL_NAME, abilityInfo } from '../../../../core/balance.ts';
-import { copiesNeeded, isMaxLevel } from '../../../../core/progress.ts';
+import { canAfford, copiesNeeded, isMaxLevel } from '../../../../core/progress.ts';
 import { RARITIES, RARITY_NAME, RARITY_OF } from '../../../../core/packs.ts';
 import { SaveService } from '../save.service';
 import { checkIcon, closeIcon, gemIcon, soulIcon, upgradeIcon } from '../soul-ui';
@@ -62,6 +62,15 @@ type Filter = 'all' | 'skill' | 'passive';
              background:linear-gradient(var(--go),var(--go-lo)); color:var(--go-ink); border:1px solid var(--go-hi); box-shadow:0 0 10px var(--go); animation:upPulse 1.2s ease-in-out infinite; }
     .upbtn img { width:1.2em; height:1.2em; margin:0; } @keyframes upPulse { 50% { box-shadow:0 0 20px var(--go); } }
     .tile.flash { animation:flashUp .7s ease-out; } @keyframes flashUp { 0% { box-shadow:0 0 0 #fff; } 35% { box-shadow:0 0 34px #fff; transform:scale(1.07); } 100% { box-shadow:none; } }
+    .cscrim { z-index:20; }
+    .cbox { width:min(380px,94%); display:flex; flex-direction:column; gap:calc(var(--gap) + 2px); padding:calc(var(--gap) + 6px); border-radius:16px; background:#1c2a52; border:2px solid #5a7fd0; box-shadow:0 0 30px rgba(90,127,208,.45); animation:cbIn .18s ease-out; }
+    @keyframes cbIn { from { transform:scale(.92); opacity:0; } to { transform:none; opacity:1; } }
+    .chead { display:flex; gap:12px; align-items:center; } .cport { width:clamp(52px,12vmin,72px); aspect-ratio:1; border-radius:12px; border:2px solid #8fb0f0; display:flex; align-items:center; justify-content:center; flex:none; } .cport img { width:70%; height:70%; object-fit:contain; }
+    .ctitle { font-size:1.35em; font-weight:800; } .csub { color:#d5b3ff; margin-top:2px; } .csub b { color:#7ef2c8; }
+    .cstats { display:grid; grid-template-columns:1fr 1fr; gap:6px; } .cs { background:#dfe6f7; color:#15203c; border-radius:8px; padding:.35em .7em; } .cs span { display:block; opacity:.75; font-size:.8em; font-weight:700; } .cs b { font-size:1.1em; }
+    .ccost { background:#152244; border:1px solid #3d5aa0; border-radius:10px; padding:.5em .8em; } .clab { display:block; opacity:.7; font-size:.8em; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:3px; }
+    .crow { display:flex; align-items:center; gap:8px; } .crow span { flex:1; } .crow b { font-size:1.1em; } .crow img.ic { width:1.3em; height:1.3em; } .crow.bad b { color:#ff9a90; }
+    .cbtns { display:flex; gap:var(--gap); } .cbtns button { flex:1; padding:.7em .4em; font-size:1.05em; font-weight:800; display:flex; align-items:center; justify-content:center; gap:5px; } .cbtns img.ic { width:1.2em; height:1.2em; }
     .note { font-size:.82em; opacity:.7; margin-top:6px; } .ptable { width:100%; font-size:.95em; border-collapse:collapse; } .ptable td, .ptable th { padding:4px 6px; text-align:left; } .ptable th { opacity:.7; font-size:.85em; }
   `],
   template: `
@@ -89,7 +98,7 @@ type Filter = 'all' | 'skill' | 'passive';
             <span class="port" [style.background]="bg(s)"><img [src]="icon(s)" alt=""></span><span class="lv">Level {{ save.progress(s).level }}</span>
             <span class="bar" [class.ready]="canLevel(s)" [class.max]="isMax(s)"><i [style.width.%]="pct(s)"></i><b>{{ isMax(s) ? 'Max' : save.progress(s).copies + '/' + need(s) }}</b></span>
           </button>
-          @if (canLevel(s)) { <button class="upbtn" (click)="upgradeTile(s, $event)"><img class="ic" [src]="upgradeIcon" alt="">Upgrade</button> }
+          @if (canLevel(s)) { <button class="upbtn" (click)="askUpgrade(s, $event)"><img class="ic" [src]="upgradeIcon" alt="">Upgrade</button> }
           @if (pop() === s) {
             <div class="pop" (click)="$event.stopPropagation()">
               <button class="blue" (click)="openDetail(s, $event)">Details</button>
@@ -138,9 +147,26 @@ type Filter = 'all' | 'skill' | 'passive';
             <div class="swipehint">swipe or tap the tabs</div>
           </div>
           <div class="acts">
-            <button [class]="canLevel(d) ? 'go' : 'grey'" [disabled]="!canLevel(d)" (click)="upgrade(d, $event)">@if (canLevel(d)) { <img class="ic" [src]="upgradeIcon" alt=""> }Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
+            <button [class]="canLevel(d) ? 'go' : 'grey'" [disabled]="!canLevel(d)" (click)="askUpgrade(d, $event)">@if (canLevel(d)) { <img class="ic" [src]="upgradeIcon" alt=""> }Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
             <button [class]="save.isEquipped(d) ? 'blue' : 'go'" (click)="toggle(d, $event)">{{ save.isEquipped(d) ? 'Unequip' : 'Equip' }}</button>
           </div>
+        </div>
+      </div>
+    }
+
+    @if (confirming(); as c) {
+      <div class="scrim cscrim" (click)="cancelUpgrade()">
+        <div class="cbox" (click)="$event.stopPropagation()">
+          <div class="chead"><div class="cport" [style.background]="bg(c)"><img [src]="icon(c)" alt=""></div>
+            <div><div class="ctitle">Upgrade {{ name(c) }}?</div><div class="csub">Level {{ save.progress(c).level }} &rarr; <b>Level {{ save.progress(c).level + 1 }}</b></div></div></div>
+          <div class="cstats">
+            <div class="cs"><span>Health</span><b>{{ statAt(c, 'hp', save.progress(c).level) }} &rarr; {{ statAt(c, 'hp', save.progress(c).level + 1) }}</b></div>
+            <div class="cs"><span>Damage</span><b>{{ statAt(c, 'dmg', save.progress(c).level) }} &rarr; {{ statAt(c, 'dmg', save.progress(c).level + 1) }}</b></div>
+          </div>
+          <div class="ccost"><span class="clab">Cost</span>
+            @for (r of costs(c); track r.id) { <div class="crow" [class.bad]="!r.ok"><span>{{ r.label }}</span><b>{{ r.have }} / {{ r.need }}</b><img class="ic" [src]="r.ok ? checkIcon : closeIcon" alt=""></div> }
+          </div>
+          <div class="cbtns"><button class="blue" (click)="cancelUpgrade()">Cancel</button><button class="go" [disabled]="!canPay(c)" (click)="doUpgrade()"><img class="ic" [src]="upgradeIcon" alt="">Confirm</button></div>
         </div>
       </div>
     }`,
@@ -162,6 +188,8 @@ export class Souls {
   sortKey = signal<'none' | 'level' | 'cost' | 'rarity' | 'progress'>('none');
   sortDir = signal<1 | -1>(1);
   flashId = signal<SoulId | null>(null);
+  /** The Soul whose Upgrade is waiting for a Confirm. */
+  confirming = signal<SoulId | null>(null);
   shown = computed(() => {
     const base = SOULS.filter((s) => this.filter() === 'all' || abilityInfo(s).kind === this.filter()), k = this.sortKey(), d = this.sortDir();
     if (k === 'none') return base;
@@ -176,6 +204,9 @@ export class Souls {
   isMax = (s: SoulId) => isMaxLevel(this.save.progress(s).level);
   canLevel = (s: SoulId) => !this.isMax(s) && this.save.progress(s).copies >= this.need(s);
   pct = (s: SoulId) => this.isMax(s) ? 100 : Math.min(100, (100 * this.save.progress(s).copies) / Math.max(1, this.need(s)));
+  statAt(s: SoulId, k: 'hp' | 'dmg', level: number) { return Math.round(BALANCE.stats[s][k] * (1 + (level - 1) * BALANCE.level[k])); }
+  costs = (s: SoulId) => this.save.costs(s);
+  canPay = (s: SoulId) => canAfford(this.save.costs(s));
   stat(s: SoulId, k: 'hp' | 'dmg') { const lv = this.save.progress(s).level; return Math.round(BALANCE.stats[s][k] * (1 + (lv - 1) * BALANCE.level[k])); }
   gain(s: SoulId, k: 'hp' | 'dmg') { return Math.max(1, Math.round(BALANCE.stats[s][k] * BALANCE.level[k])); }
   starRows(s: SoulId) { return [1, 2, 3].map((star) => ({ star, cost: COST[s][star - 1], hp: Math.round(this.stat(s, 'hp') * BALANCE.star.hp[star - 1]), dmg: Math.round(this.stat(s, 'dmg') * BALANCE.star.dmg[star - 1]) })); }
@@ -190,12 +221,13 @@ export class Souls {
     if (this.sortKey() !== k) { this.sortKey.set(k); this.sortDir.set(1); } else if (this.sortDir() === 1) this.sortDir.set(-1); else { this.sortKey.set('none'); this.sortDir.set(1); }
   }
   private beep() { try { (window as any).__audio?.play('merge'); } catch { /* sound is optional */ } }
-  /** One tap on the tile's Upgrade button. */
-  upgradeTile(s: SoulId, e: Event) {
-    e.stopPropagation();
+  /** Upgrade buttons (tile and details) only ASK: the popup shows the cost and needs a Confirm. */
+  askUpgrade(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(null); if (this.canLevel(s)) this.confirming.set(s); }
+  cancelUpgrade() { this.confirming.set(null); }
+  doUpgrade() {
+    const s = this.confirming(); this.confirming.set(null); if (!s) return;
     if (this.save.levelUp(s)) { this.beep(); this.flashId.set(s); setTimeout(() => this.flashId.set(null), 750); this.say(SOUL_NAME[s] + ' is now level ' + this.save.progress(s).level + '!'); }
   }
-  upgrade(s: SoulId, e: Event) { e.stopPropagation(); if (this.save.levelUp(s)) { try { (window as any).__audio?.play('merge'); } catch { /* optional */ } this.say(SOUL_NAME[s] + ' is now level ' + this.save.progress(s).level + '!'); } }
   setFilter(f: Filter, e: Event) { e.stopPropagation(); this.filter.set(f); this.pop.set(null); }
   tapTile(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(this.pop() === s ? null : s); }
   openDetail(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(null); this.page.set(0); this.detail.set(s); }

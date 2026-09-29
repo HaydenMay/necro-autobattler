@@ -2,6 +2,7 @@
 // Placeholder numbers, like packs.ts. In-run star merging is a separate, temporary system and never touches any of this.
 
 import { BALANCE } from './balance.ts';
+import { SOULS } from './data.ts';
 import type { SoulId } from './data.ts';
 import { LEVEL_COST_MULT, PACK_TIERS, RARITY_OF, openPack } from './packs.ts';
 import type { PackItem, PackResult } from './packs.ts';
@@ -24,12 +25,28 @@ export const maxLevel = (): number => BALANCE.level.copiesToLevel.length + 1;
 export const isMaxLevel = (level: number): boolean => level >= maxLevel();
 /** Copies needed to take `soul` from `level` to the next one (0 when already max). Rarer Souls need fewer. */
 export const copiesNeeded = (level: number, soul: SoulId): number => (isMaxLevel(level) ? 0 : Math.max(1, Math.round(BALANCE.level.copiesToLevel[level - 1] * LEVEL_COST_MULT[RARITY_OF[soul]])));
-export function canLevelUp(save: Save, soul: SoulId): boolean { const p = save.souls[soul]; return !isMaxLevel(p.level) && p.copies >= copiesNeeded(p.level, soul); }
-/** Spend the copies, gain a level. Returns false if the Soul is not ready. */
-export function levelUp(save: Save, soul: SoulId): boolean {
-  if (!canLevelUp(save, soul)) return false;
-  const p = save.souls[soul]; p.copies -= copiesNeeded(p.level, soul); p.level++; return true;
+/**
+ * One requirement of an upgrade. Today only copies; the confirm popup lists every entry with have / need, and Confirm is allowed only when all are met.
+ * Gold will simply become a second entry here ({ id: 'gold', ... }) and be spent in levelUp().
+ */
+export interface UpgradeCost { id: 'copies'; label: string; have: number; need: number; ok: boolean }
+export function upgradeCosts(save: Save, soul: SoulId): UpgradeCost[] {
+  const p = save.souls[soul]; if (isMaxLevel(p.level)) return [];
+  const need = copiesNeeded(p.level, soul);
+  return [{ id: 'copies', label: 'Copies', have: p.copies, need, ok: p.copies >= need }];
 }
+export const canAfford = (costs: UpgradeCost[]): boolean => costs.length > 0 && costs.every((c) => c.ok);
+export const canLevelUp = (save: Save, soul: SoulId): boolean => canAfford(upgradeCosts(save, soul));
+/** Pay every cost and gain a level. Returns false (and changes nothing) if the Soul is not ready. */
+export function levelUp(save: Save, soul: SoulId): boolean {
+  const costs = upgradeCosts(save, soul); if (!canAfford(costs)) return false;
+  const p = save.souls[soul]; for (const c of costs) if (c.id === 'copies') p.copies -= c.need;
+  p.level++; return true;
+}
+/** Debugging: put every Soul back to level 1 (copies are kept). */
+export function resetLevels(save: Save): void { for (const k of SOULS) save.souls[k].level = 1; }
+/** Debugging: forget all collected copies (levels are kept). */
+export function clearCopies(save: Save): void { for (const k of SOULS) save.souls[k].copies = 0; }
 /** Multiplier applied to a Soul's health/damage from its permanent level (level 1 = 1.0). */
 export const levelMult = (level: number, stat: 'hp' | 'dmg'): number => 1 + (Math.max(1, level) - 1) * BALANCE.level[stat];
 

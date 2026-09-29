@@ -22,7 +22,7 @@ import { SaveService } from '../save.service';
     <div class="box row"><img class="ic" style="width:34px;height:34px" src="assets/icons/info.png" alt=""><div class="grow"><b>Sound check</b><span>{{ msg() }}</span></div>
       <button class="go" (click)="test()">Test sound</button></div>
     <div class="box row" style="flex-wrap:wrap"><img class="ic" style="width:34px;height:34px" src="assets/icons/settings.png" alt=""><div class="grow"><b>Testing helpers</b><span>Add packs to your Shop, or copies to every Soul, to try the opening and levelling without playing a whole stage.</span></div>
-      <button class="go" (click)="save.grantTestPack(1)">+ Tier 1 pack</button><button class="go" (click)="save.grantTestPack(2)">+ Tier 2 pack</button><button class="go" (click)="save.grantTestPack(3)">+ Tier 3 pack</button><button class="blue" (click)="save.grantTestCopies(20)">+20 copies each</button><button class="blue" (click)="unlockAll()">Unlock all stages</button></div>
+      <button class="go" (click)="save.grantTestPack(1)">+ Tier 1 pack</button><button class="go" (click)="save.grantTestPack(2)">+ Tier 2 pack</button><button class="go" (click)="save.grantTestPack(3)">+ Tier 3 pack</button><button class="blue" (click)="save.grantTestCopies(20)">+20 copies each</button><button class="blue" (click)="unlockAll()">Unlock all stages</button><button class="blue" (click)="askReset('levels')">{{ armed() === 'levels' ? 'Tap again to confirm' : 'Reset Souls to level 1' }}</button><button class="blue" (click)="askReset('copies')">{{ armed() === 'copies' ? 'Tap again to confirm' : 'Clear all copies' }}</button></div>
     <p class="lead" style="margin-top:14px">The battle screen also has quick music and sound-effect buttons next to the gear.</p>`,
 })
 export class Settings implements OnDestroy {
@@ -36,6 +36,14 @@ export class Settings implements OnDestroy {
     const a = this.audio; if (!a) { this.msg.set('Still loading…'); return; }
     const st = a.status();
     this.msg.set(st.unlocked ? 'Sound is running. If you still hear nothing, raise the volume and check the silent switch.' : st.state === 'not started' ? 'Not started yet: tap Test sound.' : 'The phone paused sound (' + st.state + '): tap Test sound to wake it.');
+  }
+  /** Debugging: put every Soul back to level 1, or clear all copies. Needs a second tap within 3 seconds. */
+  armed = signal<'' | 'levels' | 'copies'>('');
+  private armT = 0;
+  askReset(what: 'levels' | 'copies') {
+    if (this.armed() !== what) { this.armed.set(what); clearTimeout(this.armT); this.armT = window.setTimeout(() => this.armed.set(''), 3000); return; }
+    clearTimeout(this.armT); this.armed.set('');
+    if (what === 'levels') this.save.resetLevels(); else this.save.clearCopies();
   }
   /** Testing helper: mark every stage's Normal and Hard as cleared so all stages and tiers open. */
   unlockAll() { for (const st of STAGES) { this.save.grantTestClear(st.id, 'normal'); this.save.grantTestClear(st.id, 'hard'); } }

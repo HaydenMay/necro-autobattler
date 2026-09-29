@@ -4,7 +4,7 @@ import type { Difficulty, Save, SoulProgress } from '../../../core/save.ts';
 import { SOULS } from '../../../core/data.ts';
 import type { SoulId } from '../../../core/data.ts';
 import { makeRng } from '../../../core/rng.ts';
-import { canLevelUp, clearCount, newUnlocks, unlockedKeys, difficultyLockReason, difficultyUnlocked, grantPack, levelUp, openOwnedPack, playable, stageLockReason, stageUnlocked } from '../../../core/progress.ts';
+import { canLevelUp, clearCopies, clearCount, resetLevels, upgradeCosts, newUnlocks, unlockedKeys, difficultyLockReason, difficultyUnlocked, grantPack, levelUp, openOwnedPack, playable, stageLockReason, stageUnlocked } from '../../../core/progress.ts';
 import { STAGES } from '../../../core/waves.ts';
 import type { PackResult } from '../../../core/packs.ts';
 
@@ -91,4 +91,9 @@ export class SaveService {
     });
   }
   levelUp(soul: SoulId): boolean { return this.mutate((s) => levelUp(s, soul)); }
+  /** What upgrading this Soul costs right now (copies today, gold later). */
+  costs(soul: SoulId) { return upgradeCosts(this.state(), soul); }
+  /** Debugging helpers (Settings > Testing helpers). */
+  resetLevels() { this.mutate((s) => resetLevels(s)); }
+  clearCopies() { this.mutate((s) => clearCopies(s)); }
 }

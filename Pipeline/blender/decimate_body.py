@@ -34,6 +34,17 @@ else:
     lo_z = min(zs); cx = (min(xs) + max(xs)) / 2; cy = (min(ys) + max(ys)) / 2
     for v in me.vertices: v.co.x -= cx; v.co.y -= cy; v.co.z -= lo_z
     me.update()
+# a mesh that is already light and clean (a Tripo Smart Mesh): keep its own texture and topology, just orient / scale / centre it and export
+if n0 <= target:
+    hi.name = 'body'; me.name = 'body'
+    for m_ in me.materials:
+        if m_ and m_.use_nodes:
+            for nd_ in m_.node_tree.nodes:
+                if nd_.type == 'TEX_IMAGE' and nd_.image and max(nd_.image.size) > px: nd_.image.scale(px, px)
+    bpy.ops.object.select_all(action='DESELECT'); hi.select_set(True); bpy.context.view_layer.objects.active = hi
+    bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True, export_image_format='JPEG', export_jpeg_quality=90, export_yup=True, export_apply=True)
+    print('[dec] clean mesh kept as is:', n0, 'triangles; size w %.2f d %.2f h %.2f' % tuple(hi.dimensions), ' wrote', out)
+    raise SystemExit(0)
 # the light copy
 lo = hi.copy(); lo.data = hi.data.copy(); lo.name = 'body'; sc.collection.objects.link(lo)
 bpy.ops.object.select_all(action='DESELECT'); lo.select_set(True); bpy.context.view_layer.objects.active = lo

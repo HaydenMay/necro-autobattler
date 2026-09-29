@@ -81,3 +81,12 @@ Tested on the archer: body 10,115 -> 6,000 triangles, bow 6,191 -> 2,499, arrow 
 * **Free safety net:** if you are unsure, generate a little high and let the pipeline shrink it. Add to the unit JSON:
   `"decimate": { "body": 6000, "bow": 2500, "arrow": 800 }`  (see `units\skeleton_archer_lo.json`). Shrinking is free; adding detail later is not.
 * Arrows and other trivial shapes do not need Tripo at all; the viewer can build a procedural arrow for free.
+
+## 7. Update (Ogre, Sep 2026): the recommended path for every new Soul
+
+1. **Generate with Tripo, Smart Mesh, low-poly, a fixed triangle count (about 6,000-12,000), triangles not quads.** Same relaxed A-pose, empty hands, weapon as its own generation. A clean retopo is what makes skinning good. (A raw Hunyuan mesh, 500k triangles, could not be skinned: decimating it tore the texture and the waist/vest stretched; Blender's automatic weights found no solution on it. `blender/decimate_body.py` is the fallback for a heavy mesh: it welds seam duplicates, decimates, re-bakes the colour, and can stand a weapon upright.)
+2. Put the GLB in `input/<unit>/`. Look at it: `blender -b -P blender/inspect_model.py -- input/<unit>/body.glb` (writes the labelled grids in `out/`). Fill the landmarks in `units/<unit>.json` (copy `units/ogre.json`).
+3. `"body_glb"` instead of `"body_zip"`; `"weapon": {"glb", "hand", "rotate_deg", "offset"}` for a held item; `"weights": {"method": "auto"}` uses Blender bone-heat weights. **The rig welds vertices that image-to-3D duplicated along texture seams first** (otherwise bone heat fails with zero weights).
+4. `blender -b -P blender/rig_unit.py -- units/<unit>.json` (about 12 s). Textures above 2048 px are shrunk (`"texture_px"`).
+5. **Check the skinning with numbers, not just eyes:** `blender -b out/<Name>.blend -P blender/stretch_check.py -- Idle:10 Attack:16 ...` counts edges stretched past 2.2x (the Ogre went from 259-756 to 0-6). Look at frames: `blender -b out/<Name>.blend -P blender/clip_frames.py -- out/frames.png Idle:0 Attack:16 ...`.
+6. Copy `out/<Name>.glb` and `out/<Name>_enemy.jpg` to `docs/assets/`, add one line to `game/visuals.ts` (clip names) and a portrait: `blender -b -P blender/render_portrait.py -- docs/assets/<Name>.glb out/portraits/x_head.png Idle 10 22 head` (add to `ui/portraits.ts`).

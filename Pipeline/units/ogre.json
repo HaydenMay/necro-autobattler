@@ -1,9 +1,9 @@
 {
   "name": "Ogre",
-  "body_glb": "../input/ogre/ogre_body.glb",
+  "body_glb": "../input/ogre/ogre_tripo.glb",
   "out": "../out",
   "facing": "-Y",
-  "comment": "Landmarks are the LEFT side (+X) plus centre line, read from out/ogre_body_grid_front/side.png. Hunyuan body (re-baked to 12k triangles by blender/decimate_body.py), mace in the RIGHT hand.",
+  "comment": "Tripo Smart Mesh body (5.6k triangles, clean topology) with bone-heat weights, mace in the RIGHT hand. Landmarks read from out/ogre_tripo_grid_front/side.png.",
   "landmarks": {
     "pelvis": [
       0,
@@ -53,7 +53,7 @@
     "hand_end": [
       0.385,
       -0.02,
-      0.16
+      0.14
     ],
     "hip": [
       0.17,
@@ -77,8 +77,7 @@
     ]
   },
   "weights": {
-    "rigid_island_max": 0.3,
-    "power": 3
+    "method": "auto"
   },
   "weapon": {
     "glb": "../input/ogre/mace.glb",

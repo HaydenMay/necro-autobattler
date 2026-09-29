@@ -107,6 +107,8 @@ for m in body.data.materials:
     if m and m.use_nodes:
         for n in m.node_tree.nodes:
             if n.type == 'TEX_IMAGE' and n.image: body_img = n.image
+if body_img and max(body_img.size) > CFG.get('texture_px', 2048):     # a 4096 px colour map is 3+ MB; 2048 is plenty at game distance
+    body_img.scale(CFG.get('texture_px', 2048), CFG.get('texture_px', 2048))
 log('body verts', len(body.data.vertices), 'material image', body_img.name if body_img else None)
 
 # ----------------------------------------------------------------------------------------------- 2. props (bow / string / arrow)
@@ -219,6 +221,10 @@ def seg_dist(P_, A, Bb):
 
 AUTO = CFG.get('weights', {}).get('method') == 'auto'      # Blender's bone-heat weights: they follow the body's volume, so an arm hanging next to the hip does not drag the waist
 if AUTO:
+    # glTF import splits vertices along texture seams; weld them (UVs are kept per corner) so the surface is one connected piece, or bone heat finds no solution
+    bpy.ops.object.mode_set(mode='OBJECT'); bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); bpy.context.view_layer.objects.active = body
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.remove_doubles(threshold=0.00002); bpy.ops.object.mode_set(mode='OBJECT')
+    log('welded body: verts', len(body.data.vertices))
     bpy.ops.object.mode_set(mode='OBJECT'); bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); arm.select_set(True); bpy.context.view_layer.objects.active = arm
     bpy.ops.object.parent_set(type='ARMATURE_AUTO')
     log('bone-heat weights on', len(body.vertex_groups), 'groups')

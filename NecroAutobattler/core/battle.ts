@@ -163,15 +163,31 @@ export class Battle {
     f.yaw += Math.max(-9 * dt, Math.min(9 * dt, d));
   }
 
+  /**
+   * Keep fighters from stacking without shoving anyone across the map.
+   * - A fighter that is standing and fighting is "planted": it barely moves; the ones still WALKING yield to it.
+   * - Heavier units (Ogre, Knight) push lighter ones more than the other way round.
+   * - The total push on one fighter is capped per second, so a crowd can never slide a unit far.
+   */
   private separate(f: Fighter, dt: number): void {
+    const planted = (u: Fighter) => u.state === 'attack' || u.state === 'idle', mass = (u: Fighter) => u.radius * u.radius;
     let px = 0, pz = 0;
     for (const o of this.fighters) {
       if (o === f || !o.alive) continue;
       const dx = f.x - o.x, dz = f.z - o.z, m = Math.hypot(dx, dz), want = (f.radius + o.radius) * 1.05 + 0.08;
       if (m >= want) continue;
-      const k = (want - m) / Math.max(m, 1e-3); px += (m < 1e-3 ? (this.rng.next() - 0.5) : dx) * k; pz += (m < 1e-3 ? (this.rng.next() - 0.5) : dz) * k;
+      let share = mass(o) / (mass(f) + mass(o));                       // the lighter one of the pair moves more
+      const pf = planted(f), po = planted(o);
+      if (pf && !po) share *= 0.12;                                   // f is standing its ground: the walker o goes around
+      else if (!pf && po) share = Math.min(1, share * 1.5 + 0.35);    // f is walking into a planted unit: f yields
+      else if (pf && po) share *= 0.35;                               // two standing units overlap a little: ease apart very slowly
+      const k = ((want - m) / Math.max(m, 1e-3)) * share * 2;
+      px += (m < 1e-3 ? (this.rng.next() - 0.5) : dx) * k; pz += (m < 1e-3 ? (this.rng.next() - 0.5) : dz) * k;
     }
-    const s = Math.min(1, dt * 6); f.x += px * s; f.z += pz * s;
+    const s = Math.min(1, dt * 6); let mx = px * s, mz = pz * s;
+    const cap = (planted(f) ? 0.5 : 1.6) * dt, len = Math.hypot(mx, mz);   // metres per second, standing vs walking
+    if (len > cap) { mx *= cap / len; mz *= cap / len; }
+    f.x += mx; f.z += mz;
   }
 
   private acquire(f: Fighter): void {

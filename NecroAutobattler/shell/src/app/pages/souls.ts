@@ -56,10 +56,10 @@ type Filter = 'all' | 'skill' | 'passive';
     .acts { display:flex; gap:var(--gap); grid-column:1 / -1; } .acts button { flex:1; padding:.5em .4em; font-size:1em; font-weight:800; }
     .grey { background:#7d8394; border-color:#b8bfd0; color:#e8ebf4; } .grey small { display:block; font-weight:600; opacity:.85; font-size:.75em; }
     .port img { width:62%; height:62%; object-fit:contain; filter:drop-shadow(0 2px 3px #000a); } .big img { width:64%; height:78%; object-fit:contain; filter:drop-shadow(0 3px 5px #000a); }
-    /* portrait cards: the figure stands on the card's bottom edge and its head pops up over the top frame */
-    .port.art, .big.art, .cport.art, .fxcard.art { position:relative; overflow:visible; }
-    .port.art { min-height:clamp(70px,14.5vmin,108px); border-radius:7px 7px 0 0; }
-    .port.art img, .big.art img, .cport.art img, .fxcard.art img { position:absolute; left:50%; bottom:2%; width:auto; height:124%; max-width:none; transform:translateX(-50%); object-fit:contain; filter:drop-shadow(0 3px 4px #000c); pointer-events:none; }
+    /* portrait cards: a head-and-shoulders render fills the art window, over a glow in the rarity colour */
+    .port.art, .big.art, .cport.art, .fxcard.art { position:relative; overflow:hidden; }
+    .port.art { min-height:clamp(70px,14.5vmin,108px); border-radius:7px 7px 0 0; overflow:hidden; }
+    .port.art img, .big.art img, .cport.art img, .fxcard.art img { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 35%; border-radius:inherit; filter:none; pointer-events:none; }
     .big.art { height:clamp(84px,27vmin,158px); } .fxcard.art { border-radius:18px; } .cport.art { width:clamp(58px,13vmin,80px); }
     .tile.art { box-shadow:0 2px 8px #000a, inset 0 0 0 1px rgba(255,255,255,.08); } .tile.art.eq { box-shadow:0 0 12px rgba(47,217,166,.6), inset 0 0 0 1px rgba(47,217,166,.5); }
     .nplate { position:absolute; left:0; right:0; bottom:0; z-index:1; padding:8px 3px 2px; font-size:clamp(8px,1.5vmin,10.5px); font-weight:800; line-height:1.05; text-shadow:0 1px 2px #000; background:linear-gradient(transparent,#000d); }

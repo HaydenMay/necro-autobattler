@@ -1,10 +1,11 @@
 # Render a card portrait (transparent PNG) of a rigged Soul from its game GLB.
-#   blender -b -P render_portrait.py -- model.glb out.png [action] [frame] [yaw_degrees]
+#   blender -b -P render_portrait.py -- model.glb out.png [action] [frame] [yaw_degrees] [full|head]
 import bpy, sys, math
 from mathutils import Vector
 a = sys.argv[sys.argv.index('--') + 1:]
 glb, out = a[0], a[1]; action = a[2] if len(a) > 2 else 'Idle'; frame = int(a[3]) if len(a) > 3 else 10; yaw = float(a[4]) if len(a) > 4 else 28
-W, H = 480, 600
+HEAD = len(a) > 5 and a[5] == 'head'
+W, H = (512, 512) if HEAD else (480, 600)
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=glb)
 sc = bpy.context.scene
@@ -20,6 +21,8 @@ for o in sc.objects:
     for c in ev.bound_box:
         w = o.matrix_world @ Vector(c); lo = Vector(map(min, lo, w)); hi = Vector(map(max, hi, w))
 ctr = (lo + hi) / 2; size = hi - lo
+if HEAD:                                              # head and shoulders: the top 58% of the figure
+    top = hi.z; size = Vector((size.x * 0.75, size.y * 0.75, size.z * 0.58)); ctr = Vector((ctr.x, ctr.y, top - size.z / 2 + size.z * 0.06))
 # camera: long lens (almost flat), in front of the character, turned a little for a three-quarter look
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam
 cam.data.lens = 85; cam.data.sensor_fit = 'VERTICAL'; cam.data.sensor_height = 24

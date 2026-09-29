@@ -22,8 +22,8 @@ export const BG: Record<SoulId, string> = {
 };
 export const RARITY_COLOR: Record<Rarity, string> = { common: '#b8c0cc', rare: '#4aa3ff', epic: '#b26bff', legendary: '#ffcc33' };
 
-/** Rendered portraits (Pipeline/blender/render_portrait.py). Souls without one yet fall back to the role icon on a coloured card. */
-const PORTRAIT: Partial<Record<SoulId, string>> = { warrior: 'assets/portraits/warrior.png', archer: 'assets/portraits/archer.png' };
+/** Rendered portraits (Pipeline/blender/render_portrait.py, head-and-shoulders mode). Souls without one yet fall back to the role icon on a coloured card. */
+const PORTRAIT: Partial<Record<SoulId, string>> = { warrior: 'assets/portraits/warrior_head.png', archer: 'assets/portraits/archer_head.png' };
 export const hasArt = (s: SoulId): boolean => !!PORTRAIT[s];
 export const soulArt = (s: SoulId): string => PORTRAIT[s] ?? soulIcon(s);
 export const rarityColor = (s: SoulId): string => RARITY_COLOR[RARITY_OF[s]];

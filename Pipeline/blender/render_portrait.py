@@ -1,5 +1,5 @@
 # Render a card portrait (transparent PNG) of a rigged Soul from its game GLB.
-#   blender -b -P render_portrait.py -- model.glb out.png [action] [frame] [yaw_degrees] [full|head]
+#   blender -b -P render_portrait.py -- model.glb out.png [action|REST] [frame] [yaw_degrees] [full|head]
 import bpy, sys, math
 from mathutils import Vector
 a = sys.argv[sys.argv.index('--') + 1:]
@@ -12,7 +12,7 @@ sc = bpy.context.scene
 for o in list(sc.objects):
     if o.name.startswith('Icosphere'): bpy.data.objects.remove(o, do_unlink=True)          # the blob-shadow helper, not part of the character
 arm = next(o for o in sc.objects if o.type == 'ARMATURE')
-arm.animation_data_create(); arm.animation_data.action = bpy.data.actions[action]
+arm.animation_data_create(); arm.animation_data.action = None if action == 'REST' else bpy.data.actions[action]     # REST = the unposed model (no stretching from the rig)
 sc.frame_set(frame); bpy.context.view_layer.update()
 dg = bpy.context.evaluated_depsgraph_get(); lo = Vector((1e9,) * 3); hi = Vector((-1e9,) * 3)
 for o in sc.objects:

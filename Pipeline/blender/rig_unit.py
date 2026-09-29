@@ -217,25 +217,34 @@ def seg_dist(P_, A, Bb):
     C = A[None] + t[..., None] * AB[None]
     return np.linalg.norm(P_[:, None, :] - C, axis=-1)
 
-names = BODY_BONES
-A = np.array([B[n]['head'][:] for n in names]); Bb = np.array([B[n]['tail'][:] for n in names])
-co = verts_np(body); D = seg_dist(co, A, Bb)
-ids, nisl = island_ids(body)
-RIGID = CFG.get('weights', {}).get('rigid_island_max', 0.30); POW = CFG.get('weights', {}).get('power', 3.0)
-W = np.zeros((len(co), len(names)))
-order = np.argsort(D, axis=1)[:, :2]
-for vi in range(len(co)):
-    i0, i1 = order[vi]; w0 = 1 / (D[vi, i0] + 0.01) ** POW; w1 = 1 / (D[vi, i1] + 0.01) ** POW
-    W[vi, i0] = w0 / (w0 + w1); W[vi, i1] = w1 / (w0 + w1)
-rigid_count = 0
-for i in range(nisl):
-    m = ids == i; c = co[m]; ext = (c.max(0) - c.min(0)).max()
-    if ext <= RIGID:
-        cen = c.mean(0, keepdims=True); d = seg_dist(cen, A, Bb)[0]; W[m, :] = 0; W[m, int(np.argmin(d))] = 1.0; rigid_count += 1
-log('islands', nisl, 'rigid', rigid_count, 'blended', nisl - rigid_count)
-for j, n in enumerate(names):
-    vg = body.vertex_groups.new(name=n)
-    for vi in np.nonzero(W[:, j] > 1e-3)[0]: vg.add([int(vi)], float(W[vi, j]), 'REPLACE')
+AUTO = CFG.get('weights', {}).get('method') == 'auto'      # Blender's bone-heat weights: they follow the body's volume, so an arm hanging next to the hip does not drag the waist
+if AUTO:
+    bpy.ops.object.mode_set(mode='OBJECT'); bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); arm.select_set(True); bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+    log('bone-heat weights on', len(body.vertex_groups), 'groups')
+else:
+    names = BODY_BONES
+    A = np.array([B[n]['head'][:] for n in names]); Bb = np.array([B[n]['tail'][:] for n in names])
+    co = verts_np(body); D = seg_dist(co, A, Bb)
+    ids, nisl = island_ids(body)
+    RIGID = CFG.get('weights', {}).get('rigid_island_max', 0.30); POW = CFG.get('weights', {}).get('power', 3.0)
+    W = np.zeros((len(co), len(names)))
+    # weights: each vertex blends its nearest bones (default 2). Config: weights.top = how many bones may share a vertex, weights.bias = {bone: multiplier}
+    # (a multiplier above 1 makes that bone win more often: e.g. the Chest and Spine, so cloth that hangs from the shoulders stays with the torso when the arms move)
+    TOPN = int(CFG.get('weights', {}).get('top', 2)); BIAS = np.array([float(CFG.get('weights', {}).get('bias', {}).get(n, 1.0)) for n in names])
+    raw = BIAS[None, :] / (D + 0.01) ** POW; top = np.argsort(-raw, axis=1)[:, :TOPN]
+    for vi in range(len(co)):
+        w_ = raw[vi, top[vi]]; W[vi, top[vi]] = w_ / w_.sum()
+    rigid_count = 0
+    for i in range(nisl):
+        m = ids == i; c = co[m]; ext = (c.max(0) - c.min(0)).max()
+        if ext <= RIGID:
+            cen = c.mean(0, keepdims=True); d = seg_dist(cen, A, Bb)[0]; W[m, :] = 0; W[m, int(np.argmin(d))] = 1.0; rigid_count += 1
+    log('islands', nisl, 'rigid', rigid_count, 'blended', nisl - rigid_count)
+    for j, n in enumerate(names):
+        vg = body.vertex_groups.new(name=n)
+        for vi in np.nonzero(W[:, j] > 1e-3)[0]: vg.add([int(vi)], float(W[vi, j]), 'REPLACE')
+
 
 def rigid_group(o, bone_name):
     vg = o.vertex_groups.new(name=bone_name); vg.add(list(range(len(o.data.vertices))), 1.0, 'REPLACE')
@@ -259,6 +268,7 @@ if props.get('bow'):
             if wb > 1e-3: gB.add([vi], wb, 'REPLACE')
 skinned = [body] + [props[k] for k in ('weapon', 'bow', 'arrow', 'string') if props.get(k)]
 for o in skinned:
+    if AUTO and o is body: continue
     o.parent = arm; md = o.modifiers.new('Armature', 'ARMATURE'); md.object = arm
 
 # ----------------------------------------------------------------------------------------------- IK + constraints

@@ -92,7 +92,7 @@ export function buildArena(scene: any, ground: any): { update(t: number): void }
 }
 
 // ---- the cave: a rough stone wall all the way round, rock spires along its foot, drifting mist, and a dark vignette on the floor
-const RX = 26, RZ = 20, CZ = -6, WALL_H = 18;   // the ring is centred behind the field so the far wall sits about 14 m past it
+const RX = 20, RZ = 15, CZ = -4, WALL_H = 16;   // oval ring centred a little behind the field: the far wall stands about 11 m past the centre
 const wobble = (a: number, y: number): number => Math.sin(3 * a + 1.3) * 0.5 + Math.sin(7 * a + y * 0.5) * 0.3 + Math.sin(13 * a - y * 0.35) * 0.2 + Math.sin(23 * a + y) * 0.08;
 
 function mistTexture(scene: any, seed: number): any {

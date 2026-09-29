@@ -6,16 +6,16 @@ import { SaveService } from '../save.service';
   selector: 'app-settings',
   styles: [`
     :host { display:block; font-size:clamp(11px,1.9vmin,14px); }
-    .cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:clamp(10px,2.4vmin,24px); align-items:start; } .col { min-width:0; }
-    .row { display:flex; align-items:center; gap:12px; margin-bottom:10px; padding:10px 14px; }
-    .row b { display:block; font-size:1.1em; } .row span { opacity:.7; font-size:.9em; } .grow { flex:1; }
+    .cols { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0 clamp(10px,2.4vmin,20px); align-items:start; } .col { display:contents; }
+    .row { display:flex; align-items:center; gap:12px; margin-bottom:clamp(6px,1.4vh,10px); padding:clamp(6px,1.6vh,10px) 14px; }
+    .row b { display:block; font-size:1.1em; } .row span { opacity:.7; font-size:.9em; } .grow { flex:1 1 60%; }
     .sw { position:relative; width:52px; height:28px; padding:0; border-radius:14px; background:#3a3550; border:2px solid #6a6390; flex:none; }
     .sw::after { content:''; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#ddd; transition:left .15s; }
     .sw.on { background:var(--go); border-color:var(--go-hi); } .sw.on::after { left:26px; background:#fff; }
   `],
   template: `
     <h1>Settings</h1>
-    <p class="lead">Sound is made in the game itself, so there are no audio files to download. Your choices are saved on this device.</p>
+    <p class="lead">Your choices are saved on this device.</p>
     <div class="cols"><div class="col">
     <div class="box row"><img class="ic" style="width:34px;height:34px" src="assets/icons/music.png" alt=""><div class="grow"><b>Music</b><span>Ambient score, more intense in battle</span></div>
       <button class="sw" [class.on]="save.settings().music" role="switch" [attr.aria-checked]="save.settings().music" (click)="save.setSound('music', !save.settings().music)"></button></div>
@@ -24,10 +24,10 @@ import { SaveService } from '../save.service';
     <div class="box row"><img class="ic" style="width:34px;height:34px" src="assets/icons/info.png" alt=""><div class="grow"><b>Sound check</b><span>{{ msg() }}</span></div>
       <button class="go" (click)="test()">Test sound</button></div>
     </div><div class="col">
-    <div class="box row" style="flex-wrap:wrap"><img class="ic" style="width:34px;height:34px" src="assets/icons/settings.png" alt=""><div class="grow"><b>Testing helpers</b><span>Add packs to your Shop, or copies to every Soul, to try the opening and levelling without playing a whole stage.</span></div>
+    <div class="box row" style="flex-wrap:wrap;grid-column:1/-1"><img class="ic" style="width:34px;height:34px" src="assets/icons/settings.png" alt=""><div class="grow"><b>Testing helpers</b><span>Add packs or copies to try the opening and levelling without playing a stage.</span></div>
       <button class="go" (click)="save.grantTestPack(1)">+ Tier 1 pack</button><button class="go" (click)="save.grantTestPack(2)">+ Tier 2 pack</button><button class="go" (click)="save.grantTestPack(3)">+ Tier 3 pack</button><button class="blue" (click)="save.grantTestCopies(20)">+20 copies each</button><button class="blue" (click)="unlockAll()">Unlock all stages</button><button class="blue" (click)="askReset('levels')">{{ armed() === 'levels' ? 'Tap again to confirm' : 'Reset Souls to level 1' }}</button><button class="blue" (click)="askReset('copies')">{{ armed() === 'copies' ? 'Tap again to confirm' : 'Clear all copies' }}</button></div>
     </div></div>
-    <p class="lead" style="margin-top:14px">The battle screen also has quick music and sound-effect buttons next to the gear.</p>`,
+`,
 })
 export class Settings implements OnDestroy {
   save = inject(SaveService);

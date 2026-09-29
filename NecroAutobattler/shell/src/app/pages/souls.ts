@@ -23,13 +23,15 @@ type Filter = 'all' | 'skill' | 'passive';
     .slot { aspect-ratio:4/5; border-radius:10px; border:2px dashed #4a3470; background:#1a1128; color:#6b5a8a; font-size:clamp(18px,4vmin,28px); display:flex; align-items:center; justify-content:center; padding:0; }
     .small { padding:.35em .9em; font-size:.95em; }
     .meta { font-size:.9em; opacity:.85; } .meta b { color:#fff; }
-    .filters { display:flex; gap:5px; margin:var(--gap) 0; flex-wrap:wrap; } .chip { padding:.28em .8em; border-radius:14px; font-size:.9em; } .chip.on { background:#3a2260; border-color:#a45bff; }
-    .cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.12fr); gap:clamp(10px,2.4vmin,24px); align-items:start; }
+    .filters { display:flex; gap:4px; margin:calc(var(--gap) - 2px) 0; flex-wrap:wrap; } .chip { padding:.22em .58em; border-radius:14px; font-size:.82em; white-space:nowrap; } .chip.on { background:#3a2260; border-color:#a45bff; }
+    .cols { display:grid; grid-template-columns:auto minmax(0,1fr); gap:clamp(10px,2.4vmin,22px); align-items:start; }
     .lcol { min-width:0; }
-    .grid2 { display:grid; grid-template-columns:repeat(auto-fill,minmax(clamp(66px,10.5vmin,96px),1fr)); gap:calc(var(--gap) + 6px) var(--gap); }
+    /* three across, two down: the tile width comes from the free height, so both rows always fit */
+    .grid2 { --tw:clamp(58px,calc((100vh - 128px) / 2.75),112px); display:grid; grid-template-columns:repeat(3,var(--tw)); gap:calc(var(--gap) + 4px) var(--gap); }
+    .grid2 .port, .grid2 .port.art { min-height:calc(var(--tw) * .74); }
     /* the details panel: what the popup used to be, always visible next to the list */
-    .dpanel { position:sticky; top:0; display:grid; grid-template-columns:minmax(78px,25%) minmax(0,1fr); gap:var(--gap); padding:calc(var(--gap) + 4px); border-radius:16px; background:rgba(14,24,48,.9); border:2px solid #3d5aa0; box-shadow:0 0 24px rgba(90,127,208,.3); max-height:calc(100vh - 26px); overflow:auto; }
-    .dpanel .big { height:clamp(84px,25vmin,150px); }
+    .dpanel { position:sticky; top:0; align-self:start; display:grid; grid-template-columns:minmax(78px,25%) minmax(0,1fr); gap:var(--gap); padding:calc(var(--gap) + 4px); border-radius:16px; background:rgba(14,24,48,.9); border:2px solid #3d5aa0; box-shadow:0 0 24px rgba(90,127,208,.3); max-height:calc(100vh - 30px); overflow:auto; }
+    .dpanel .big { height:clamp(70px,27vh,140px); } .dpanel .st { padding:.22em .6em; } .dpanel .acts button { padding:.4em .3em; } .dpanel .swipehint, .dpanel .gnote { display:none; }
     .dpanel .tabs { margin:0 0 var(--gap) 0; }
     .tw { position:relative; }
     .tile { position:relative; display:flex; flex-direction:column; width:100%; padding:0; border-radius:10px; border:2px solid #6b46a3; background:#1b1230; overflow:visible; text-align:center; cursor:pointer; transition:transform .12s; color:inherit; }
@@ -109,14 +111,6 @@ type Filter = 'all' | 'skill' | 'passive';
   <div class="cols"><div class="lcol">
     <div class="top"><h1>Souls</h1><span class="meta">Deck <b>{{ deck().length }}/{{ save.deckSize }}</b> &middot; avg Dominion <b>{{ avg() }}</b> (1★)</span>
       <button class="go small" style="margin-left:auto" (click)="recommended($event)">Recommended</button></div>
-    <div class="box strip">
-      @for (i of slots(); track $index) {
-        @if (i) {
-          <button class="tile eq slotfull" [class.art]="art(i)" [style.border-color]="rc(i)" (click)="openDetail(i, $event)">
-            <span class="gem">{{ cost(i) }}</span><span class="port" [class.art]="art(i)" [style.background]="bg(i)"><img [src]="icon(i)" alt=""></span><span class="lv">LV {{ save.progress(i).level }}</span></button>
-        } @else { <div class="slot">+</div> }
-      }
-    </div>
     @if (deck().length < save.deckSize) { <p class="note">Only equipped Souls are drawn in a run. You need all {{ save.deckSize }} slots filled to start.</p> }
     <div class="filters">
       @for (f of filters; track f) { <button class="chip" [class.on]="filter() === f" (click)="setFilter(f, $event)">{{ f === 'all' ? 'All' : f === 'skill' ? 'Skill' : 'Passive' }}</button> }
@@ -153,7 +147,7 @@ type Filter = 'all' | 'skill' | 'passive';
                   <div class="st"><span>Move speed</span><b>{{ base(d).speed }}</b></div>
                   <div class="st"><span>Dominion (1★)</span><b>{{ cost(d) }}</b></div>
                 </div>
-                <div class="note">Green = what the next level adds. Levels apply to your units in every battle.</div>
+                <div class="note gnote">Green = what the next level adds. Levels apply to your units in every battle.</div>
               </div>
               <div class="slide">
                 <span class="tag" [class.skill]="ability(d).kind === 'skill'" [class.passive]="ability(d).kind === 'passive'">{{ ability(d).kind === 'skill' ? 'Skill' : 'Passive' }}: {{ ability(d).name }}</span>

@@ -21,30 +21,30 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     :host { display:flex; align-items:center; justify-content:center; min-height:100%; font-size:clamp(11px,1.9vmin,14px); }
     .wrap { width:100%; display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,1fr); gap:clamp(8px,2vmin,18px); max-width:960px; }
     .stage { position:relative; padding:0; overflow:hidden; background:linear-gradient(160deg,rgba(10,22,30,.86),rgba(8,10,16,.9)); border-color:color-mix(in srgb, var(--accent) 45%, #1b1526); box-shadow:0 0 22px color-mix(in srgb, var(--accent) 22%, transparent), 0 8px 24px #000a; }
-    .stage .in { padding:clamp(10px,2.4vmin,20px); }
-    .hero { position:relative; overflow:hidden; height:clamp(58px,13vmin,96px); border-bottom:1px solid color-mix(in srgb, var(--accent) 50%, #000); }
+    .stage .in { padding:clamp(7px,1.9vh,20px) clamp(10px,2.4vmin,20px); }
+    .hero { position:relative; overflow:hidden; height:clamp(42px,11vh,92px); border-bottom:1px solid color-mix(in srgb, var(--accent) 50%, #000); }
     .heroimg { position:absolute; inset:0; background-size:cover; }
     .hero::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,rgba(3,7,10,.88),rgba(3,7,10,.35) 70%,rgba(3,7,10,.1)); }
     .herotxt { position:absolute; z-index:1; left:clamp(10px,2.4vmin,20px); right:10px; bottom:clamp(6px,1.4vmin,12px); }
     .stage h2 { margin:0; font-size:1.7em; color:var(--gold); text-shadow:0 2px 0 #000, 0 0 16px color-mix(in srgb, var(--accent) 60%, transparent); } .sub { opacity:.85; font-size:.92em; text-shadow:0 1px 2px #000; margin-bottom:clamp(6px,1.6vmin,12px); } .hero .sub { margin:0; }
-    .path { display:flex; align-items:center; margin:clamp(6px,1.6vmin,14px) 0; }
+    .path { display:flex; align-items:center; margin:clamp(4px,1.3vh,14px) 0; }
     .pip { position:relative; flex:none; width:clamp(20px,4vmin,30px); height:clamp(20px,4vmin,30px); border-radius:50%; background:#2b1c44; border:2px solid #6b46a3; display:flex; align-items:center; justify-content:center; font-size:.8em; font-weight:800; }
     .pip.done { background:#5a2fa0; border-color:#a45bff; } .pip.now { background:var(--go); border-color:var(--go-hi); color:var(--go-ink); box-shadow:0 0 12px var(--go); } .pip.boss { width:clamp(26px,5vmin,38px); height:clamp(26px,5vmin,38px); border-color:#ff7a7a; }
     .link { flex:1; height:3px; background:#3a2a5a; min-width:6px; } .link.done { background:#a45bff; }
-    .diffs { display:flex; gap:6px; flex-wrap:wrap; margin:clamp(4px,1.2vmin,8px) 0 4px; } .diffs button { padding:.35em .9em; border-radius:16px; font-size:.95em; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
+    .diffs { display:flex; gap:6px; flex-wrap:wrap; margin:clamp(3px,1vh,8px) 0 3px; } .diffs button { padding:.35em .9em; border-radius:16px; font-size:.95em; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
     .diffs button.on { background:#3a2260; border-color:#ffd24a; color:#ffd24a; } .diffs button.nm.on { background:#5a1420; border-color:#ff7a7a; color:#ffb0b0; }
     .diffs button.locked { opacity:.5; background:#1a1326; border-style:dashed; } .diffs button[disabled] { opacity:.45; }
     .diffs img { width:1.1em; height:1.1em; } .diffs .ck { width:.9em; height:.9em; }
     .blurb { font-size:.9em; opacity:.8; min-height:1.3em; } .hint { color:#ff9a90; font-weight:700; min-height:1.3em; font-size:.9em; }
     .rec { font-size:.92em; margin:2px 0 4px; } .rec b.ok { color:var(--go); } .rec b.low { color:#ffb454; }
-    .deck { display:flex; align-items:center; gap:8px; margin:clamp(6px,1.6vmin,12px) 0; flex-wrap:wrap; }
+    .deck { display:flex; align-items:center; gap:8px; margin:clamp(4px,1.3vh,12px) 0; flex-wrap:wrap; }
     .di { width:82%; height:82%; object-fit:contain; }
     .ic.empty { border-style:dashed; opacity:.5; }
     .ic { display:inline-flex; width:clamp(24px,4.6vmin,34px); height:clamp(24px,4.6vmin,34px); align-items:center; justify-content:center; border-radius:8px; background:#2b1c44; border:1px solid #6b46a3; font-size:1.3em; }
     .ic.art { overflow:hidden; border-width:2px; } .ic.art .di { width:100%; height:100%; object-fit:cover; object-position:50% 35%; }
     .deck a { color:#8fb0f0; }
     .dk { display:flex; gap:clamp(4px,1vmin,8px); }
-    .dc { position:relative; width:clamp(38px,9vmin,62px); aspect-ratio:4/5; border-radius:8px; border:2px solid #6b46a3; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#2b1c44; font-size:1.1em; box-shadow:0 2px 6px #000a; }
+    .dc { position:relative; width:clamp(32px,8vh,62px); aspect-ratio:4/5; border-radius:8px; border:2px solid #6b46a3; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#2b1c44; font-size:1.1em; box-shadow:0 2px 6px #000a; }
     .dc img { width:68%; height:68%; object-fit:contain; } .dc.art img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 35%; }
     .dc b { position:absolute; left:0; right:0; bottom:0; background:rgba(16,8,32,.86); font-size:.68em; text-align:center; padding:1px 0; }
     .dc.empty { border-style:dashed; opacity:.5; }
@@ -81,6 +81,8 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     .utext h3 { margin:0 0 4px; font-size:clamp(20px,4.6vmin,32px); color:var(--go); letter-spacing:.1em; text-shadow:0 0 16px var(--go); } .utext div { font-size:clamp(12px,2.4vmin,17px); font-weight:700; } .utext small { display:block; margin-top:8px; opacity:.6; }
     @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
     .sc.lock .th { filter:grayscale(1) brightness(.6); }
+    /* short phones: drop the extras so the whole page fits without scrolling */
+    @media (max-height:430px) { .more, .sc small:not(.lk) { display:none; } .sc .tx { padding:.45em .6em .45em 0; } .stages { gap:6px; } }
     @media (max-width:640px) { .wrap { grid-template-columns:1fr; } }
   `],
   template: `
@@ -130,13 +132,13 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
               <small>Recommended level {{ st.rec[shown()] }} on {{ label(shown()) }}</small>
               <div class="marks">@for (d of diffs; track d.id) { <span class="mark" [class.none]="!save.cleared(st.id, $any(d.id))">@if (save.cleared(st.id, $any(d.id))) { <img [src]="checkIcon" alt=""> }{{ d.label }}</span> }</div>
             } @else {
-              <small><img class="ic" style="width:1.1em;height:1.1em" [src]="lockIcon" alt=""> {{ save.stageReason(i) }}</small>
+              <small class="lk"><img class="ic" style="width:1.1em;height:1.1em" [src]="lockIcon" alt=""> {{ save.stageReason(i) }}</small>
             }
             </span>
           </button>
         }
         <div class="box rp"><span>Bonus pack</span><span class="meter"><i [style.width.%]="(100 * save.replayMeter()) / replayNeeded"></i></span><span>{{ save.replayMeter() }}/{{ replayNeeded }} clears</span></div>
-        <div class="box" style="opacity:.55"><b>More stages</b> <span class="tag soon">coming</span><div style="font-size:.9em;margin-top:3px">New enemies, bosses and first-clear Soul Packs.</div></div>
+        <div class="box more" style="opacity:.55"><b>More stages</b> <span class="tag soon">coming</span><div style="font-size:.9em;margin-top:3px">New enemies, bosses and first-clear Soul Packs.</div></div>
       </div>
     </div>
     @if (fresh().length) {

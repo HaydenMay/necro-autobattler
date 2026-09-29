@@ -11,11 +11,11 @@ import { range, skullIcon } from '../soul-ui';
   selector: 'app-shop',
   imports: [PackOpen],
   styles: [`
-    :host { display:block; font-size:clamp(11px,1.9vmin,14px); }
+    :host { display:block; font-size:clamp(11px,1.9vmin,14px); --ph:clamp(100px,calc(100vh - 262px),250px); }
     .cols { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:clamp(10px,2.4vmin,24px); align-items:start; } .col { min-width:0; }
-    .shelf { display:block; width:min(100%,380px); margin:calc(clamp(34px,9vmin,64px) * -1) auto 0; pointer-events:none; position:relative; z-index:0; } .packs { position:relative; z-index:1; justify-content:center; }
+    .shelf { display:block; width:min(100%,calc(var(--ph) * 1.8)); margin:calc(var(--ph) * -.2) auto 0; pointer-events:none; position:relative; z-index:0; } .packs { position:relative; z-index:1; justify-content:center; }
     .packs { display:flex; flex-wrap:wrap; gap:clamp(14px,3vmin,28px); margin:8px 0 16px; }
-    .pk { position:relative; width:clamp(104px,19vmin,160px); padding:0 0 10px; padding:0; background:none; border:0; text-align:center; cursor:pointer; color:inherit; }
+    .pk { position:relative; width:calc(var(--ph) * .47); padding:0 0 6px; padding:0; background:none; border:0; text-align:center; cursor:pointer; color:inherit; }
     .mp { display:block; width:100%; transition:transform .12s, filter .2s; filter:drop-shadow(0 6px 8px #000a) drop-shadow(0 0 10px var(--glow)); }
     .pk:hover .mp, .pk:active .mp { transform:translateY(-4px) scale(1.04); }
     .t1 { --glow:rgba(47,217,166,.25); } .t2 { --glow:rgba(47,217,166,.5); } .t3 { --glow:rgba(255,204,51,.6); }
@@ -29,7 +29,7 @@ import { range, skullIcon } from '../soul-ui';
   `],
   template: `
     <h1>Shop</h1>
-    <p class="lead">Soul Packs give permanent copies of Souls. Copies fill a Soul's level bar, and a Soul at its threshold can be upgraded on the Souls page. Packs come from clearing stages.</p>
+    <p class="lead">Packs give permanent copies. Fill a Soul's level bar, then upgrade it on the Souls page.</p>
     <div class="cols"><div class="col">
     <b>Your Soul Packs</b> @if (save.packs().length) { <span class="badge2">{{ save.packs().length }}</span> }
     @if (save.packs().length) {

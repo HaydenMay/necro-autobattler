@@ -25,13 +25,14 @@ cd NecroAutobattler
 node serve.cjs 8081        # then open http://localhost:8081/   (it also prints a phone URL for your Wi-Fi)
 ```
 
-Rebuild the game bundle after editing `game/*.ts`: `./build_game.ps1` (needs `npm install` once).
+Rebuild after editing: `./build_all.ps1` builds both the game bundle (`game/*.ts` -> `docs/game.js`) and the navigation shell (`shell/` -> `docs/index.html` etc). `./build_game.ps1` alone rebuilds just the game. Run `npm install` once in `NecroAutobattler` and once in `NecroAutobattler/shell`.
 
 ## Project layout
 
 | Folder | What |
 |---|---|
 | `NecroAutobattler/core` | Pure game logic: rules (cards, Dominion, merge, waves, hearts), battle engine, unit stats, enemy waves. No graphics. |
+| `NecroAutobattler/shell` | The Angular navigation shell: tab rail (Battle, Campaign, Souls, Shop) and the pages. The 3D game is mounted once inside it and paused when another tab is open. Builds into `docs/`. |
 | `NecroAutobattler/game` | The Babylon.js game screen: visuals, star looks, UI, camera, debug panel. |
 | `NecroAutobattler/sim` | Simulations used for balance (`node sim/run.ts`, `campaign.ts`, `tune_waves.ts`, `inflow.ts`). |
 | `NecroAutobattler/tests` | `node --test tests/battle.test.ts tests/rules.test.ts` |

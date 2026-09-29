@@ -62,8 +62,11 @@ export class Game {
     if (qs.get('gallery')) { this.gallery(); return; }
     this.startStage(this.seed);
     let last = performance.now();
-    this.engine.runRenderLoop(() => { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now; this.frame(dt); scene.render(); });
+    this.engine.runRenderLoop(() => { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now; if (!this.active) return; this.frame(dt); scene.render(); });
   }
+  /** The navigation shell hides the battle screen while another tab is open: pause the game so it costs nothing. */
+  private active = true;
+  setActive(on: boolean) { this.active = on; }
 
   // -------------------------------------------------------------------------------------------- scene helpers
   private makeTile(team: 0 | 1, cell: number) {
@@ -110,6 +113,7 @@ export class Game {
   }
   private canvas!: HTMLCanvasElement; private lastW = 0; private lastH = 0; lastTapInfo = '(no taps yet)';
   private handleResize() {
+    if (!this.canvas.clientWidth || !this.canvas.clientHeight) return;   // hidden behind another tab
     this.engine.resize(); this.lastW = this.canvas.clientWidth; this.lastH = this.canvas.clientHeight;
     if (this.phase === 'build' && this.camT >= 1) this.setCam(this.poses().build);
   }

@@ -62,7 +62,27 @@ type Filter = 'all' | 'skill' | 'passive';
              background:linear-gradient(var(--go),var(--go-lo)); color:var(--go-ink); border:1px solid var(--go-hi); box-shadow:0 0 10px var(--go); animation:upPulse 1.2s ease-in-out infinite; }
     .upbtn img { width:1.2em; height:1.2em; margin:0; } @keyframes upPulse { 50% { box-shadow:0 0 20px var(--go); } }
     .tile.flash { animation:flashUp .7s ease-out; } @keyframes flashUp { 0% { box-shadow:0 0 0 #fff; } 35% { box-shadow:0 0 34px #fff; transform:scale(1.07); } 100% { box-shadow:none; } }
+    .uparrow { position:absolute; right:-6px; bottom:22%; z-index:2; width:clamp(18px,3.4vmin,26px); height:clamp(18px,3.4vmin,26px); border-radius:50%; background:var(--go); border:2px solid var(--go-hi); box-shadow:0 0 10px var(--go); display:flex; align-items:center; justify-content:center; animation:upPulse 1.2s ease-in-out infinite; pointer-events:none; }
+    .uparrow img { width:78%; height:78%; } @keyframes upPulse { 50% { box-shadow:0 0 20px var(--go); } }
     .cscrim { z-index:20; }
+    .fxscrim { z-index:25; background:radial-gradient(ellipse at 50% 42%, #0f3a34 0%, #08121c 55%, #05030a 100%); animation:fadeInFx .25s ease-out both; }
+    @keyframes fadeInFx { from { opacity:0; } to { opacity:1; } }
+    .fxbox { display:flex; flex-direction:column; align-items:center; gap:clamp(6px,1.6vmin,12px); animation:fxIn .35s cubic-bezier(.3,1.5,.5,1) both; }
+    @keyframes fxIn { from { transform:scale(.7); opacity:0; } to { transform:none; opacity:1; } }
+    .fxname { font-size:clamp(22px,5.4vmin,38px); font-weight:900; letter-spacing:.04em; text-shadow:0 3px 0 #000, 0 0 18px rgba(255,255,255,.35); }
+    .fxlevel { font-size:clamp(16px,3.6vmin,26px); font-weight:800; color:#7ef2c8; text-shadow:0 0 14px var(--go); animation:lvPop .6s .35s cubic-bezier(.3,1.8,.5,1) both; } .fxlevel img.ic { width:1.1em; height:1.1em; vertical-align:-.2em; } .fxlevel b { font-size:1.3em; }
+    @keyframes lvPop { from { transform:scale(.4); opacity:0; } to { transform:none; opacity:1; } }
+    .fxcardwrap { position:relative; width:clamp(90px,24vmin,150px); aspect-ratio:1; }
+    .fxcard { position:absolute; inset:0; border-radius:16px; border:3px solid #7ef2c8; box-shadow:0 0 30px rgba(126,242,200,.7); display:flex; align-items:center; justify-content:center; } .fxcard img { width:66%; height:66%; object-fit:contain; filter:drop-shadow(0 4px 6px #000a); }
+    .fxring { position:absolute; left:50%; top:50%; width:100%; height:100%; margin:-50% 0 0 -50%; border-radius:50%; border:3px solid var(--go-hi); opacity:0; animation:fxRing .8s .6s ease-out both; }
+    @keyframes fxRing { 0% { transform:scale(.6); opacity:.9; } 100% { transform:scale(3.2); opacity:0; } }
+    .fxspark { position:absolute; left:50%; top:50%; width:8px; height:8px; margin:-4px; border-radius:50%; background:radial-gradient(#fff,#7ef2c8 60%,transparent); opacity:0; animation:fxSpark .9s ease-out both; }
+    @keyframes fxSpark { 0% { transform:translate(0,0) scale(1.4); opacity:1; } 100% { transform:translate(var(--dx),var(--dy)) scale(.2); opacity:0; } }
+    .fxstat { display:grid; grid-template-columns:5.5em auto auto; align-items:baseline; gap:10px; font-weight:800; animation:fadeUpFx .4s .55s ease-out both; } .fxstat:nth-of-type(2) { animation-delay:.7s; }
+    .fxstat .lab { opacity:.8; font-size:clamp(12px,2.4vmin,17px); text-align:right; } .fxstat .val { font-size:clamp(22px,5vmin,36px); text-shadow:0 2px 0 #000; min-width:2.6em; } .fxstat .plus { color:#39ff8a; font-size:clamp(16px,3.6vmin,26px); text-shadow:0 0 10px #1fbf5f; opacity:0; animation:plusPop .5s 1.3s cubic-bezier(.3,1.8,.5,1) both; }
+    @keyframes plusPop { from { transform:scale(.3); opacity:0; } to { transform:none; opacity:1; } }
+    @keyframes fadeUpFx { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+    .fxtap { opacity:.55; margin-top:6px; animation:fadeUpFx .4s 2s ease-out both; }
     .cbox { width:min(380px,94%); display:flex; flex-direction:column; gap:calc(var(--gap) + 2px); padding:calc(var(--gap) + 6px); border-radius:16px; background:#1c2a52; border:2px solid #5a7fd0; box-shadow:0 0 30px rgba(90,127,208,.45); animation:cbIn .18s ease-out; }
     @keyframes cbIn { from { transform:scale(.92); opacity:0; } to { transform:none; opacity:1; } }
     .chead { display:flex; gap:12px; align-items:center; } .cport { width:clamp(52px,12vmin,72px); aspect-ratio:1; border-radius:12px; border:2px solid #8fb0f0; display:flex; align-items:center; justify-content:center; flex:none; } .cport img { width:70%; height:70%; object-fit:contain; }
@@ -94,15 +114,14 @@ type Filter = 'all' | 'skill' | 'passive';
       @for (s of shown(); track s) {
         <div class="tw">
           <button class="tile" [class.lift]="pop() === s" [class.eq]="save.isEquipped(s)" [class.flash]="flashId() === s" (click)="tapTile(s, $event)">
-            <span class="gem">{{ cost(s) }}</span>@if (save.isEquipped(s)) { <span class="tick"><img [src]="checkIcon" alt=""></span> }
+            <span class="gem">{{ cost(s) }}</span>@if (save.isEquipped(s)) { <span class="tick"><img [src]="checkIcon" alt=""></span> }@if (canLevel(s)) { <span class="uparrow"><img [src]="upgradeIcon" alt=""></span> }
             <span class="port" [style.background]="bg(s)"><img [src]="icon(s)" alt=""></span><span class="lv">Level {{ save.progress(s).level }}</span>
             <span class="bar" [class.ready]="canLevel(s)" [class.max]="isMax(s)"><i [style.width.%]="pct(s)"></i><b>{{ isMax(s) ? 'Max' : save.progress(s).copies + '/' + need(s) }}</b></span>
           </button>
-          @if (canLevel(s)) { <button class="upbtn" (click)="askUpgrade(s, $event)"><img class="ic" [src]="upgradeIcon" alt="">Upgrade</button> }
           @if (pop() === s) {
             <div class="pop" (click)="$event.stopPropagation()">
-              <button class="blue" (click)="openDetail(s, $event)">Details</button>
-              <button class="go" (click)="toggle(s, $event)">{{ save.isEquipped(s) ? 'Unequip' : 'Equip' }}</button>
+              <button [class]="canLevel(s) ? 'go' : 'blue'" (click)="openDetail(s, $event)">{{ canLevel(s) ? 'Upgrade' : 'Details' }}</button>
+              <button [class]="canLevel(s) ? 'blue' : 'go'" (click)="toggle(s, $event)">{{ save.isEquipped(s) ? 'Unequip' : 'Equip' }}</button>
             </div>
           }
         </div>
@@ -147,7 +166,7 @@ type Filter = 'all' | 'skill' | 'passive';
             <div class="swipehint">swipe or tap the tabs</div>
           </div>
           <div class="acts">
-            <button [class]="canLevel(d) ? 'go' : 'grey'" [disabled]="!canLevel(d)" (click)="askUpgrade(d, $event)">@if (canLevel(d)) { <img class="ic" [src]="upgradeIcon" alt=""> }Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
+            <button [class]="canLevel(d) ? 'go' : 'grey'" (click)="upgradeClick(d, $event)">@if (canLevel(d)) { <img class="ic" [src]="upgradeIcon" alt=""> }Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
             <button [class]="save.isEquipped(d) ? 'blue' : 'go'" (click)="toggle(d, $event)">{{ save.isEquipped(d) ? 'Unequip' : 'Equip' }}</button>
           </div>
         </div>
@@ -167,6 +186,23 @@ type Filter = 'all' | 'skill' | 'passive';
             @for (r of costs(c); track r.id) { <div class="crow" [class.bad]="!r.ok"><span>{{ r.label }}</span><b>{{ r.have }} / {{ r.need }}</b><img class="ic" [src]="r.ok ? checkIcon : closeIcon" alt=""></div> }
           </div>
           <div class="cbtns"><button class="blue" (click)="cancelUpgrade()">Cancel</button><button class="go" [disabled]="!canPay(c)" (click)="doUpgrade()"><img class="ic" [src]="upgradeIcon" alt="">Confirm</button></div>
+        </div>
+      </div>
+    }
+
+    @if (fx(); as f) {
+      <div class="scrim fxscrim" (click)="closeFx()">
+        <div class="fxbox">
+          <div class="fxname">{{ name(f.soul) }}</div>
+          <div class="fxlevel"><img class="ic" [src]="upgradeIcon" alt=""> Level <b>{{ f.level }}</b></div>
+          <div class="fxcardwrap">
+            <span class="fxring"></span>
+            @for (sp of fxSparks; track $index) { <i class="fxspark" [style.--dx]="sp.dx + 'px'" [style.--dy]="sp.dy + 'px'" [style.animation-delay]="(600 + sp.delay) + 'ms'"></i> }
+            <div class="fxcard" [style.background]="bg(f.soul)"><img [src]="icon(f.soul)" alt=""></div>
+          </div>
+          <div class="fxstat"><span class="lab">Health</span><span class="val">{{ hpShown() }}</span><span class="plus">+{{ f.hp1 - f.hp0 }}</span></div>
+          <div class="fxstat"><span class="lab">Damage</span><span class="val">{{ dmgShown() }}</span><span class="plus">+{{ f.dmg1 - f.dmg0 }}</span></div>
+          <small class="fxtap">Tap to continue</small>
         </div>
       </div>
     }`,
@@ -221,13 +257,37 @@ export class Souls {
     if (this.sortKey() !== k) { this.sortKey.set(k); this.sortDir.set(1); } else if (this.sortDir() === 1) this.sortDir.set(-1); else { this.sortKey.set('none'); this.sortDir.set(1); }
   }
   private beep() { try { (window as any).__audio?.play('merge'); } catch { /* sound is optional */ } }
-  /** Upgrade buttons (tile and details) only ASK: the popup shows the cost and needs a Confirm. */
-  askUpgrade(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(null); if (this.canLevel(s)) this.confirming.set(s); }
+  /** The details page's Upgrade button. Affordable: ask for a Confirm. Not affordable: say exactly what is missing. */
+  upgradeClick(s: SoulId, e: Event) {
+    e.stopPropagation();
+    if (this.isMax(s)) { this.say(SOUL_NAME[s] + ' is already at max level.'); return; }
+    if (this.canLevel(s)) { this.confirming.set(s); return; }
+    const missing = this.costs(s).filter((c) => !c.ok).map((c) => (c.need - c.have) + ' more ' + c.label.toLowerCase()).join(' and ');
+    this.say('You need ' + missing + ' to upgrade!');
+  }
   cancelUpgrade() { this.confirming.set(null); }
   doUpgrade() {
     const s = this.confirming(); this.confirming.set(null); if (!s) return;
-    if (this.save.levelUp(s)) { this.beep(); this.flashId.set(s); setTimeout(() => this.flashId.set(null), 750); this.say(SOUL_NAME[s] + ' is now level ' + this.save.progress(s).level + '!'); }
+    const from = this.save.progress(s).level;
+    if (this.save.levelUp(s)) this.celebrate(s, from);
   }
+  /** After a confirmed upgrade: the new level, and the health and damage gains counting up. */
+  fx = signal<{ soul: SoulId; level: number; hp0: number; hp1: number; dmg0: number; dmg1: number } | null>(null);
+  hpShown = signal(0); dmgShown = signal(0);
+  fxSparks = Array.from({ length: 16 }, (_, i) => { const a = (i / 16) * Math.PI * 2 + Math.random() * 0.3, d = 80 + Math.random() * 120; return { dx: Math.round(Math.cos(a) * d), dy: Math.round(Math.sin(a) * d), delay: Math.round(Math.random() * 200) }; });
+  private fxTimer = 0; private fxRaf = 0;
+  private celebrate(s: SoulId, from: number) {
+    const to = from + 1, f = { soul: s, level: to, hp0: this.statAt(s, 'hp', from), hp1: this.statAt(s, 'hp', to), dmg0: this.statAt(s, 'dmg', from), dmg1: this.statAt(s, 'dmg', to) };
+    this.fx.set(f); this.hpShown.set(f.hp0); this.dmgShown.set(f.dmg0); this.beep(); setTimeout(() => { try { (window as any).__audio?.play('packRare'); } catch { /* optional */ } }, 900);
+    const t0 = performance.now() + 900, step = (now: number) => {
+      const u = Math.max(0, Math.min(1, (now - t0) / 800)), k = 1 - Math.pow(1 - u, 3);
+      this.hpShown.set(Math.round(f.hp0 + (f.hp1 - f.hp0) * k)); this.dmgShown.set(Math.round(f.dmg0 + (f.dmg1 - f.dmg0) * k));
+      if (u < 1) this.fxRaf = requestAnimationFrame(step);
+    };
+    cancelAnimationFrame(this.fxRaf); this.fxRaf = requestAnimationFrame(step);
+    clearTimeout(this.fxTimer); this.fxTimer = window.setTimeout(() => this.closeFx(), 4500);
+  }
+  closeFx() { cancelAnimationFrame(this.fxRaf); clearTimeout(this.fxTimer); this.fx.set(null); }
   setFilter(f: Filter, e: Event) { e.stopPropagation(); this.filter.set(f); this.pop.set(null); }
   tapTile(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(this.pop() === s ? null : s); }
   openDetail(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(null); this.page.set(0); this.detail.set(s); }

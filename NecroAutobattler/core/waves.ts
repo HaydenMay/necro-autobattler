@@ -18,16 +18,16 @@ const parseWave = (s: string): EnemySpec[] => s.split(' ').map((t) => ({ soul: L
 export const DIFFICULTY: Record<string, string[]> = {
   easy: ['W1', 'K1 W1', 'O1 W1 G1', 'K1 A1 W1', 'O1 A1 G1', 'K1 O1 A1', 'K1 O1 A1 G1', 'O1 K1 A1 G1', 'O1 K1 A1 B1', 'O2 K1 A1 G1'],
   normal: ['W1 A1', 'K1 G1 W1', 'O1 A1 G1 W1', 'K1 O1 A1 W1', 'O1 K1 A1 G1 W1', 'A2 K1 O1 G1 W1', 'K1 O1 A1 G1 W1', 'O1 K1 A1 B1 G1', 'O1 K1 A2 B1 G1', 'O2 K1 A1 B1 G1 W1'],
-  hard: ['W1 A1', 'K1 G1 W1 A1', 'O1 A1 G1 W1', 'K1 O1 A1 W1 G1', 'O1 K1 A2 G1 W1', 'A2 K1 O1 G1 W1 B1', 'K1 O1 A1 G1 W2', 'O1 K1 A2 B1 G1', 'O2 K1 A2 B1 G1', 'O2 K2 A1 B1 G1 W1'],
-  nightmare: ['W1 A1 G1', 'K1 G1 W1 A1', 'O1 A1 G1 W1 B1', 'K1 O1 A1 W1 G1', 'O1 K1 A2 G1 W1', 'A2 K1 O1 G1 W1 B1', 'K1 O1 A2 G1 W1 B1', 'O1 K2 A2 B1 G1', 'O2 K1 A2 B1 G1 W1', 'O2 K2 A2 B1 G1 W1'],
+  hard: ['W1 A1', 'K1 G1 W1 A1 W1', 'O1 A1 G1 W1 W1', 'K1 O1 A1 W1 G1 W1', 'O1 K1 A2 G1 W1 W1 W1', 'A2 K1 O1 G1 W1 B1 W1 W1', 'K1 O1 A1 G1 W2 W1 W1', 'O1 K1 A2 B1 G1 W1 W1 G1', 'O2 K1 A2 B1 G1 W1 W1 G1', 'O2 K2 A1 B1 G1 W1 W1 W1 G1'],
+  nightmare: ['W1 A1 G1', 'K1 G1 W1 A1 W1', 'O1 A1 G1 W1 B1 W1', 'K1 O1 A1 W1 G1 W1 W1', 'O1 K1 A2 G1 W1 B1 W1 W1 G1', 'A2 K1 O1 G1 W1 B1 W1 W1 G1 G1', 'K1 O1 A2 G1 W1 B1 W1 W1 G1 G1 B1', 'O1 K2 A2 B1 G1 W1 W1 W1 G1 G1 B1', 'O2 K1 A2 B1 G1 W1 W1 W1 G1 G1 B1 K1', 'O2 K2 A2 B1 G1 W1 W1 W1 G1 G1 B1 K1'],
 };
 
-/** Names and one-line promises for the difficulty picker. Measured stage-clear rates (competent / careless stand-in): easy 98/90, normal 82/44, hard 56/16, nightmare 30/8. */
+/** Names and one-line promises for the difficulty picker. Difficulty depends on the player's Soul levels (levels make units tougher). Competent stand-in stage-clear rate with EVERY Soul at level 1 / 4 / 6: easy 98/100/100, normal 82/98/100, hard 7/60/87, nightmare 0/33/74. Hard and Nightmare are volume-driven (up to 12 enemies) and are meant to need levelled Souls. */
 export const DIFFICULTY_INFO = [
   { id: 'easy', label: 'Easy', blurb: 'Smaller enemy armies. Relax and learn how merging works.' },
   { id: 'normal', label: 'Normal', blurb: 'A fair fight. Most players clear it within a run or two.' },
-  { id: 'hard', label: 'Hard', blurb: 'Sharper armies. Mistakes cost hearts.' },
-  { id: 'nightmare', label: 'Nightmare', blurb: 'Stars and skills everywhere. Expect to lose hearts, and to earn the win.' },
+  { id: 'hard', label: 'Hard', blurb: 'Bigger armies with more fodder. Expect to want a few Soul levels first.' },
+  { id: 'nightmare', label: 'Nightmare', blurb: 'A packed battlefield of stars and skills. Built for well-levelled Souls.' },
 ];
 export let difficultyName = 'normal';
 

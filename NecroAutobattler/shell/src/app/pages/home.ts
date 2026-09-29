@@ -8,16 +8,10 @@ import { describeUnlock } from '../../../../core/progress.ts';
 import type { Difficulty } from '../../../../core/save.ts';
 import { GameLink } from '../game-link.service';
 import { SaveService } from '../save.service';
+import { MOOD, lookOf } from '../stage-look';
 import { hasArt, heartEmptyIcon, heartIcon, rarityColor, skullIcon, soulArt } from '../soul-ui';
 
 const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', hard: 'Hard', nightmare: 'Nightmare' };
-/** One look per stage, matching the arena themes: the arena mood picture is hue-shifted (teal -> green / violet) and cropped differently, and the mist takes the stage colour. */
-const LOOK: Record<string, { hue: number; fog: string; pos: string; accent: string }> = {
-  crypt: { hue: 0, fog: 'rgba(47,217,166,.55)', pos: '50% 62%', accent: '#2fd9a6' },
-  graveyard: { hue: -66, fog: 'rgba(150,222,70,.5)', pos: '18% 55%', accent: '#a6e04a' },
-  bastion: { hue: 104, fog: 'rgba(140,120,255,.5)', pos: '88% 40%', accent: '#9a8cff' },
-};
-const MOOD = 'url(assets/arena/mood.webp)';
 
 /** Home: the campaign (stages and their difficulty tiers), your deck, and the one big button. The fight opens full-screen from here. */
 @Component({
@@ -26,13 +20,6 @@ const MOOD = 'url(assets/arena/mood.webp)';
   styles: [`
     :host { display:flex; align-items:center; justify-content:center; min-height:100%; font-size:clamp(11px,1.9vmin,14px); }
     .wrap { width:100%; display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,1fr); gap:clamp(8px,2vmin,18px); max-width:960px; }
-    /* the backdrop: the arena picture in the stage's colour, drifting mist, and a vignette. Sits behind the page content but beside the rail. */
-    .bd { position:fixed; top:0; bottom:0; left:var(--rail); right:0; z-index:-1; overflow:hidden; background:#04070a; pointer-events:none; }
-    .bdimg { position:absolute; inset:-3%; background-size:cover; opacity:.55; transition:filter .6s, background-position .6s; }
-    .fog { position:absolute; inset:-25%; opacity:.4; animation:drift 46s ease-in-out infinite alternate; background:radial-gradient(ellipse 40% 30% at 25% 70%, var(--fog), transparent 70%), radial-gradient(ellipse 35% 28% at 78% 55%, var(--fog), transparent 70%); }
-    .fog.f2 { opacity:.28; animation-duration:64s; animation-direction:alternate-reverse; background:radial-gradient(ellipse 45% 25% at 60% 85%, var(--fog), transparent 70%), radial-gradient(ellipse 30% 30% at 15% 40%, var(--fog), transparent 70%); }
-    @keyframes drift { from { transform:translate3d(-5%,0,0) scale(1); } to { transform:translate3d(5%,-3%,0) scale(1.08); } }
-    .vig { position:absolute; inset:0; background:radial-gradient(ellipse at 50% 45%, transparent 30%, rgba(2,5,8,.88) 100%); }
     .stage { position:relative; padding:0; overflow:hidden; background:linear-gradient(160deg,rgba(10,22,30,.86),rgba(8,10,16,.9)); border-color:color-mix(in srgb, var(--accent) 45%, #1b1526); box-shadow:0 0 22px color-mix(in srgb, var(--accent) 22%, transparent), 0 8px 24px #000a; }
     .stage .in { padding:clamp(10px,2.4vmin,20px); }
     .hero { position:relative; overflow:hidden; height:clamp(58px,13vmin,96px); border-bottom:1px solid color-mix(in srgb, var(--accent) 50%, #000); }
@@ -91,7 +78,6 @@ const MOOD = 'url(assets/arena/mood.webp)';
     @media (max-width:640px) { .wrap { grid-template-columns:1fr; } }
   `],
   template: `
-    <div class="bd" [style.--fog]="look().fog"><div class="bdimg" [style.background-image]="mood" [style.background-position]="look().pos" [style.filter]="'hue-rotate(' + look().hue + 'deg) saturate(1.15) brightness(.8)'"></div><div class="fog"></div><div class="fog f2"></div><div class="vig"></div></div>
     <div class="wrap">
       <div class="box stage" [style.--accent]="look().accent">
         <div class="hero"><div class="heroimg" [style.background-image]="mood" [style.background-position]="look().pos" [style.filter]="'hue-rotate(' + look().hue + 'deg) saturate(1.2)'"></div>
@@ -193,8 +179,7 @@ export class Home implements OnDestroy {
   deckSlots = computed(() => Array.from({ length: this.save.deckSize }, (_, i) => this.save.deck()[i] ?? null));
   deckOk = computed(() => this.save.deck().length === this.save.deckSize);
   icon = (s: SoulId) => soulArt(s); art = (s: SoulId) => hasArt(s); rc = (s: SoulId) => rarityColor(s); name = (s: SoulId) => SOUL_NAME[s];
-  mood = MOOD;
-  lookOf = (id: string) => LOOK[id] ?? LOOK['crypt'];
+  mood = MOOD; lookOf = lookOf;
   look = computed(() => this.lookOf(this.shownStage()));
   skullIcon = skullIcon; heartFull = heartIcon; heartEmpty = heartEmptyIcon;
   heartList = (n: number) => Array.from({ length: 3 }, (_, i) => i < n);

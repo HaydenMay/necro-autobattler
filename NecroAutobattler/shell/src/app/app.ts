@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Backdrop } from './backdrop';
 import { GameLink } from './game-link.service';
 import { SaveService } from './save.service';
 
@@ -9,7 +10,7 @@ const SCRIPTS = ['vendor/babylon.js', 'vendor/babylonjs.loaders.min.js', 'game.j
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Backdrop],
   templateUrl: './app.html',
 })
 export class App {
@@ -19,6 +20,8 @@ export class App {
   private url = signal(this.router.url);
   /** True while the full-screen run (the 3D game) is showing: no rail, no page. */
   readonly onRun = computed(() => this.url().startsWith('/run'));
+  /** Home gets the full backdrop; every other page a calmer one. */
+  readonly onHome = computed(() => this.url().startsWith('/home'));
 
   constructor() {
     this.router.events.subscribe((e) => { if (e instanceof NavigationEnd) this.url.set(e.urlAfterRedirects); });

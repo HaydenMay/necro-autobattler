@@ -1,3 +1,4 @@
+@if (!onRun()) { <app-backdrop [calm]="!onHome()" /> }
 <nav class="rail" [class.hide]="onRun()">
   <a routerLink="/home" routerLinkActive="active"><img class="ri" src="assets/icons/home.png" alt="">Home</a>
   <a routerLink="/souls" routerLinkActive="active"><img class="ri" src="assets/icons/souls.png" alt="">Souls@if (save.readyCount()) { <i class="rbadge ok">{{ save.readyCount() }}</i> }</a>

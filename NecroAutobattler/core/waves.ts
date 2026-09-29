@@ -6,17 +6,29 @@ import { makeRng } from './rng.ts';
 
 export interface EnemySpec { soul: SoulId; star: number }
 
-/** Hand-authored opening waves (prototype stage is 3 waves). Budgets ~ the player's cap at that wave. */
-export const AUTHORED: EnemySpec[][] = [
-  // Tuned with sim/tune_waves.ts for the hand-merge rule (competent stand-in player: first-try win w1 97%, w2 62%, w3 75%; stage clear 75%;
-  // careless player who just summons the biggest card: stage clear 26%).
-  // wave 1 (cap 9): a Warrior and an Archer
-  [{ soul: "warrior", star: 1 }, { soul: "archer", star: 1 }],
-  // wave 2 (cap 13): Knight up front, a Goblin, a Warrior and an Archer
-  [{ soul: "knight", star: 1 }, { soul: "goblin", star: 1 }, { soul: "warrior", star: 1 }, { soul: "archer", star: 1 }],
-  // wave 3 (cap 17): Ogre, Archer, Goblin, Warrior
-  [{ soul: "ogre", star: 1 }, { soul: "archer", star: 1 }, { soul: "goblin", star: 1 }, { soul: "warrior", star: 1 }],
-];
+const LETTER: Record<string, SoulId> = { W: 'warrior', A: 'archer', G: 'goblin', K: 'knight', O: 'ogre', B: 'barbarian' };
+const parseWave = (s: string): EnemySpec[] => s.split(' ').map((t) => ({ soul: LETTER[t[0]], star: +t[1] }));
+
+/**
+ * Difficulty presets for the 3-wave prototype (W warrior, A archer, G goblin, K knight, O ogre; digit = stars).
+ * Measured with sim/tune_waves.ts against stand-in players (competent / careless), stage-clear rate:
+ *   easy   ~100% / ~90%      normal ~94% / ~51%      hard ~75% / ~26%
+ * A real human on a phone is much less careful than the competent stand-in, so "normal" is the default.
+ */
+export const DIFFICULTY: Record<string, string[]> = {
+  easy: ['W1', 'K1 W1', 'O1 W1 G1'],
+  normal: ['W1 A1', 'K1 G1 W1', 'O1 A1 G1 W1'],
+  hard: ['W1 A1', 'K1 G1 W1 A1', 'O1 A1 G1 W1'],
+};
+export let difficultyName = 'normal';
+
+/** Hand-authored opening waves (prototype stage is 3 waves). Budgets ~ the player's cap at that wave. Edited in place by setDifficulty. */
+export const AUTHORED: EnemySpec[][] = DIFFICULTY.normal.map(parseWave);
+
+export function setDifficulty(name: string): void {
+  if (!DIFFICULTY[name]) return;
+  difficultyName = name; AUTHORED.length = 0; DIFFICULTY[name].forEach((w) => AUTHORED.push(parseWave(w)));
+}
 
 export const waveCost = (w: EnemySpec[]): number => w.reduce((n, e) => n + COST[e.soul][e.star - 1], 0);
 

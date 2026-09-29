@@ -73,10 +73,12 @@ export class Ui {
       <div class="dsec">Star multipliers (bodies = damage, stars = durability)
         ${row('HP x 2★', BALANCE.star.hp, 1, 1, 4, 0.05)}${row('HP x 3★', BALANCE.star.hp, 2, 1, 6, 0.05)}${row('Damage x 2★', BALANCE.star.dmg, 1, 1, 4, 0.05)}${row('Damage x 3★', BALANCE.star.dmg, 2, 1, 6, 0.05)}${row('Size 2★', BALANCE.star.scale, 1, 1, 1.6, 0.02)}${row('Size 3★', BALANCE.star.scale, 2, 1, 2, 0.02)}</div>
       <div class="dsec"><table><tr><th></th><th>hp</th><th>dmg</th><th>rate</th><th>range</th><th>spd</th></tr>${SOULS.map((k) => `<tr><td>${ICON[k]}</td>${['hp', 'dmg', 'interval', 'range', 'speed'].map((f) => `<td><input class="num" data-soul="${k}" data-f="${f}" value="${(BALANCE.stats as any)[k][f]}"></td>`).join('')}</tr>`).join('')}</table></div>
+      <div class="dsec">Difficulty <select id="dDiff">${['easy', 'normal', 'hard'].map((k) => `<option value="${k}" ${g.difficulty === k ? 'selected' : ''}>${k}</option>`).join('')}</select> <small>(applies to the next battle)</small></div>
       <div class="dsec"><label><input type="checkbox" id="dMergeHand" ${g.s.rules.merge === 'handIntoOneStar' ? 'checked' : ''}> Merge a hand card straight into a deployed unit (off = doc rule: both copies must be on the board)</label></div>
       <div class="dsec"><button id="dOdds">Test odds (200 fights)</button> <span id="dOddsOut">${this.odds}</span></div>
       <div class="dsec"><button id="dCopy">Copy report</button> <button id="dReset">Reset balance</button> <button id="dRestart">Restart stage</button></div>
       <div class="dsec">Add card <select id="dCard">${SOULS.map((k) => `<option value="${k}">${SOUL_NAME[k]}</option>`).join('')}</select> <button id="dAdd">+</button> <button id="dDom">+2 Dominion</button></div>
+      <div class="dsec"><small>Last tap: <span id="dbgtap">${g.lastTapInfo}</span></small></div>
       <div class="dsec"><small>Seed ${g.seed}. Add <code>?seed=7</code> to the link to replay the same draws.</small></div>`;
     d.querySelectorAll<HTMLInputElement>('input[type=range]').forEach((inp) => (inp.oninput = () => {
       const lab = inp.dataset.o!; const v = +inp.value; (inp.nextElementSibling as HTMLElement).textContent = String(v);
@@ -84,6 +86,7 @@ export class Ui {
       set[lab](); g.applyBalanceChange();
     }));
     d.querySelectorAll<HTMLInputElement>('input.num').forEach((inp) => (inp.onchange = () => { (BALANCE.stats as any)[inp.dataset.soul!][inp.dataset.f!] = +inp.value; }));
+    $('dDiff').onchange = (e) => g.changeDifficulty((e.target as HTMLSelectElement).value);
     $('dMergeHand').onchange = (e) => { g.s.rules.merge = (e.target as HTMLInputElement).checked ? 'handIntoOneStar' : 'deployedOnly'; g.syncBuild(); this.render(); };
     $('dOdds').onclick = () => { const r = g.testOdds(200); this.odds = `${r.win}% win (${r.n} fights, avg ${r.avgTime}s) vs wave ${g.s.wave}`; $('dOddsOut').textContent = this.odds; };
     $('dCopy').onclick = () => { const t = g.report(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => this.toast('Report copied. Paste it into chat.')).catch(() => { prompt('Copy this report:', t); }); };
@@ -91,5 +94,8 @@ export class Ui {
     $('dRestart').onclick = () => g.startStage(g.seed);
     $('dAdd').onclick = () => g.addCard(($('dCard') as HTMLSelectElement).value as SoulId); $('dDom').onclick = () => g.addDominion(2);
   }
-  private renderDebugLive() { const f = document.getElementById('dbgfps'); if (f) f.textContent = `${this.g.engine.getFps().toFixed(0)} fps • ${this.g.phase}`; }
+  private renderDebugLive() {
+    const f = document.getElementById('dbgfps'); if (f) f.textContent = `${this.g.engine.getFps().toFixed(0)} fps • ${this.g.phase}`;
+    const t = document.getElementById('dbgtap'); if (t) t.textContent = this.g.lastTapInfo;
+  }
 }

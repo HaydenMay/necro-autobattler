@@ -13,8 +13,9 @@ Open the GitHub Pages link for this repository (Settings -> Pages shows the addr
 * Tap a card, then a green tile to summon it. Tap a glowing purple unit to merge the card into it (same Soul, 1 star).
 * Tap a unit to select it: **Merge** with a matching unit, move it to a free tile, or **Remove** it (the card is gone for the stage).
 * **Swap** (once per round): discard a card or sell a unit you did not summon this round; you draw a *different* Soul.
-* The **gear** button opens the debug panel: live star multipliers and unit stats, "Test odds", copy-paste state report, seed control.
-  Add `?seed=7` to the link to replay the same draws.
+* The **gear** button opens the debug panel: live star multipliers and unit stats, difficulty (easy / normal / hard), "Test odds",
+  a copy-paste state report and a "last tap" line for diagnosing touch problems. Add `?seed=7` to the link to replay the same draws.
+* **Home-screen app (iPhone):** Share -> Add to Home Screen. After an update, delete the old icon and add it again so the phone loads the new version.
 
 ## Run it on your own machine
 

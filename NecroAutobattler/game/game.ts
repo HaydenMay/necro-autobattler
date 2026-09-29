@@ -10,7 +10,7 @@ import {
 import type { State } from '../core/rules.ts';
 import { Battle, cellPos, FRONT_X, GRID_SP, simulate } from '../core/battle.ts';
 import type { BEvent } from '../core/battle.ts';
-import { enemyWave } from '../core/waves.ts';
+import { difficultyName, enemyWave, setDifficulty } from '../core/waves.ts';
 import { PROTOTYPE_RULES } from '../core/prototype.ts';
 import { createVisual, isTripo, loadAssets } from './visuals.ts';
 import type { Assets, UnitVisual } from './visuals.ts';
@@ -49,13 +49,16 @@ export class Game {
     this.arrowMats = [0, 1].map((t) => { const m = new BABYLON.StandardMaterial('am' + t, scene); m.diffuseColor = BABYLON.Color3.Black(); m.emissiveColor = t === 0 ? new BABYLON.Color3(0.75, 0.3, 1) : new BABYLON.Color3(1, 0.7, 0.25); m.disableLighting = true; return m; });
     this.ui = new Ui(this); this.seed = +(qs.get('seed') || 1);
 
-    scene.onPointerObservable.add((pi: any) => {
-      if (pi.type !== BABYLON.PointerEventTypes.POINTERTAP || this.phase !== 'build') return;
-      const p = scene.pick(scene.pointerX, scene.pointerY, (m: any) => !!(m.metadata && m.metadata.kind));
-      if (!p.hit) return; const md = p.pickedMesh.metadata;
-      if (md.kind === 'tile') this.onTile(md.cell); else if (md.kind === 'unit') this.onUnitVisual(md.visual);
-    });
-    window.addEventListener('resize', () => this.engine.resize());
+    // Taps are detected here (not through Babylon) so they behave the same in Safari, the home-screen app and on desktop.
+    let down: { x: number; y: number; t: number } | null = null;
+    const local = (e: PointerEvent) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    canvas.addEventListener('pointerdown', (e) => { down = { ...local(e), t: performance.now() }; });
+    canvas.addEventListener('pointerup', (e) => { if (!down) return; const p = local(e); const moved = Math.hypot(p.x - down.x, p.y - down.y), dt = performance.now() - down.t; down = null; if (moved < 16 && dt < 900) this.tap(p.x, p.y); });
+    canvas.addEventListener('pointercancel', () => { down = null; });
+    this.canvas = canvas; const onResize = () => this.handleResize();
+    window.addEventListener('resize', onResize); window.addEventListener('orientationchange', () => setTimeout(onResize, 250));
+    if ((window as any).visualViewport) (window as any).visualViewport.addEventListener('resize', onResize);
+    if ((window as any).ResizeObserver) new (window as any).ResizeObserver(onResize).observe(canvas);
     if (qs.get('gallery')) { this.gallery(); return; }
     this.startStage(this.seed);
     let last = performance.now();
@@ -92,9 +95,31 @@ export class Game {
     const half = FRONT_X + (GRID_COLS - 1) * GRID_SP + 1.4;
     const d = Math.max(half / (tanV * asp), ((GRID_ROWS * GRID_SP) / 2 + 2) / (tanV * 0.55), 8);
     const battle = { pos: new BABYLON.Vector3(-0.1 * d, 0.42 * d + 0.5, -0.86 * d), tgt: new BABYLON.Vector3(0, 0.35, 0) };
-    const cx = -(FRONT_X + ((GRID_COLS - 1) * GRID_SP) / 2), d2 = Math.max(((GRID_COLS * GRID_SP) / 2 + 0.7) / (tanV * asp), ((GRID_ROWS * GRID_SP) / 2 + 1.0) / (tanV * 0.72), 5.2);
-    const build = { pos: new BABYLON.Vector3(cx, 0.74 * d2, -0.62 * d2), tgt: new BABYLON.Vector3(cx, 0, 0.55) };
+    // Build view: (almost) straight down, with the whole grid inside the band between the top bar and the hand of cards.
+    const cx = -(FRONT_X + ((GRID_COLS - 1) * GRID_SP) / 2), H = Math.max(1, this.canvas.clientHeight);
+    const box = (id: string) => { const el = document.getElementById(id); return el && el.offsetParent !== null ? el.getBoundingClientRect() : null; };
+    const topBar = box('top'), hand = box('hand'), info = box('info');
+    const TOP = Math.min(0.32, topBar ? (topBar.bottom + 6) / H : 0.1);
+    const BOTTOM = Math.min(0.5, (H - Math.min(hand ? hand.top : H, info ? info.top : H) + 6) / H);
+    const band = Math.max(0.3, 1 - TOP - BOTTOM), centerFrac = TOP + band / 2;          // the grid's centre appears at this fraction from the top
+    const gw = GRID_COLS * GRID_SP + 0.5, gh = GRID_ROWS * GRID_SP + 0.5;
+    const d2 = Math.max(gh / (2 * tanV * band), gw / (2 * tanV * asp * 0.88), 4.5);
+    const shift = (0.5 - centerFrac) * 2 * d2 * tanV;
+    const build = { pos: new BABYLON.Vector3(cx, d2, -shift - 0.1 * d2), tgt: new BABYLON.Vector3(cx, 0, -shift) };
     return { battle, build };
+  }
+  private canvas!: HTMLCanvasElement; private lastW = 0; private lastH = 0; lastTapInfo = '(no taps yet)';
+  private handleResize() {
+    this.engine.resize(); this.lastW = this.canvas.clientWidth; this.lastH = this.canvas.clientHeight;
+    if (this.phase === 'build' && this.camT >= 1) this.setCam(this.poses().build);
+  }
+  /** A tap on the 3D view: pick a tile or a unit. */
+  private tap(x: number, y: number) {
+    const p = this.scene.pick(x, y, (m: any) => !!(m.metadata && m.metadata.kind));
+    const md = p && p.hit ? p.pickedMesh.metadata : null;
+    this.lastTapInfo = `tap ${Math.round(x)},${Math.round(y)} of ${this.canvas.clientWidth}x${this.canvas.clientHeight} -> ${md ? (md.kind === 'tile' ? 'tile ' + md.cell : 'unit') : 'nothing'} (phase ${this.phase})`;
+    if (this.phase !== 'build' || !md) return;
+    if (md.kind === 'tile') this.onTile(md.cell); else if (md.kind === 'unit') this.onUnitVisual(md.visual);
   }
   private setCam(p: any) { this.camera.position.copyFrom(p.pos); this.camera.setTarget(p.tgt.clone()); }
   private tweenCam(to: any, dur: number) { this.camFrom = { pos: this.camera.position.clone(), tgt: this.camera.getTarget().clone() }; this.camTo = to; this.camT = 0; this.camDur = dur; }
@@ -209,6 +234,7 @@ export class Game {
   }
 
   private frame(dt: number) {
+    if (this.canvas.clientWidth !== this.lastW || this.canvas.clientHeight !== this.lastH) this.handleResize();   // e.g. the home-screen app resizing after launch
     for (let i = this.timers.length - 1; i >= 0; i--) { this.timers[i].t -= dt; if (this.timers[i].t <= 0) { const f = this.timers[i].fn; this.timers.splice(i, 1); f(); } }
     for (let i = this.ringFx.length - 1; i >= 0; i--) { const r = this.ringFx[i]; r.t += dt; const u = r.t / r.dur, s = r.r0 + (r.r1 - r.r0) * u; r.m.scaling.set(s, s, s); r.mm.alpha = 0.9 * (1 - u); if (u >= 1) { r.m.dispose(); r.mm.dispose(); this.ringFx.splice(i, 1); } }
     if (this.camT < 1) { this.camT = Math.min(1, this.camT + dt / this.camDur); const e = this.camT * this.camT * (3 - 2 * this.camT); this.camera.position = BABYLON.Vector3.Lerp(this.camFrom.pos, this.camTo.pos, e); this.camera.setTarget(BABYLON.Vector3.Lerp(this.camFrom.tgt, this.camTo.tgt, e)); }
@@ -277,9 +303,11 @@ export class Game {
     const s = this.s, en = enemyWave(s.wave, this.seed);
     return [`seed ${this.seed}  wave ${s.wave}/${stageWaves(s)}  hearts ${s.hearts}  dominion ${dominionUsed(s)}/${s.cap}  phase ${this.phase}  attempt ${this.attempt}`,
       `hand: ${s.hand.join(', ') || '(empty)'}`, `army: ${s.units.map((u) => `${u.soul}${u.star}@${u.cell}`).join(' ') || '(none)'}`, `enemy: ${en.map((e) => e.soul + e.star).join(' ')}`,
-      `swap used: ${s.discardUsed}`, `last battle: ${this.lastBattle || '-'}`, `log tail:`, ...s.log.slice(-8), `balance: ${JSON.stringify({ star: BALANCE.star, stats: BALANCE.stats })}`].join('\n');
+      `difficulty: ${difficultyName}  merge-from-hand: ${s.rules.merge === 'handIntoOneStar'}  swap used: ${s.discardUsed}`, `last tap: ${this.lastTapInfo}`, `screen: ${this.canvas.clientWidth}x${this.canvas.clientHeight} dpr ${window.devicePixelRatio}`, `last battle: ${this.lastBattle || '-'}`, `log tail:`, ...s.log.slice(-8), `balance: ${JSON.stringify({ star: BALANCE.star, stats: BALANCE.stats })}`].join('\n');
   }
   resetBalanceAll() { resetBalance(); this.applyBalanceChange(); }
+  get difficulty() { return difficultyName; }
+  changeDifficulty(name: string) { setDifficulty(name); this.ui.render(); this.toast(`Difficulty: ${name}. Applies to the next battle.`); }
 
   // -------------------------------------------------------------------------------------------- gallery (star looks)
   gallery() {

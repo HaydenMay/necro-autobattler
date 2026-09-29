@@ -246,6 +246,8 @@ else:
         m = ids == i; c = co[m]; ext = (c.max(0) - c.min(0)).max()
         if ext <= RIGID:
             cen = c.mean(0, keepdims=True); d = seg_dist(cen, A, Bb)[0]; W[m, :] = 0; W[m, int(np.argmin(d))] = 1.0; rigid_count += 1
+    HZ = CFG.get('weights', {}).get('head_z')      # everything above this height is the head (a big helmet must not be dragged by the arms beside it)
+    if HZ is not None and 'Head' in names: W[co[:, 2] > HZ, :] = 0; W[co[:, 2] > HZ, names.index('Head')] = 1.0
     log('islands', nisl, 'rigid', rigid_count, 'blended', nisl - rigid_count)
     for j, n in enumerate(names):
         vg = body.vertex_groups.new(name=n)
@@ -441,9 +443,86 @@ def o_cheer(f, n=60):
     p = f / n; up = seg(p, 0, .2) * (1 - seg(p, .85, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 3)) * up
     return dict(chest_rot=(-14 * up, 0, 0), head_rot=(-12 * up - 5 * pump, 0, 0), hips_off=(0, 0, 0.03 * pump),
                 hand_L=vl(RL, V(0.30, -0.02 - 0.04 * pump, 0.80 + 0.03 * pump), up), hand_R=vl(va(RR, (0.02, -0.06, 0)), V(-0.31, -0.02 - 0.04 * pump, 0.80 + 0.03 * pump), up), rot_R=(lerp(ROT0, -30, up), 0, 0))
+def dbl(f, n=90):   # double biceps: both arms up, chest out, alternating pump, proud head turns
+    p = f / n; up = seg(p, .06, .22) * (1 - seg(p, .88, 1.0)); w = p * 2 * math.pi * 3; pa = max(0, math.sin(w)) * up; pb = max(0, -math.sin(w)) * up
+    return dict(hand_L=vl(GL, V(0.30, -0.02 - 0.03 * pa, 0.72 + 0.03 * pa), up), hand_R=vl(GR, V(-0.30, -0.02 - 0.03 * pb, 0.72 + 0.03 * pb), up),
+                chest_rot=(-12 * up, 0, 5 * math.sin(w) * up), head_rot=(-12 * up, 0, 14 * math.sin(w / 3) * up), hips_off=(0, 0, -0.03 * up + 0.01 * (pa + pb)),
+                foot_L=(0.03 * up, 0, 0), foot_R=(-0.03 * up, 0, 0))
+def crack(f, n=80):   # neck crack: hands to the jaw, head snaps to each side
+    p = f / n; up = seg(p, .05, .2) * (1 - seg(p, .86, 1.0)); s1 = seg(p, .30, .34) - seg(p, .48, .52); s2 = seg(p, .56, .60) - seg(p, .74, .78)
+    return dict(hand_L=vl(GL, V(0.10, -0.16, 0.64), up), hand_R=vl(GR, V(-0.10, -0.16, 0.64), up), chest_rot=(-4 * up, 0, 0),
+                head_rot=(-6 * up, 0, 26 * s1 - 24 * s2), neck_rot=(0, 0, 8 * s1 - 8 * s2), hips_off=(0, 0, 0.006 * (s1 + s2)))
+def twirl(f, n=70):   # spin the bow on the fingers, catch it, tip the head
+    p = f / n; up = seg(p, .05, .18) * (1 - seg(p, .90, 1.0)); spin = seg(p, .20, .66)
+    return dict(hand_L=vl(GL, V(0.20, -0.20, 0.52), up), rot_L=(720 * spin, 0, 0),
+                chest_rot=(-3 * up, 0, 8 * math.sin(spin * math.pi) * up), head_rot=(-6 * up + 8 * seg(p, .70, .80) * (1 - seg(p, .84, 1.0)), 0, 0), hips_off=(0, 0, 0.012 * math.sin(spin * math.pi * 2)))
+# ---- Warrior: small, brave, clumsy. Sword in the right hand (rot_R: degrees about X, 0 = blade straight up, + = tip forward/down); left fist guards.
+WL, WR = V(0.13, -0.13, 0.34), V(-0.12, -0.15, 0.36)
+WR0 = 38
+def w_idle(f, n=60):
+    w = 2 * math.pi * f / n; br = math.sin(w)
+    return dict(hips_off=(0, 0, 0.006 * br), chest_rot=(1.5 * br, 0, 1.5 * math.sin(w * 0.5)), head_rot=(-1.0 * math.sin(w - 1.0), 0, 3 * math.sin(w * 0.5)),
+                hand_L=va(WL, (0, 0, 0.006 * math.sin(w - 0.4))), hand_R=va(WR, (0, 0, 0.006 * math.sin(w - 0.8))), rot_R=(WR0 + 3 * br, 0, 0))
+def w_walk(f, n=32, stride=0.065, lift=0.04, bob=0.012, lean=3, arm=0.03, run=False):
+    w = 2 * math.pi * f / n
+    foot = lambda ph: (0, -stride * math.sin(w + ph), lift * max(0, math.cos(w + ph)))
+    return dict(hips_off=(0.006 * math.sin(w), -0.008 if run else 0, bob * math.cos(2 * w) - (0.02 if run else 0)), hips_rot=(lean, 0, 4 * math.sin(w)), chest_rot=(lean * 0.5, 0, -5 * math.sin(w)),
+                head_rot=(-lean * 0.6, 0, 2 * math.sin(w)), foot_L=foot(0), foot_R=foot(math.pi),
+                hand_L=va(WL, (0, arm * math.sin(w), 0.02 * math.cos(2 * w))), hand_R=va(WR, (0, -arm * math.sin(w), 0.012 * math.cos(2 * w))), rot_R=(WR0 + 6 * math.sin(w), 0, 0))
+def w_run(f, n=20):
+    d = w_walk(f, n, stride=0.11, lift=0.07, bob=0.018, lean=11, arm=0.07, run=True); w = 2 * math.pi * f / n
+    d['hand_L'] = V(0.14, -0.16 - 0.06 * math.sin(w), 0.42); d['hand_R'] = V(-0.13, -0.20 + 0.06 * math.sin(w), 0.42); d['rot_R'] = (WR0 + 25, 0, 0); return d
+def w_attack(f, n=36):
+    p = f / n; wind = seg(p, 0, .32); slash = seg(p, .40, .52); rec = seg(p, .68, 1.0)
+    hr = vl(WR, V(-0.14, -0.02, 0.80), wind); hr = vl(hr, V(-0.14, -0.28, 0.40), slash); hr = vl(hr, WR, rec)
+    rot = lerp(WR0, -25, wind); rot = lerp(rot, 135, slash); rot = lerp(rot, WR0, rec)
+    hl = vl(WL, V(0.20, -0.04, 0.60), wind); hl = vl(hl, V(0.16, -0.18, 0.36), slash); hl = vl(hl, WL, rec)
+    lean = lerp(lerp(-16 * wind, 26, slash), 0, rec)
+    return dict(hand_R=hr, hand_L=hl, rot_R=(rot, 0, 0), chest_rot=(lean, 0, 4 * slash), head_rot=(lerp(-6 * wind, 10, slash) * (1 - rec), 0, 0),
+                hips_off=(0, -0.05 * slash * (1 - rec), -0.02 * slash * (1 - rec)), foot_R=(0, -0.05 * slash * (1 - rec), 0))
+def w_hit(f, n=18):
+    k = math.sin(max(0, min(1, f / n)) * math.pi)
+    return dict(chest_rot=(-22 * k, 0, 5 * k), head_rot=(-16 * k, 0, -8 * k), hips_off=(0, 0.05 * k, -0.02 * k), hand_L=va(WL, (0.05, 0.03, 0.10 * k)), hand_R=va(WR, (-0.03, 0.05, 0.08 * k)), rot_R=(WR0 - 20 * k, 0, 0))
+def w_death(f):
+    stag = dict(hand_L=va(WL, (0.05, 0.03, 0.10)), hand_R=va(WR, (-0.03, 0.05, 0.08)), chest_rot=(-15, 0, 5), head_rot=(-12, 0, -8), hips_off=(0, 0.05, -0.02), rot_R=(WR0 - 20, 0, 0))
+    if f <= 5:
+        k = f / 5; return dict(hand_L=vl(WL, stag['hand_L'], k), hand_R=vl(WR, stag['hand_R'], k), chest_rot=vl((0, 0, 0), stag['chest_rot'], k), head_rot=vl((0, 0, 0), stag['head_rot'], k),
+                               hips_off=vl((0, 0, 0), stag['hips_off'], k), rot_R=(lerp(WR0, WR0 - 20, k), 0, 0))
+    t = min(1.0, (f - 5) / 22); e = t * t * (3 - 2 * t); d = dict(stag)
+    d['root_rot'] = (-88 * e, 0, 0); d['root_off'] = (0, 0.03 * e, 0.17 * e); d['hips_off'] = vl(stag['hips_off'], (0, 0.02, 0), e)
+    d['chest_rot'] = vl(stag['chest_rot'], (0, 0, 0), e); d['head_rot'] = vl(stag['head_rot'], (-8, 0, 12), e)
+    d['hand_L'] = vl(stag['hand_L'], V(0.30, 0.06, 0.28), e); d['hand_R'] = vl(stag['hand_R'], V(-0.30, 0.06, 0.28), e); d['rot_R'] = (lerp(WR0 - 20, 100, e), 0, 0)
+    d['foot_L'] = vl((0, 0, 0), (0.03, 0.02, 0.03), e); d['foot_R'] = vl((0, 0, 0), (-0.03, 0.05, 0.02), e)
+    if f > 27: s_ = min(1.0, (f - 27) / 6); d['root_off'] = va(d['root_off'], (0, 0, 0.012 * math.sin(s_ * math.pi) * (1 - s_)))
+    return d
+def w_spawn(f): return w_death(DEATH_LEN - f)
+def w_trip(f, n=80):   # catches a toe, pitches forward with flailing arms, wobbles, pops back up and pretends nothing happened
+    p = f / n; step = seg(p, .08, .22) * (1 - seg(p, .22, .34)); fall = seg(p, .20, .44) * (1 - seg(p, .56, .78)); fl = math.sin(p * 2 * math.pi * 5) * fall
+    hop = math.sin(seg(p, .74, .88) * math.pi) * 0.03
+    return dict(root_rot=(34 * fall, 0, 0), root_off=(0, -0.04 * fall, 0.02 * fall + hop), foot_R=(0, -0.10 * step, 0.09 * step), foot_L=(0, 0.03 * fall, 0.03 * fall),
+                hand_L=vl(WL, V(0.34, -0.30 + 0.06 * fl, 0.62 + 0.08 * fl), fall), hand_R=vl(WR, V(-0.34, -0.30 - 0.06 * fl, 0.62 - 0.08 * fl), fall), rot_R=(WR0 + 60 * fall * (1 + 0.4 * fl), 0, 0),
+                head_rot=(-30 * fall + 6 * seg(p, .84, .92) * (1 - seg(p, .94, 1.0)), 0, 8 * fl), chest_rot=(-14 * fall, 0, 6 * fl))
+def w_bonk(f, n=75):   # swings the sword up to look at it, whacks his own helmet with the pommel, sees stars
+    p = f / n; up = seg(p, .06, .26) * (1 - seg(p, .74, .92)); hit = seg(p, .28, .34) * (1 - seg(p, .34, .46)); wob = math.sin(p * 2 * math.pi * 4) * seg(p, .34, .42) * (1 - seg(p, .70, .92))
+    return dict(hand_R=vl(WR, V(-0.12, -0.10, 0.70 - 0.05 * hit), up), rot_R=(lerp(WR0, 170, up), 0, 0), hand_L=vl(WL, V(0.13, -0.15, 0.30), up),
+                head_rot=(-6 * up + 22 * hit, 0, 10 * wob), chest_rot=(-3 * up + 6 * hit, 0, 4 * wob), hips_off=(0, 0, -0.03 * hit))
+def w_wobble(f, n=90):   # balances on one leg, windmilling the arms
+    p = f / n; up = seg(p, .05, .25) * (1 - seg(p, .8, 1.0)); w = p * 2 * math.pi * 4
+    return dict(foot_R=(0, 0.02 * up, 0.10 * up), hips_off=(0.02 * math.sin(w) * up, 0, -0.01 * up), hips_rot=(0, 0, 6 * math.sin(w) * up), chest_rot=(0, 0, -10 * math.sin(w) * up),
+                hand_L=vl(WL, V(0.34, -0.06, 0.48 + 0.14 * math.sin(w)), up), hand_R=vl(WR, V(-0.34, -0.06, 0.48 - 0.14 * math.sin(w)), up), rot_R=(lerp(WR0, 20 + 30 * math.sin(w), up), 0, 0),
+                head_rot=(0, 0, 6 * math.sin(w + 1) * up))
+def w_wave(f, n=64):   # shy little wave with a head tilt
+    p = f / n; up = seg(p, .08, .26) * (1 - seg(p, .80, 1.0)); w = math.sin(p * 2 * math.pi * 4)
+    return dict(hand_L=vl(WL, V(0.26 + 0.05 * w, -0.05, 0.74), up), hand_R=WR, rot_R=(WR0 - 10 * up, 0, 0), head_rot=(-6 * up, 0, -14 * up), chest_rot=(0, 0, 4 * up), hips_rot=(0, 0, 4 * math.sin(p * 2 * math.pi * 2) * up))
+def w_cheer(f, n=60):   # sword high, little hops
+    p = f / n; up = seg(p, 0, .2) * (1 - seg(p, .85, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 3)) * up
+    return dict(chest_rot=(-12 * up, 0, 0), head_rot=(-10 * up, 0, 0), hips_off=(0, 0, 0.035 * pump), hand_R=vl(WR, V(-0.22, -0.06, 0.86 + 0.03 * pump), up), rot_R=(lerp(WR0, -8, up), 0, 0),
+                hand_L=vl(WL, V(0.24, -0.04, 0.80 + 0.03 * pump), up), foot_L=(0, 0, 0.03 * pump), foot_R=(0, 0, 0.03 * pump))
 CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('Run', 24, o_run, True), ('Attack', 40, o_attack, False), ('Hit', 18, o_hit, False),
                      ('Death', DEATH_LEN, o_death, False), ('Spawn', 50, o_spawn, False), ('Yawn', 70, o_yawn, False), ('Cheer', 60, o_cheer, False)],
-            'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False),
+            'warrior': [('Idle', 60, w_idle, True), ('Walk', 32, w_walk, True), ('Run', 20, w_run, True), ('Attack', 36, w_attack, False), ('Hit', 18, w_hit, False), ('Death', DEATH_LEN, w_death, False),
+                        ('Spawn', DEATH_LEN, w_spawn, False), ('Trip', 80, w_trip, False), ('Bonk', 75, w_bonk, False), ('Wobble', 90, w_wobble, False), ('Wave', 64, w_wave, False), ('Cheer', 60, w_cheer, False)],
+            'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False), ('DoubleBiceps', 90, dbl, False), ('BoneCrack', 80, crack, False), ('BowTwirl', 70, twirl, False),
                        ('Hit', 18, hit, False), ('Death', DEATH_LEN, death, False), ('Spawn', DEATH_LEN, spawn, False)]}
 CLIPS = CLIPSETS[CFG.get('clips', 'archer')]
 

@@ -21,7 +21,7 @@ if weapon_len > 0:
     from mathutils import Vector
     P = np.array([v.co[:] for v in me.vertices]); m = P.mean(0); w, V = np.linalg.eigh(np.cov((P - m).T)); ax = V[:, np.argmax(w)]
     t = (P - m) @ ax
-    if t.mean() < (t.min() + t.max()) / 2: ax = -ax; t = -t          # the heavy head end (more vertices) points up
+    if (t.mean() < (t.min() + t.max()) / 2) != (len(a) > 7 and a[7] == 'flip'): ax = -ax; t = -t          # the heavy head end (more vertices) points up
     q = Vector(ax.tolist()).rotation_difference(Vector((0, 0, 1)))
     for v in me.vertices: v.co = q @ (v.co - Vector(m.tolist()))
     me.update(); P2 = np.array([v.co[:] for v in me.vertices]); z0, z1 = P2[:, 2].min(), P2[:, 2].max(); sc_f = weapon_len / (z1 - z0)

@@ -34,8 +34,9 @@ export interface Assets {
   ringMat: any[]; haloMat: any; barBg: any; barFill: any[]; manaFill: any;
 }
 /** Flavour a unit can have: a clip it plays now and then when it has stood idle for a while, a small emote, and an eye-glow mask (eyes dim when sleepy, flare when it fights). */
-interface Flavor { clip: string; min: number; max: number; emote?: string }
-interface TripoCfg { container: any; enemyTex: any; clips: Record<VState, string>; matCache: Record<string, any>; baseMat?: any; top: number; scale: number; flavor?: Flavor; spawnEmote?: string; eyes?: string; eyeTex?: any }
+interface Pose { clip: string; emote?: string }
+interface Flavor { clips: Pose[]; min: number; max: number }
+interface TripoCfg { container: any; enemyTex: any; clips: Record<VState, string>; matCache: Record<string, any>; baseMat?: any; top: number; scale: number; flavor?: Flavor; cheers?: Pose[]; spawnEmote?: string; eyes?: string; eyeTex?: any }
 
 function dyn(scene: any, w: number, h: number, draw: (c: CanvasRenderingContext2D) => void, alpha = true) {
   const t = new BABYLON.DynamicTexture('dt', { width: w, height: h }, scene, true); draw(t.getContext()); t.update(); t.hasAlpha = alpha; return t;
@@ -53,10 +54,15 @@ export async function loadAssets(scene: any): Promise<Assets> {
   const zzz = dyn(scene, 128, 128, (c) => { c.textAlign = 'center'; c.lineWidth = 9; c.strokeStyle = '#150d26'; c.fillStyle = '#e8d8ff'; c.lineJoin = 'round';
     for (const [ch, size, x, y] of [['Z', 64, 34, 100], ['z', 48, 74, 66], ['z', 34, 104, 38]] as [string, number, number, number][]) { c.font = 'italic 900 ' + size + 'px sans-serif'; c.strokeText(ch, x, y); c.fillText(ch, x, y); } });
   const zm = new BABYLON.StandardMaterial('zzz', scene); zm.diffuseTexture = zzz; zm.useAlphaFromDiffuseTexture = true; zm.emissiveColor = BABYLON.Color3.White(); zm.disableLighting = true; zm.backFaceCulling = false; A.emote['zzz'] = zm;
+  const icon = (name: string, draw: (c: CanvasRenderingContext2D) => void) => { const m = new BABYLON.StandardMaterial(name, scene); m.diffuseTexture = dyn(scene, 128, 128, draw); m.useAlphaFromDiffuseTexture = true; m.emissiveColor = BABYLON.Color3.White(); m.disableLighting = true; m.backFaceCulling = false; A.emote[name] = m; };
+  const glyph = (ch: string, fill: string) => (c: CanvasRenderingContext2D) => { c.textAlign = 'center'; c.lineWidth = 12; c.strokeStyle = '#150d26'; c.lineJoin = 'round'; c.fillStyle = fill; c.font = '900 104px sans-serif'; c.strokeText(ch, 64, 100); c.fillText(ch, 64, 100); };
+  icon('?', glyph('?', '#ffe27a')); icon('!', glyph('!', '#ff9a7a'));
+  icon('sweat', (c) => { c.lineWidth = 8; c.strokeStyle = '#15304a'; c.fillStyle = '#9fe4ff'; c.beginPath(); c.moveTo(64, 14); c.bezierCurveTo(104, 62, 104, 108, 64, 112); c.bezierCurveTo(24, 108, 24, 62, 64, 14); c.closePath(); c.stroke(); c.fill(); });
+  icon('sparkle', (c) => { c.lineWidth = 7; c.strokeStyle = '#3a2a05'; c.fillStyle = '#fff2a8'; const star = (x: number, y: number, r: number) => { c.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r * 0.28 : r; c.lineTo(x + Math.sin(a) * rr, y - Math.cos(a) * rr); } c.closePath(); c.stroke(); c.fill(); }; star(56, 70, 50); star(102, 28, 20); star(26, 24, 14); });
   const defs: [SoulId, string, string, Record<VState, string>, number, number, any?][] = [
-    ['warrior', 'skeleton_warrior.glb', 'skeleton_warrior_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Block' }, 1.05, 1.0],
-    ['archer', 'SkeletonArcher.glb', 'SkeletonArcher_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Shoot', death: 'Death', spawn: 'Spawn', cheer: 'Flex' }, 1.05, 1.0],
-    ['ogre', 'Ogre.glb', 'Ogre_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.1, 1.12, { flavor: { clip: 'Yawn', min: 9, max: 16, emote: 'zzz' }, spawnEmote: 'zzz', eyes: 'Ogre_eyes.png' }],
+    ['warrior', 'SkeletonWarrior.glb', 'SkeletonWarrior_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.05, 1.0, { flavor: { clips: [{ clip: 'Trip', emote: '!' }, { clip: 'Bonk', emote: '?' }, { clip: 'Wobble', emote: 'sweat' }, { clip: 'Wave', emote: 'sparkle' }], min: 8, max: 15 }, cheers: [{ clip: 'Cheer', emote: 'sparkle' }, { clip: 'Wave', emote: 'sparkle' }, { clip: 'Trip', emote: '!' }], eyes: 'SkeletonWarrior_eyes.png' }],
+    ['archer', 'SkeletonArcher.glb', 'SkeletonArcher_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Shoot', death: 'Death', spawn: 'Spawn', cheer: 'Flex' }, 1.05, 1.0, { flavor: { clips: [{ clip: 'Flex', emote: 'sparkle' }, { clip: 'DoubleBiceps', emote: 'sparkle' }, { clip: 'BoneCrack' }, { clip: 'BowTwirl', emote: 'sparkle' }], min: 8, max: 15 }, cheers: [{ clip: 'Flex', emote: 'sparkle' }, { clip: 'DoubleBiceps', emote: 'sparkle' }, { clip: 'BowTwirl', emote: 'sparkle' }], eyes: 'SkeletonArcher_eyes.png' }],
+    ['ogre', 'Ogre.glb', 'Ogre_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.1, 1.12, { flavor: { clips: [{ clip: 'Yawn', emote: 'zzz' }], min: 9, max: 16 }, spawnEmote: 'zzz', eyes: 'Ogre_eyes.png' }],
   ];
   await Promise.all(defs.map(async ([soul, glb, enemy, clips, top, scale, extra]) => {
     const container = await BABYLON.SceneLoader.LoadAssetContainerAsync('assets/', glb, scene);
@@ -115,7 +121,7 @@ class Deco {
 class TripoVisual implements UnitVisual {
   holder: any; team: 0 | 1; star = 1; state: VState = 'idle'; top: number;
   private ent: any; private body: any; private anims: Record<string, any> = {}; private cur: any = null; private deco: Deco; private pick: any; private pulseT = 0; private base: number;
-  private uid = ''; private own: any = null; private idleT = 0; private nextFlavor = 1e9; private flavorOn = false; private queued = false; private spawnT = 0; private eyeK = 0.65; private emotes: { m: any; t: number; y0: number }[] = [];
+  private lastFlavor = ''; private uid = ''; private own: any = null; private idleT = 0; private nextFlavor = 1e9; private flavorOn = false; private queued = false; private spawnT = 0; private eyeK = 0.65; private emotes: { m: any; t: number; y0: number }[] = [];
   constructor(private A: Assets, private cfg: TripoCfg, soul: SoulId, team: 0 | 1, star: number) {
     const s = A.scene, uid = Math.random().toString(36).slice(2, 7); this.uid = uid;
     this.ent = cfg.container.instantiateModelsToScene((n: string) => n + '_' + uid, false, { doNotInstantiate: true });
@@ -147,13 +153,16 @@ class TripoVisual implements UnitVisual {
   setMana(f: number | null) { this.deco.setMana(f); }
   pulse() { this.pulseT = 0.16; }
   play(state: VState, speed = 1) {
-    const g = this.anims[this.cfg.clips[state]]; if (!g) return; const loop = state === 'idle' || state === 'run';
+    let clip = this.cfg.clips[state], pose: Pose | undefined;
+    if (state === 'cheer' && this.cfg.cheers) { pose = this.cfg.cheers[Math.floor(Math.random() * this.cfg.cheers.length)]; clip = pose.clip; }
+    const g = this.anims[clip]; if (!g) return; const loop = state === 'idle' || state === 'run';
     if (state === 'idle' && this.state === 'spawn' && this.cur && this.cur.isStarted && this.cfg.flavor) { this.queued = true; return; }   // let the wake-up play to the end
     if (loop && this.state === state && this.cur === g) return;
     this.queued = false; this.flavorOn = false; this.idleT = 0;
     if (this.cur) this.cur.stop(); g.stop(); g.start(loop, speed, g.from, g.to);
     if (loop) g.goToFrame(g.from + Math.random() * (g.to - g.from));
     this.cur = g; this.state = state; this.deco.setAura(state !== 'death');
+    if (pose && pose.emote) this.emote(pose.emote, 0.35);
     if (state === 'spawn') { this.spawnT = 0; if (this.cfg.spawnEmote) { this.emote(this.cfg.spawnEmote, 0.1); this.emote(this.cfg.spawnEmote, 0.7); } }
   }
   /** A little picture that floats up over the head and fades (a sleepy "Zzz"). */
@@ -164,9 +173,11 @@ class TripoVisual implements UnitVisual {
   }
   /** After standing idle for a while: play the unit's flavour clip once (the Ogre yawns), then go back to idling. */
   private startFlavor() {
-    const f = this.cfg.flavor!, g = this.anims[f.clip]; this.idleT = 0; if (!g) return;
+    const f = this.cfg.flavor!; this.idleT = 0;
+    let pool = f.clips.filter((c) => c.clip !== this.lastFlavor && this.anims[c.clip]); if (!pool.length) pool = f.clips.filter((c) => this.anims[c.clip]); if (!pool.length) return;
+    const pose = pool[Math.floor(Math.random() * pool.length)], g = this.anims[pose.clip]; this.lastFlavor = pose.clip;
     if (this.cur) this.cur.stop(); g.stop(); g.start(false, 1, g.from, g.to); this.cur = g; this.flavorOn = true; this.nextFlavor = f.min + Math.random() * (f.max - f.min);
-    if (f.emote) { this.emote(f.emote, 0.4); this.emote(f.emote, 1.2); }
+    if (pose.emote) { this.emote(pose.emote, 0.4); if (pose.emote === 'zzz') this.emote(pose.emote, 1.2); }
   }
   update(dt: number) {
     this.deco.update(dt);

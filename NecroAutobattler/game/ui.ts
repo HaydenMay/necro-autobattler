@@ -2,7 +2,7 @@
 import { BALANCE, ROLE_TEXT, SOUL_NAME } from '../core/balance.ts';
 import { SOULS } from '../core/data.ts';
 import type { SoulId } from '../core/data.ts';
-import { canMergeDeployed, canSummon, cost, dominionFree, dominionUsed, stageWaves } from '../core/rules.ts';
+import { canMergeDeployed, canMergeFromHand, canSummon, cost, dominionFree, dominionUsed, stageWaves } from '../core/rules.ts';
 import { enemyWave, previewText } from '../core/waves.ts';
 
 const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}', goblin: '\u{1F5E1}️', knight: '\u{1F6E1}️', ogre: '\u{1F528}', barbarian: '\u{1FA93}' };
@@ -34,9 +34,10 @@ export class Ui {
     // hand
     const hand = $('hand'); hand.innerHTML = '';
     s.hand.forEach((soul: SoulId, i: number) => {
-      const el = document.createElement('div'); const sel = g.sel && g.sel.type === 'card' && g.sel.idx === i; const afford = canSummon(s, i);
-      el.className = 'card' + (sel ? ' sel' : '') + (!afford && !g.swapMode ? ' dis' : '') + (g.swapMode ? ' swap' : '');
-      el.innerHTML = `<div class="cost">${cost(soul, 1)}</div><div class="ic">${ICON[soul]}</div><div class="nm">${SOUL_NAME[soul]}</div><div class="cs">★</div>`; el.title = ROLE_TEXT[soul];
+      const el = document.createElement('div'); const sel = g.sel && g.sel.type === 'card' && g.sel.idx === i; const afford = canSummon(s, i), canMerge = s.units.some((u: any) => canMergeFromHand(s, i, u.id)), usable = afford || canMerge;
+      el.className = 'card' + (sel ? ' sel' : '') + (!usable && !g.swapMode ? ' dis' : '') + (g.swapMode ? ' swap' : '');
+      const tag = afford ? `<span class="ok">Summon</span>` : canMerge ? '<span class="ok mg">Merge only</span>' : '<span class="no">No room</span>';
+      el.innerHTML = `<div class="cost">${cost(soul, 1)}</div><div class="ic">${ICON[soul]}</div><div class="nm">${SOUL_NAME[soul]}</div><div class="cs">${tag}</div>`; el.title = ROLE_TEXT[soul] + (afford ? '' : canMerge ? ' - Dominion is full, but you can merge it into your matching 1-star unit.' : ' - Not enough free Dominion to summon this.');
       el.onclick = () => g.onCard(i); hand.appendChild(el);
     });
     if (!s.hand.length) hand.innerHTML = '<div class="empty">No cards in hand</div>';
@@ -49,7 +50,7 @@ export class Ui {
     $('btnRemove').textContent = g.confirmRemove ? 'Confirm remove' : 'Remove';
     $('info').textContent = build ? (g.swapMode ? 'SWAP: tap a hand card to discard it, or tap a unit you did not summon this round to sell it. You draw a different Soul.'
       : selU ? `${SOUL_NAME[selU.soul as SoulId]} ${stars(selU.star)}  •  ${ROLE_TEXT[selU.soul as SoulId]}  ${partner ? '• Tap a glowing partner to merge.' : ''}`
-      : g.sel && g.sel.type === 'card' ? `${SOUL_NAME[s.hand[g.sel.idx] as SoulId]}: ${ROLE_TEXT[s.hand[g.sel.idx] as SoulId]}  •  Tap a green tile to summon${s.rules.merge === 'handIntoOneStar' ? ', or a glowing purple unit to merge the card into it' : ''}.` : 'Tap a card, then a tile. Tap a unit to merge, move or remove it.')
+      : g.sel && g.sel.type === 'card' ? `${SOUL_NAME[s.hand[g.sel.idx] as SoulId]}: ${ROLE_TEXT[s.hand[g.sel.idx] as SoulId]}  •  ` + (() => { const i = g.sel.idx, sm = canSummon(s, i), mg = s.units.some((u: any) => canMergeFromHand(s, i, u.id)); return sm && mg ? 'Tap a green tile to summon, or a glowing purple unit to merge it in.' : sm ? 'Tap a green tile to summon.' : mg ? 'Dominion is full: tap a glowing purple unit to merge it in.' : 'Not enough free Dominion to summon this.'; })() : 'Tap a card, then a tile. Tap a unit to merge, move or remove it.')
       : ph === 'battle' || ph === 'transition' ? 'Battle! Units fight on their own.' : '';
     $('speed').style.display = ph === 'battle' || ph === 'transition' ? 'flex' : 'none';
     document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => b.classList.toggle('on', +b.dataset.speed! === g.timeScale));

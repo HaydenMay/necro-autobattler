@@ -5,9 +5,11 @@ import type { SoulId } from '../core/data.ts';
 import { canMergeDeployed, canMergeFromHand, canSummon, cost, dominionFree, dominionUsed, stageWaves } from '../core/rules.ts';
 import { enemyWave, previewText } from '../core/waves.ts';
 import { audio } from './audio.ts';
+import { artBg, hasArt, rarityColor, soulArt } from '../ui/portraits.ts';
 import { SOUL_ICON, heartsHtml, iconImg, iconUrl, skullImgs } from '../ui/icons.ts';
 import { describeUnlock } from '../core/progress.ts';
 
+const portraitHtml = (s: SoulId): string => `<div class="pt" style="background:${artBg(s)}"><img src="${soulArt(s)}" alt="" draggable="false"></div>`;
 const ICON = Object.fromEntries(SOULS.map((s) => [s, iconImg(SOUL_ICON[s], 'ic')])) as Record<SoulId, string>;
 const $ = (id: string) => document.getElementById(id)!;
 const stars = (n: number) => '★'.repeat(n);
@@ -44,9 +46,10 @@ export class Ui {
     const hand = $('hand'); hand.innerHTML = '';
     s.hand.forEach((soul: SoulId, i: number) => {
       const el = document.createElement('div'); const sel = g.sel && g.sel.type === 'card' && g.sel.idx === i; const afford = canSummon(s, i), canMerge = s.units.some((u: any) => canMergeFromHand(s, i, u.id)), usable = afford || canMerge;
-      el.className = 'card' + (sel ? ' sel' : '') + (!usable && !g.swapMode ? ' dis' : '') + (g.swapMode ? ' swap' : '');
+      const art = hasArt(soul); el.className = 'card' + (art ? ' art' : '') + (sel ? ' sel' : '') + (!usable && !g.swapMode ? ' dis' : '') + (g.swapMode ? ' swap' : '');
       const tag = afford ? `<span class="ok">Summon</span>` : canMerge ? '<span class="ok mg">Merge only</span>' : '<span class="no">No room</span>';
-      el.innerHTML = `<div class="cost">${cost(soul, 1)}</div>${ICON[soul]}<div class="nm">${SOUL_NAME[soul]}</div><div class="cs">${tag}</div>`; el.title = ROLE_TEXT[soul] + (afford ? '' : canMerge ? ' - Dominion is full, but you can merge it into your matching 1-star unit.' : ' - Not enough free Dominion to summon this.');
+      if (art) el.style.borderColor = rarityColor(soul);
+      el.innerHTML = `<div class="cost">${cost(soul, 1)}</div>${art ? portraitHtml(soul) : ICON[soul] + `<div class="nm">${SOUL_NAME[soul]}</div>`}<div class="cs">${tag}</div>`; el.title = ROLE_TEXT[soul] + (afford ? '' : canMerge ? ' - Dominion is full, but you can merge it into your matching 1-star unit.' : ' - Not enough free Dominion to summon this.');
       el.onclick = () => g.onCard(i); hand.appendChild(el);
     });
     if (!s.hand.length) hand.innerHTML = '<div class="empty">No cards in hand</div>';
@@ -68,7 +71,7 @@ export class Ui {
     // overlay
     const ov = $('overlay'); ov.className = ''; ov.innerHTML = '';
     if (ph === 'draft' && g.draft) {
-      ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>Victory Draft</h2><div class="sub">Wave cleared. Dominion is now ${s.cap}. Keep one:</div><div class="row">${g.draft.map((soul: SoulId, i: number) => `<div class="card big" data-i="${i}"><div class="cost">${cost(soul, 1)}</div>${ICON[soul]}<div class="nm">${SOUL_NAME[soul]}</div><div class="role">${ROLE_TEXT[soul]}</div></div>`).join('')}</div></div>`;
+      ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>Victory Draft</h2><div class="sub">Wave cleared. Dominion is now ${s.cap}. Keep one:</div><div class="row">${g.draft.map((soul: SoulId, i: number) => `<div class="card big${hasArt(soul) ? ' art' : ''}" data-i="${i}"${hasArt(soul) ? ` style="border-color:${rarityColor(soul)}"` : ''}><div class="cost">${cost(soul, 1)}</div>${hasArt(soul) ? portraitHtml(soul) : ICON[soul]}<div class="nm">${SOUL_NAME[soul]}</div><div class="role">${ROLE_TEXT[soul]}</div></div>`).join('')}</div></div>`;
       ov.querySelectorAll<HTMLElement>('.card').forEach((c) => (c.onclick = () => g.pickDraft(+c.dataset.i!)));
     } else if (ph === 'won' || ph === 'lost') {
       const rw = ph === 'won' ? g.reward : null, sk = (n: number) => skullImgs(n);

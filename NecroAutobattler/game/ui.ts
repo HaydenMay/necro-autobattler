@@ -69,8 +69,11 @@ export class Ui {
       ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>Victory Draft</h2><div class="sub">Wave cleared. Dominion is now ${s.cap}. Keep one:</div><div class="row">${g.draft.map((soul: SoulId, i: number) => `<div class="card big" data-i="${i}"><div class="cost">${cost(soul, 1)}</div><div class="ic">${ICON[soul]}</div><div class="nm">${SOUL_NAME[soul]}</div><div class="role">${ROLE_TEXT[soul]}</div></div>`).join('')}</div></div>`;
       ov.querySelectorAll<HTMLElement>('.card').forEach((c) => (c.onclick = () => g.pickDraft(+c.dataset.i!)));
     } else if (ph === 'won' || ph === 'lost') {
-      ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>${ph === 'won' ? 'Stage cleared!' : 'Stage lost'}</h2><div class="sub">${g.lastBattle}</div><div class="row"><button id="again" class="go">${ph === 'won' ? 'Play again' : 'Try again'}</button><button id="toHome" class="blue">Home</button></div></div>`;
+      const rw = ph === 'won' ? g.reward : null, sk = (n: number) => '\u2620'.repeat(n);
+      const rewardHtml = rw ? `<div class="sub" style="color:#ffd24a;font-weight:700">${rw.pack ? (rw.first ? `\u{1F381} First clear! You earned a ${sk(rw.pack.tier)} Soul Pack.` : `\u{1F381} Replay reward: a ${sk(rw.pack.tier)} Soul Pack.`) : `Replay progress ${rw.replayMeter}/${rw.replayNeeded} toward a Soul Pack.`}</div>` : '';
+      ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>${ph === 'won' ? 'Stage cleared!' : 'Stage lost'}</h2><div class="sub">${g.lastBattle}</div>${rewardHtml}<div class="row">${rw && rw.pack ? '<button id="toShop" class="go">Open pack</button>' : ''}<button id="again" class="${rw && rw.pack ? 'blue' : 'go'}">${ph === 'won' ? 'Play again' : 'Try again'}</button><button id="toHome" class="blue">Home</button></div></div>`;
       $('again').onclick = () => g.newRun(); $('toHome').onclick = () => window.dispatchEvent(new Event('necro-go-home'));
+      const ts = document.getElementById('toShop'); if (ts) ts.onclick = () => window.dispatchEvent(new Event('necro-go-shop'));
     }
     this.renderDebugLive();
   }

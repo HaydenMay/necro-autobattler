@@ -20,6 +20,8 @@ import { SaveService } from '../save.service';
       <button class="sw" [class.on]="save.settings().sfx" role="switch" [attr.aria-checked]="save.settings().sfx" (click)="save.setSound('sfx', !save.settings().sfx)"></button></div>
     <div class="box row"><span style="font-size:26px">&#128264;</span><div class="grow"><b>Sound check</b><span>{{ msg() }}</span></div>
       <button class="go" (click)="test()">Test sound</button></div>
+    <div class="box row" style="flex-wrap:wrap"><span style="font-size:26px">&#128295;</span><div class="grow"><b>Testing helpers</b><span>Add packs to your Shop, or copies to every Soul, to try the opening and levelling without playing a whole stage.</span></div>
+      <button class="go" (click)="save.grantTestPack(1)">+ &#9760; pack</button><button class="go" (click)="save.grantTestPack(2)">+ &#9760;&#9760;</button><button class="go" (click)="save.grantTestPack(3)">+ &#9760;&#9760;&#9760;</button><button class="blue" (click)="save.grantTestCopies(20)">+20 copies each</button></div>
     <p class="lead" style="margin-top:14px">The battle screen also has quick 🎵 / 🔊 buttons next to the gear.</p>`,
 })
 export class Settings implements OnDestroy {

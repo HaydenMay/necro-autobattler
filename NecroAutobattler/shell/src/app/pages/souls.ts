@@ -95,7 +95,7 @@ type Filter = 'all' | 'skill' | 'passive';
         <div class="modal" (click)="$event.stopPropagation()">
           <button class="x" (click)="detail.set(null)">&#10005;</button>
           <div><div class="big" [style.background]="bg(d)">{{ icon(d) }}</div>
-            <div class="nm">{{ name(d) }}</div><div class="sub">Level {{ save.progress(d).level }} <span class="muted">&middot; placeholder</span></div>
+            <div class="nm">{{ name(d) }}</div><div class="sub">Level {{ save.progress(d).level }}</div>
             <div class="note">{{ role(d) }}</div></div>
           <div>
             <div class="tabs"><button [class.on]="page() === 0" (click)="page.set(0)">Stats</button><button [class.on]="page() === 1" (click)="page.set(1)">{{ ability(d).kind === 'skill' ? 'Skill' : 'Passive' }}</button><button [class.on]="page() === 2" (click)="page.set(2)">Stars</button></div>
@@ -110,7 +110,7 @@ type Filter = 'all' | 'skill' | 'passive';
                   <div class="st"><span>Move speed</span><b>{{ base(d).speed }}</b></div>
                   <div class="st"><span>Dominion (1★)</span><b>{{ cost(d) }}</b></div>
                 </div>
-                <div class="note">Green = what the next level would add. Levels are a preview: not applied in battles yet.</div>
+                <div class="note">Green = what the next level adds. Levels apply to your units in every battle.</div>
               </div>
               <div class="slide">
                 <span class="tag" [class.skill]="ability(d).kind === 'skill'" [class.passive]="ability(d).kind === 'passive'">{{ ability(d).kind === 'skill' ? 'Skill' : 'Passive' }}: {{ ability(d).name }}</span>
@@ -127,7 +127,7 @@ type Filter = 'all' | 'skill' | 'passive';
             <div class="swipehint">swipe or tap the tabs</div>
           </div>
           <div class="acts">
-            <button class="grey" disabled>Upgrade<small>{{ isMax(d) ? 'Max level' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
+            <button [class]="canLevel(d) ? 'go' : 'grey'" [disabled]="!canLevel(d)" (click)="upgrade(d, $event)">Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
             <button [class]="save.isEquipped(d) ? 'blue' : 'go'" (click)="toggle(d, $event)">{{ save.isEquipped(d) ? 'Unequip' : 'Equip' }}</button>
           </div>
         </div>
@@ -161,6 +161,7 @@ export class Souls {
   private sx = 0; private sy = 0;
   swipeStart(e: PointerEvent) { this.sx = e.clientX; this.sy = e.clientY; }
   swipeEnd(e: PointerEvent) { const dx = e.clientX - this.sx, dy = e.clientY - this.sy; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) this.page.set(Math.max(0, Math.min(2, this.page() + (dx < 0 ? 1 : -1)))); }
+  upgrade(s: SoulId, e: Event) { e.stopPropagation(); if (this.save.levelUp(s)) { try { (window as any).__audio?.play('merge'); } catch { /* optional */ } this.say(SOUL_NAME[s] + ' is now level ' + this.save.progress(s).level + '!'); } }
   setFilter(f: Filter, e: Event) { e.stopPropagation(); this.filter.set(f); this.pop.set(null); }
   tapTile(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(this.pop() === s ? null : s); }
   openDetail(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(null); this.page.set(0); this.detail.set(s); }

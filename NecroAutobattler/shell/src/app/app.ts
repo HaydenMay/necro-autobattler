@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { GameLink } from './game-link.service';
+import { SaveService } from './save.service';
 
 declare global { interface Window { __game?: { setActive(on: boolean): void }; } }
 
@@ -14,6 +15,7 @@ const SCRIPTS = ['vendor/babylon.js', 'vendor/babylonjs.loaders.min.js', 'game.j
 export class App {
   private router = inject(Router);
   private link = inject(GameLink);
+  save = inject(SaveService);
   private url = signal(this.router.url);
   /** True while the full-screen run (the 3D game) is showing: no rail, no page. */
   readonly onRun = computed(() => this.url().startsWith('/run'));
@@ -26,7 +28,8 @@ export class App {
       const on = this.onRun(); this.link.ready();
       setTimeout(() => window.__game?.setActive(on), 0);        // after the host box is shown, so the game sees its real size; paused off-screen
     });
-    window.addEventListener('necro-go-home', () => this.router.navigateByUrl('/home'));   // the run screen's Home button and result screens
+    window.addEventListener('necro-go-home', () => this.router.navigateByUrl('/home'));
+    window.addEventListener('necro-go-shop', () => this.router.navigateByUrl('/shop'));   // the stage-cleared screen's Open pack button
   }
 
   /** The game is a separate bundle (docs/game.js) that needs Babylon first. */

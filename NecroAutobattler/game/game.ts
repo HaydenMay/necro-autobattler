@@ -16,6 +16,8 @@ import { loadSave } from '../core/save.ts';
 import { Necromancer } from './necromancer.ts';
 import { audio } from './audio.ts';
 import { clearRun, loadRun, saveRun, serializeState } from '../core/runsave.ts';
+import { recordClearAndSave } from '../core/progress.ts';
+import type { ClearReward } from '../core/progress.ts';
 import type { RunSnapshot } from '../core/runsave.ts';
 import type { State } from '../core/rules.ts';
 import { createVisual, isTripo, loadAssets } from './visuals.ts';
@@ -38,6 +40,8 @@ export class Game {
   private acc = 0; private camFrom: any = null; private camTo: any = null; private camT = 1; private camDur = 2.0; private resultAt = -1; private handled = false; private startStepAt = 0;
   private arrowMats: any[] = []; private arrowMesh: any[] = [];
   necro!: Necromancer;
+  /** What the last stage clear earned (shown on the stage-cleared screen). */
+  reward: ClearReward | null = null;
   private cine = false;                                   // a result cutscene is playing: the battle camera and fighter sync stand down
   private tweens: { t: number; dur: number; fn: (u: number) => void; done?: () => void }[] = [];
   private tween(dur: number, fn: (u: number) => void, done?: () => void) { this.tweens.push({ t: 0, dur, fn, done }); }
@@ -232,7 +236,7 @@ export class Game {
   /** Fresh run with the currently equipped Soul Deck (Home > Start Battle calls this). */
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
-    this.cine = false; this.flushTweens(); if (this.necro) this.necro.revive();
+    this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
     this.seed = seed; this.attempt = 0; const sv = loadSave(); setDifficulty(sv.difficulty); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build'; this.setCam(this.poses().build);
@@ -331,7 +335,8 @@ export class Game {
     this.flushTweens(); audio.play('start'); this.beginBattlePerf();
     this.sel = null; this.swapMode = false; this.attempt++; this.handled = false; this.resultAt = -1;
     const s = this.s, units = s.units.slice();
-    this.battle = new Battle(units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemyWave(s.wave, this.seed), this.seed * 131 + s.wave * 17 + this.attempt);
+    const saved = loadSave().souls, levels: Record<string, number> = {}; for (const k of Object.keys(saved)) levels[k] = (saved as any)[k].level;   // permanent Soul levels
+    this.battle = new Battle(units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemyWave(s.wave, this.seed), this.seed * 131 + s.wave * 17 + this.attempt, levels);
     this.fvis.clear(); this.fUnit.clear(); this.lastState.clear();
     this.battle.fighters.forEach((f) => {
       if (f.team === 0) { const u = units[f.id - 1]; const v = this.unitVis.get(u.id)!; this.fvis.set(f.id, v); this.fUnit.set(f.id, u.id); v.setHp(1); v.setMana(f.maxMana ? 0 : null); }
@@ -404,7 +409,11 @@ export class Game {
     if (b.winner === 0) {
       this.playResult('win', () => {                        // the army is raised again, then the next wave / the draft
         this.cine = false;
-        if (advanceWave(s)) { this.phase = 'won'; clearRun(); this.ui.render(); return; }
+        if (advanceWave(s)) {
+          this.phase = 'won'; clearRun();
+          try { this.reward = recordClearAndSave('crypt', difficultyName as any); window.dispatchEvent(new Event('necro-save-changed')); } catch { this.reward = null; }
+          this.ui.render(); return;
+        }
         this.draft = draftOptions(s); this.phase = 'draft'; this.persistRun(); this.ui.render();
       });
     } else {

@@ -1,7 +1,7 @@
 <nav class="rail" [class.hide]="onRun()">
   <a routerLink="/home" routerLinkActive="active"><span class="ri">&#127968;</span>Home</a>
   <a routerLink="/souls" routerLinkActive="active"><span class="ri">&#128128;</span>Souls</a>
-  <a routerLink="/shop" routerLinkActive="active"><span class="ri">&#127873;</span>Shop</a>
+  <a routerLink="/shop" routerLinkActive="active"><span class="ri">&#127873;</span>Shop@if (save.packs().length) { <i class="rbadge">{{ save.packs().length }}</i> }</a>
   <a routerLink="/settings" routerLinkActive="active"><span class="ri">&#9881;&#65039;</span>Settings</a>
 </nav>
 

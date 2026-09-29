@@ -28,7 +28,12 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
 
     /* ---- the pack: ChatGPT art, cut out by Pipeline/blender/cutout.py, standing on the altar. The tear splits the same picture into a strip and a body. */
     .altarwrap { position:relative; display:flex; flex-direction:column; align-items:center; }
-    .pack { position:relative; z-index:2; height:calc(var(--pz) * 1.5); aspect-ratio:301/640; --glow:rgba(47,217,166,.35); filter:drop-shadow(0 10px 12px #000a) drop-shadow(0 0 22px var(--glow)); }
+    .pack { position:relative; z-index:2; height:calc(var(--pz) * 1.5); aspect-ratio:301/640; --glow:rgba(47,217,166,.35); }
+    /* the glow and ground shadow are their own layers behind the pack, so nothing that is clipped or torn carries a filter */
+    .aura { position:absolute; left:-75%; right:-75%; top:-14%; bottom:-14%; z-index:0; pointer-events:none; background:radial-gradient(ellipse at 50% 50%, var(--glow) 0%, transparent 62%); animation:auraBreath 2.4s ease-in-out infinite; }
+    @keyframes auraBreath { 50% { opacity:.6; transform:scale(1.06); } }
+    .pshadow { position:absolute; left:2%; right:2%; bottom:-1%; height:7%; z-index:0; pointer-events:none; background:radial-gradient(ellipse at 50% 50%, rgba(0,0,0,.65), transparent 70%); }
+    .pbody { z-index:1; }
     .pack.t2 { --glow:rgba(47,217,166,.6); } .pack.t3 { --glow:rgba(255,204,51,.7); }
     .pbody, .ptop { position:absolute; inset:0; } .pbody img, .ptop img { display:block; width:100%; height:100%; }
     .ptop { z-index:2; } .ptop img { clip-path:inset(0 0 87% 0); } .pbody img { clip-path:inset(12% 0 0 0); }
@@ -36,11 +41,13 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
     .shake { animation:shake .12s linear infinite; }
     @keyframes shake { 0% { transform:translate(-2px,1px) rotate(-1.2deg); } 50% { transform:translate(2px,-1px) rotate(1.2deg); } 100% { transform:translate(-2px,1px) rotate(-1.2deg); } }
     .pulse { animation:pulse .9s ease-out; }
-    @keyframes pulse { 0% { transform:scale(1); filter:drop-shadow(0 0 22px var(--glow)) brightness(1); } 35% { transform:scale(1.22); filter:drop-shadow(0 0 60px #fff) brightness(1.9); } 100% { transform:scale(1); filter:drop-shadow(0 0 22px var(--glow)) brightness(1); } }
+    @keyframes pulse { 0% { transform:scale(1); } 35% { transform:scale(1.2); } 100% { transform:scale(1); } }
+    .pulse .aura { animation:auraFlash .9s ease-out; } @keyframes auraFlash { 0% { transform:scale(1); opacity:.7; } 35% { transform:scale(1.7); opacity:1; } 100% { transform:scale(1); opacity:.7; } }
     .tearing .ptop { animation:tearTop .7s ease-in forwards; }
     .tearing .pbody { animation:tearBody .8s .15s ease-in forwards; }
     @keyframes tearTop { to { transform:translate(70%,-160%) rotate(38deg); opacity:0; } }
-    @keyframes tearBody { 0% { filter:brightness(1); } 30% { filter:brightness(3); } 100% { transform:scale(1.25); opacity:0; filter:brightness(3); } }
+    @keyframes tearBody { 0% { transform:scale(1); opacity:1; } 100% { transform:scale(1.25); opacity:0; } }
+    .tearing .aura { animation:auraBurst .9s ease-out forwards; } @keyframes auraBurst { 0% { transform:scale(1); opacity:1; } 40% { transform:scale(1.9); opacity:1; } 100% { transform:scale(2.8); opacity:0; } }
     .banner { position:absolute; top:12%; font-size:clamp(22px,6vmin,44px); font-weight:900; letter-spacing:.12em; color:#ffe27a; text-shadow:0 0 22px #ffb400, 0 2px 0 #000; animation:pop .9s ease-out; }
     @keyframes pop { 0% { transform:scale(.4); opacity:0; } 35% { transform:scale(1.25); opacity:1; } 100% { transform:scale(1); opacity:1; } }
     .spark { position:absolute; left:50%; top:46%; width:6px; height:6px; border-radius:50%; background:radial-gradient(#fff,#c79bff 60%,transparent); animation:spark .9s ease-out forwards; }
@@ -55,7 +62,9 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
 
     /* ---- one card, flipped by a tap */
     .pips { display:flex; gap:7px; } .pips i { width:9px; height:9px; border-radius:50%; background:#3b2a5c; } .pips i.on { background:#b98aff; box-shadow:0 0 8px #b98aff; }
-    .flipcard { width:var(--sz); aspect-ratio:464/720; perspective:900px; filter:drop-shadow(0 0 14px var(--c)); animation:cardIn .45s ease-out; }
+    .flipcard { position:relative; isolation:isolate; width:var(--sz); aspect-ratio:464/720; perspective:900px; animation:cardIn .45s ease-out; }
+    /* the rarity glow is a layer behind the card (a filter on the flipping card breaks in iPhone Safari) */
+    .flipcard::before { content:''; position:absolute; inset:-16%; z-index:-1; pointer-events:none; background:radial-gradient(ellipse at 50% 50%, var(--c) 0%, transparent 66%); opacity:.55; }
     @keyframes cardIn { from { transform:translateY(40px) scale(.7); opacity:0; } to { transform:none; opacity:1; } }
     .inner { position:relative; width:100%; height:100%; transform-style:preserve-3d; transition:transform .55s cubic-bezier(.3,.7,.3,1); }
     .flipped .inner { transform:rotateY(180deg); }
@@ -100,6 +109,7 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
         <div class="stagebox">
           <div class="altarwrap">
             <div class="pack" [class.t1]="tier() === 1" [class.t2]="tier() === 2" [class.t3]="tier() === 3" [class.shake]="stage() === 'charge'" [class.pulse]="stage() === 'tierup'" [class.tearing]="stage() === 'tear'">
+              <div class="aura"></div><div class="pshadow"></div>
               <div class="pbody"><img [src]="packImg()" alt="" draggable="false"></div>
               <div class="ptop"><img [src]="packImg()" alt="" draggable="false"></div>
             </div>

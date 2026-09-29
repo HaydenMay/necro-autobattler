@@ -23,11 +23,11 @@ type Filter = 'all' | 'skill' | 'passive';
     .slot { aspect-ratio:4/5; border-radius:10px; border:2px dashed #4a3470; background:#1a1128; color:#6b5a8a; font-size:clamp(18px,4vmin,28px); display:flex; align-items:center; justify-content:center; padding:0; }
     .small { padding:.35em .9em; font-size:.95em; }
     .meta { font-size:.9em; opacity:.85; } .meta b { color:#fff; }
-    .filters { display:flex; gap:4px; margin:calc(var(--gap) - 2px) 0; flex-wrap:wrap; } .chip { padding:.22em .58em; border-radius:14px; font-size:.82em; white-space:nowrap; } .chip.on { background:#3a2260; border-color:#a45bff; }
+    .filters { display:flex; gap:4px; margin:var(--gap) 0 calc(var(--gap) + 12px); flex-wrap:wrap; } .chip { padding:.22em .58em; border-radius:14px; font-size:.82em; white-space:nowrap; } .chip.on { background:#3a2260; border-color:#a45bff; }
     .cols { display:grid; grid-template-columns:auto minmax(0,1fr); gap:clamp(10px,2.4vmin,22px); align-items:start; }
     .lcol { min-width:0; }
     /* three across, two down: the tile width comes from the free height, so both rows always fit */
-    .grid2 { --tw:clamp(58px,calc((100vh - 128px) / 2.75),112px); display:grid; grid-template-columns:repeat(3,var(--tw)); gap:calc(var(--gap) + 4px) var(--gap); }
+    .grid2 { --tw:clamp(58px,calc((100vh - 140px) / 2.5),136px); display:grid; grid-template-columns:repeat(3,var(--tw)); gap:calc(var(--gap) + 4px) var(--gap); }
     .grid2 .port, .grid2 .port.art { min-height:calc(var(--tw) * .74); }
     /* the details panel: what the popup used to be, always visible next to the list */
     .dpanel { position:sticky; top:0; align-self:start; display:grid; grid-template-columns:minmax(78px,25%) minmax(0,1fr); gap:var(--gap); padding:calc(var(--gap) + 4px); border-radius:16px; background:rgba(14,24,48,.9); border:2px solid #3d5aa0; box-shadow:0 0 24px rgba(90,127,208,.3); max-height:calc(100vh - 30px); overflow:auto; }

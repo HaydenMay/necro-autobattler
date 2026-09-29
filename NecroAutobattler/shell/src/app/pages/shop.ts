@@ -48,7 +48,7 @@ import { range, skullIcon } from '../soul-ui';
 
     </div><div class="col">
     <div class="box">
-      <b>How packs are earned</b> <span class="tag soon">placeholder numbers</span>
+      <b>How packs are earned</b> <span class="tag soon" style="margin-left:10px">placeholder numbers</span>
       <div style="margin-top:6px">
         @for (d of diffs; track d.id) { <div class="row3"><span style="flex:1">First clear on {{ d.label }}</span><span class="sk">@for (i of range(firstTier(d.id)); track i) { <img [src]="skullIcon" alt=""> }</span></div> }
         <div class="row3"><span style="flex:1">Replay clears: a pack every {{ replayNeeded }} clears</span><span class="sk">@for (i of range(replayTier); track i) { <img [src]="skullIcon" alt=""> }</span></div>

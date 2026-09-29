@@ -50,6 +50,7 @@ export async function loadAssets(scene: any): Promise<Assets> {
   const defs: [SoulId, string, string, Record<VState, string>, number, number][] = [
     ['warrior', 'skeleton_warrior.glb', 'skeleton_warrior_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Block' }, 1.05, 1.0],
     ['archer', 'SkeletonArcher.glb', 'SkeletonArcher_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Shoot', death: 'Death', spawn: 'Spawn', cheer: 'Flex' }, 1.05, 1.0],
+    ['ogre', 'Ogre.glb', 'Ogre_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.1, 1.12],
   ];
   await Promise.all(defs.map(async ([soul, glb, enemy, clips, top, scale]) => {
     const container = await BABYLON.SceneLoader.LoadAssetContainerAsync('assets/', glb, scene);

@@ -37,7 +37,9 @@ def unzip_fbx(zpath):
     return glob.glob(os.path.join(d, '*.fbx'))[0]
 
 def import_fbx(path):
-    before = set(bpy.data.objects); bpy.ops.import_scene.fbx(filepath=path)
+    before = set(bpy.data.objects)
+    if path.lower().endswith(('.glb', '.gltf')): bpy.ops.import_scene.gltf(filepath=path)     # Hunyuan / pre-processed models come as GLB
+    else: bpy.ops.import_scene.fbx(filepath=path)
     new = [o for o in bpy.data.objects if o not in before]
     for o in new:
         if o.type == 'MESH':
@@ -57,18 +59,23 @@ def join(objs, name):
 def verts_np(o): return np.array([v.co[:] for v in o.data.vertices], dtype=np.float64)
 
 def island_ids(o):
-    bm = bmesh.new(); bm.from_mesh(o.data); bm.verts.ensure_lookup_table()
-    ids = np.full(len(bm.verts), -1, dtype=np.int64); n = 0
-    for v in bm.verts:
-        if ids[v.index] >= 0: continue
-        stack = [v]; ids[v.index] = n
+    """connected pieces of the mesh. Vertices that sit at the same spot (duplicated along texture seams) count as ONE, otherwise every UV island looks like a separate piece."""
+    co = np.round(verts_np(o) / 1e-5).astype(np.int64); canon = {}; cid = np.zeros(len(co), dtype=np.int64)
+    for i, c in enumerate(map(tuple, co)): cid[i] = canon.setdefault(c, len(canon))
+    nc = len(canon); adj = [[] for _ in range(nc)]
+    for e in o.data.edges:
+        u, w = int(cid[e.vertices[0]]), int(cid[e.vertices[1]])
+        if u != w: adj[u].append(w); adj[w].append(u)
+    comp = np.full(nc, -1, dtype=np.int64); n = 0
+    for s0 in range(nc):
+        if comp[s0] >= 0: continue
+        comp[s0] = n; stack = [s0]
         while stack:
             c = stack.pop()
-            for e in c.link_edges:
-                w = e.other_vert(c)
-                if ids[w.index] < 0: ids[w.index] = n; stack.append(w)
+            for w in adj[c]:
+                if comp[w] < 0: comp[w] = n; stack.append(w)
         n += 1
-    bm.free(); return ids, n
+    return comp[cid], n
 
 def extract(o, mask, name):
     """new object holding only the vertices where mask is True (keeps UVs + material)"""
@@ -91,7 +98,7 @@ def decimate_to(o, target):
     md = o.modifiers.new('Dec', 'DECIMATE'); md.decimate_type = 'COLLAPSE'; md.ratio = target / cur; md.delimit = {'UV'}; md.use_collapse_triangulate = True
     bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier='Dec'); return tri_count(o)
 DEC = CFG.get('decimate', {})
-body_fbx = unzip_fbx(P(CFG['body_zip']))
+body_fbx = P(CFG['body_glb']) if CFG.get('body_glb') else unzip_fbx(P(CFG['body_zip']))
 parts = import_fbx(body_fbx)
 body = join(parts, NAME + '_Body')
 if DEC.get('body'): n0 = tri_count(body); n1 = decimate_to(body, DEC['body']); log('body triangles', n0, '->', n1)
@@ -108,6 +115,15 @@ BOW = CFG.get('bow')
 hand_side = 1 if (BOW or {}).get('hand', 'L') == 'L' else -1
 handL = (LM['wrist'] + LM['hand_end']) / 2
 def hand_center(side): return handL if side == 1 else mir(handL)
+# a single held weapon (mace, sword, axe...) as its own GLB: upright, grip at the origin, head up +Z (blender/decimate_body.py does that)
+WEAP = CFG.get('weapon')
+if WEAP:
+    hand_side = 1 if WEAP.get('hand', 'R') == 'L' else -1
+    w_o = join(import_fbx(P(WEAP['glb'])), NAME + '_Weapon')
+    target = hand_center(hand_side) + Vector(WEAP.get('offset', [0, 0, 0]))
+    w_o.data.transform(T(target) @ Euler([math.radians(a_) for a_ in WEAP.get('rotate_deg', [0, 0, 0])], 'XYZ').to_matrix().to_4x4() @ S(WEAP.get('scale', 1.0)))
+    props = dict(weapon=w_o, grip=target)
+    log('weapon', tri_count(w_o), 'triangles on the', 'left' if hand_side == 1 else 'right', 'hand')
 if BOW:
     bow_fbx = unzip_fbx(P(BOW['zip']))
     bparts = import_fbx(bow_fbx); raw = join(bparts, 'PropRaw')
@@ -172,7 +188,9 @@ for s, sx in (('L', 1), ('R', -1)):
     bone(f'Pole_Elbow.{s}', (el.x, el.y + 0.45, el.z), (el.x, el.y + 0.55, el.z), 'Root', False)
     bone(f'Pole_Knee.{s}', (kn.x, kn.y - 0.45, kn.z), (kn.x, kn.y - 0.55, kn.z), 'Root', False)
 BODY_BONES = [n for n, d in B.items() if d['deform']]
-if props:
+if props.get('weapon'):
+    hc = props['grip']; bone('Socket_Weapon', hc, hc + Vector((0, 0, 0.06)), f'Hand.{"L" if hand_side == 1 else "R"}')
+if props.get('bow'):
     hc = props['grip']; bone('Socket_Bow', hc, hc + Vector((0, 0, 0.06)), f'Hand.{"L" if hand_side == 1 else "R"}')
     nk = props['nock']; bone('Nock_Arrow', nk, nk + Vector((0, -0.1, 0)), f'Hand.{"R" if hand_side == 1 else "L"}')
     if props.get('string'):
@@ -221,7 +239,10 @@ for j, n in enumerate(names):
 
 def rigid_group(o, bone_name):
     vg = o.vertex_groups.new(name=bone_name); vg.add(list(range(len(o.data.vertices))), 1.0, 'REPLACE')
-if props:
+if props.get('weapon'):
+    sc.collection.objects.link(props['weapon']) if props['weapon'].name not in sc.collection.objects else None
+    rigid_group(props['weapon'], 'Socket_Weapon')
+if props.get('bow'):
     for key in ('bow', 'arrow', 'string'):
         o = props.get(key)
         if o is None: continue
@@ -236,7 +257,7 @@ if props:
             if wt > 1e-3: gT.add([vi], wt, 'REPLACE')
             if wn > 1e-3: gN.add([vi], wn, 'REPLACE')
             if wb > 1e-3: gB.add([vi], wb, 'REPLACE')
-skinned = [body] + [props[k] for k in ('bow', 'arrow', 'string') if props.get(k)]
+skinned = [body] + [props[k] for k in ('weapon', 'bow', 'arrow', 'string') if props.get(k)]
 for o in skinned:
     o.parent = arm; md = o.modifiers.new('Armature', 'ARMATURE'); md.object = arm
 
@@ -283,11 +304,11 @@ def set_pose(name, off=(0, 0, 0), rot=(0, 0, 0)):
 WRIST_L, WRIST_R = LM['wrist'], mir(LM['wrist'])
 def apply(p):
     d = dict(root_off=(0, 0, 0), root_rot=(0, 0, 0), hips_off=(0, 0, 0), hips_rot=(0, 0, 0), spine_rot=(0, 0, 0), chest_rot=(0, 0, 0), neck_rot=(0, 0, 0), head_rot=(0, 0, 0),
-             hand_L=tuple(WRIST_L), hand_R=tuple(WRIST_R), foot_L=(0, 0, 0), foot_R=(0, 0, 0), pull=0.0, nock=0.0)
+             hand_L=tuple(WRIST_L), hand_R=tuple(WRIST_R), rot_L=(0, 0, 0), rot_R=(0, 0, 0), foot_L=(0, 0, 0), foot_R=(0, 0, 0), pull=0.0, nock=0.0)
     d.update(p)
     set_pose('Root', d['root_off'], d['root_rot']); set_pose('Hips', d['hips_off'], d['hips_rot'])
     set_pose('Spine', (0, 0, 0), d['spine_rot']); set_pose('Chest', (0, 0, 0), d['chest_rot']); set_pose('Neck', (0, 0, 0), d['neck_rot']); set_pose('Head', (0, 0, 0), d['head_rot'])
-    set_pose('IK_Hand.L', Vector(d['hand_L']) - WRIST_L); set_pose('IK_Hand.R', Vector(d['hand_R']) - WRIST_R)
+    set_pose('IK_Hand.L', Vector(d['hand_L']) - WRIST_L, d['rot_L']); set_pose('IK_Hand.R', Vector(d['hand_R']) - WRIST_R, d['rot_R'])
     set_pose('IK_Foot.L', d['foot_L']); set_pose('IK_Foot.R', d['foot_R'])
     if 'Nock_Arrow' in PB:
         s = 1.0 if d['nock'] > 0.5 else 0.001; PB['Nock_Arrow'].scale = (s, s, s)
@@ -349,7 +370,63 @@ def death(f):
     if f > 27: s = min(1.0, (f - 27) / 6); d['root_off'] = va(d['root_off'], (0, 0, 0.012 * math.sin(s * math.pi) * (1 - s)))
     return d
 def spawn(f): return death(DEATH_LEN - f)
-CLIPSETS = {'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False),
+# ---- Ogre: heavy, slow, grumpy. Wrist targets are in metres from the rest pose; rot_R (degrees about X) swings the mace, + = head forward/down.
+RL, RR = tuple(WRIST_L), tuple(WRIST_R)
+def o_idle(f, n=60):
+    w = 2 * math.pi * f / n; br = math.sin(w)
+    return dict(hips_off=(0, 0, 0.008 * br), chest_rot=(2.0 * br, 0, 1.2 * math.sin(w * 0.5)), head_rot=(-1.0 * math.sin(w - 1.0), 0, 3 * math.sin(w * 0.5)),
+                hand_L=va(RL, (0, -0.02, 0.006 * math.sin(w - 0.4))), hand_R=va(RR, (0.02, -0.06, 0.006 * math.sin(w - 0.8))), rot_R=(-10 + 2 * br, 0, 0))
+def o_walk(f, n=36, stride=0.06, lift=0.035, bob=0.014, lean=2, run=False):
+    w = 2 * math.pi * f / n
+    foot = lambda ph: (0, -stride * math.sin(w + ph), lift * max(0, math.cos(w + ph)))
+    return dict(hips_off=(0.012 * math.sin(w), -0.006 if run else 0, bob * math.cos(2 * w) - (0.02 if run else 0)), hips_rot=(lean, 0, 4 * math.sin(w)), chest_rot=(lean * 0.5, 0, -6 * math.sin(w)),
+                head_rot=(-lean * 0.6, 0, 2 * math.sin(w)), foot_L=foot(0), foot_R=foot(math.pi),
+                hand_L=va(RL, (0, 0.04 * math.sin(w) - 0.02, 0.015 * math.cos(2 * w))), hand_R=va(RR, (0.02, -0.06 - 0.03 * math.sin(w), 0.012 * math.cos(2 * w))), rot_R=(-10 + 6 * math.sin(w), 0, 0))
+def o_run(f, n=24):
+    d = o_walk(f, n, stride=0.09, lift=0.055, bob=0.02, lean=9, run=True); w = 2 * math.pi * f / n
+    d['hand_L'] = va(RL, (-0.02, -0.10 + 0.05 * math.sin(w), 0.04)); d['hand_R'] = va(RR, (0.03, -0.10, 0.05 + 0.02 * math.sin(w))); d['rot_R'] = (15 + 8 * math.sin(w), 0, 0); return d
+def o_attack(f, n=40):
+    p = f / n; wind = seg(p, 0, .34); slam = seg(p, .44, .56); rec = seg(p, .70, 1.0)
+    hr = vl(RR, V(-0.31, -0.02, 0.80), wind); hr = vl(hr, V(-0.31, -0.24, 0.47), slam); hr = vl(hr, RR, rec)
+    rot = lerp(-10, -50, wind); rot = lerp(rot, 150, slam); rot = lerp(rot, -10, rec)
+    hl = vl(RL, V(0.28, -0.05, 0.74), wind); hl = vl(hl, V(0.29, -0.20, 0.50), slam); hl = vl(hl, RL, rec)
+    lean = lerp(lerp(-22 * wind, 32, slam), 0, rec)
+    return dict(hand_R=hr, hand_L=hl, rot_R=(rot, 0, 0), chest_rot=(lean, 0, 4 * slam), head_rot=(lerp(-8 * wind, 14, slam) * (1 - rec), 0, 0),
+                hips_off=(0, -0.06 * slam * (1 - rec), -0.03 * slam * (1 - rec)), foot_R=(0, -0.05 * slam * (1 - rec), 0))
+def o_hit(f, n=18):
+    k = math.sin(max(0, min(1, f / n)) * math.pi)
+    return dict(chest_rot=(-20 * k, 0, 5 * k), head_rot=(-14 * k, 0, -6 * k), hips_off=(0, 0.05 * k, -0.02 * k),
+                hand_R=va(RR, (0.02, -0.06 + 0.05 * k, 0.02 * k)), hand_L=va(RL, (0, 0.04 * k, 0.03 * k)), rot_R=(-10 - 12 * k, 0, 0))
+def o_death(f):
+    stag = dict(chest_rot=(-15, 0, 5), head_rot=(-12, 0, -8), hips_off=(0, 0.05, -0.02), hand_R=va(RR, (0.02, -0.01, 0.02)), hand_L=va(RL, (0, 0.04, 0.03)), rot_R=(-22, 0, 0))
+    if f <= 5:
+        k = f / 5; return dict(chest_rot=vl((0, 0, 0), stag['chest_rot'], k), head_rot=vl((0, 0, 0), stag['head_rot'], k), hips_off=vl((0, 0, 0), stag['hips_off'], k),
+                               hand_R=vl(va(RR, (0.02, -0.06, 0)), stag['hand_R'], k), hand_L=vl(RL, stag['hand_L'], k), rot_R=(lerp(-10, -22, k), 0, 0))
+    t = min(1.0, (f - 5) / 22); e = t * t * (3 - 2 * t); d = dict(stag)
+    d['root_rot'] = (-88 * e, 0, 0); d['root_off'] = (0, 0.03 * e, 0.20 * e); d['hips_off'] = vl(stag['hips_off'], (0, 0.02, 0), e)
+    d['chest_rot'] = vl(stag['chest_rot'], (0, 0, 0), e); d['head_rot'] = vl(stag['head_rot'], (-8, 0, 12), e)
+    d['hand_L'] = vl(stag['hand_L'], V(0.40, 0.06, 0.28), e); d['hand_R'] = vl(stag['hand_R'], V(-0.40, 0.06, 0.28), e); d['rot_R'] = (lerp(-22, -70, e), 0, 0)
+    d['foot_L'] = vl((0, 0, 0), (0.03, 0.02, 0.03), e); d['foot_R'] = vl((0, 0, 0), (-0.03, 0.05, 0.02), e)
+    if f > 27: s_ = min(1.0, (f - 27) / 6); d['root_off'] = va(d['root_off'], (0, 0, 0.012 * math.sin(s_ * math.pi) * (1 - s_)))
+    return d
+def o_spawn(f, n=50):   # still asleep, slowly wakes up, grabs the mace, ready to fight
+    p = f / n; asleep = 1 - seg(p, .40, .62); jerk = seg(p, .30, .38) * (1 - seg(p, .38, .46)) * math.sin(f * 2.2)
+    stretch = seg(p, .55, .74) * (1 - seg(p, .74, .92)); grab = seg(p, .64, .86)
+    hr = vl(V(-0.33, -0.16, 0.20), va(RR, (0.02, -0.06, 0)), grab); rot = lerp(100, -10, grab)
+    hl = va(vl(V(0.30, -0.12, 0.20), RL, seg(p, .5, .8)), (0.06 * stretch, 0, 0.12 * stretch))
+    return dict(hips_off=(0, 0.02 * asleep, -0.09 * asleep), chest_rot=(24 * asleep - 10 * stretch, 0, 0), head_rot=(30 * asleep - 8 * stretch, 0, 7 * jerk),
+                hand_R=hr, hand_L=hl, rot_R=(rot, 0, 0))
+def o_yawn(f, n=70):
+    p = f / n; up = seg(p, .12, .40) * (1 - seg(p, .72, .94)); sh = math.sin(p * 2 * math.pi * 3) * up
+    return dict(chest_rot=(-12 * up, 0, 0), head_rot=(-22 * up, 0, 2 * sh), hips_off=(0, 0, 0.01 * up),
+                hand_L=vl(va(RL, (0, -0.02, 0)), V(0.30, -0.06, 0.72), up), hand_R=vl(va(RR, (0.02, -0.06, 0)), V(-0.30, -0.06, 0.72), up), rot_R=(lerp(-10, -20, up), 0, 0))
+def o_cheer(f, n=60):
+    p = f / n; up = seg(p, 0, .2) * (1 - seg(p, .85, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 3)) * up
+    return dict(chest_rot=(-14 * up, 0, 0), head_rot=(-12 * up - 5 * pump, 0, 0), hips_off=(0, 0, 0.03 * pump),
+                hand_L=vl(RL, V(0.30, -0.02 - 0.04 * pump, 0.80 + 0.03 * pump), up), hand_R=vl(va(RR, (0.02, -0.06, 0)), V(-0.31, -0.02 - 0.04 * pump, 0.80 + 0.03 * pump), up), rot_R=(lerp(-10, -30, up), 0, 0))
+CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('Run', 24, o_run, True), ('Attack', 40, o_attack, False), ('Hit', 18, o_hit, False),
+                     ('Death', DEATH_LEN, o_death, False), ('Spawn', 50, o_spawn, False), ('Yawn', 70, o_yawn, False), ('Cheer', 60, o_cheer, False)],
+            'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False),
                        ('Hit', 18, hit, False), ('Death', DEATH_LEN, death, False), ('Spawn', DEATH_LEN, spawn, False)]}
 CLIPS = CLIPSETS[CFG.get('clips', 'archer')]
 
@@ -425,8 +502,8 @@ if TT and body_img:
     Bc = np.select([sector == 0, sector == 1, sector == 2, sector == 3, sector == 4, sector == 5], [z, z, x, c, c, x]) + m0
     out = np.stack([np.where(mask, R, r), np.where(mask, G, g), np.where(mask, Bc, b), np.ones_like(r)], -1)
     img2 = bpy.data.images.new(NAME + '_enemy', w, h, alpha=False); img2.pixels = out.astype(np.float32).ravel().tolist()
-    img2.filepath_raw = os.path.join(OUT, NAME + '_enemy.png'); img2.file_format = 'PNG'; img2.save()
-    log('team texture: recoloured', int(mask.sum()), 'pixels ->', NAME + '_enemy.png')
+    img2.filepath_raw = os.path.join(OUT, NAME + '_enemy.jpg'); img2.file_format = 'JPEG'; img2.save()      # JPEG: a 2048 px PNG is 6 MB
+    log('team texture: recoloured', int(mask.sum()), 'pixels ->', NAME + '_enemy.jpg')
 
 if props.get('free'): props['free'].hide_render = True; props['free'].hide_viewport = True
 if CFG.get('export', {}).get('qa_sheets', True):

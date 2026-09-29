@@ -1,7 +1,7 @@
 """
 inspect_model.py - look at a NEW Tripo character before rigging it.
 
-    blender -b -P inspect_model.py -- input/some+character.zip
+    blender -b -P inspect_model.py -- input/some+character.zip   (or a .glb)
 
 Prints: mesh count, triangle count, size, loose-part count (Tripo segmentation is not needed if this is > 20),
 and writes out/<zipname>_grid_front.png and _grid_side.png: renders with a labelled metre grid so the ~14 landmark
@@ -13,13 +13,15 @@ from mathutils import Vector, Matrix
 
 ARGS = sys.argv[sys.argv.index('--') + 1:]
 zpath = os.path.abspath(ARGS[0]); base = os.path.splitext(os.path.basename(zpath))[0].replace('+', '_')
-OUT = os.path.join(os.path.dirname(os.path.dirname(zpath)), 'out'); os.makedirs(OUT, exist_ok=True)
-work = os.path.join(OUT, '_work_inspect_' + base); os.makedirs(work, exist_ok=True)
-with zipfile.ZipFile(zpath) as z: z.extractall(work)
-fbx = glob.glob(os.path.join(work, '*.fbx'))[0]
+OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'out'); os.makedirs(OUT, exist_ok=True)
+IS_GLB = zpath.lower().endswith('.glb')
+if not IS_GLB:
+    work = os.path.join(OUT, '_work_inspect_' + base); os.makedirs(work, exist_ok=True)
+    with zipfile.ZipFile(zpath) as z: z.extractall(work)
+    fbx = glob.glob(os.path.join(work, '*.fbx'))[0]
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
-bpy.ops.import_scene.fbx(filepath=fbx)
+bpy.ops.import_scene.gltf(filepath=zpath) if IS_GLB else bpy.ops.import_scene.fbx(filepath=fbx)
 ms = [o for o in bpy.data.objects if o.type == 'MESH']
 allv, tris, loose = [], 0, 0
 for o in ms:

@@ -5,7 +5,7 @@ import { RARITY_OF } from '../core/packs.ts';
 import type { Rarity } from '../core/packs.ts';
 import { SOUL_ICON, iconUrl } from './icons.ts';
 
-const PORTRAIT: Partial<Record<SoulId, string>> = { warrior: 'assets/portraits/warrior_head.png', archer: 'assets/portraits/archer_head.png' };
+const PORTRAIT: Partial<Record<SoulId, string>> = { warrior: 'assets/portraits/warrior_head.png', archer: 'assets/portraits/archer_head.png', ogre: 'assets/portraits/ogre_head.png' };
 const RARITY_HEX: Record<Rarity, string> = { common: '#b8c0cc', rare: '#4aa3ff', epic: '#b26bff', legendary: '#ffcc33' };
 export const hasArt = (s: SoulId): boolean => !!PORTRAIT[s];
 export const soulArt = (s: SoulId): string => PORTRAIT[s] ?? iconUrl(SOUL_ICON[s]);

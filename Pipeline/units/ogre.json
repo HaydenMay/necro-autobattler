@@ -1,0 +1,110 @@
+{
+  "name": "Ogre",
+  "body_glb": "../input/ogre/ogre_body.glb",
+  "out": "../out",
+  "facing": "-Y",
+  "comment": "Landmarks are the LEFT side (+X) plus centre line, read from out/ogre_body_grid_front/side.png. Hunyuan body (re-baked to 12k triangles by blender/decimate_body.py), mace in the RIGHT hand.",
+  "landmarks": {
+    "pelvis": [
+      0,
+      0,
+      0.3
+    ],
+    "spine": [
+      0,
+      -0.01,
+      0.38
+    ],
+    "chest": [
+      0,
+      -0.01,
+      0.48
+    ],
+    "neck": [
+      0,
+      -0.03,
+      0.56
+    ],
+    "head": [
+      0,
+      -0.04,
+      0.6
+    ],
+    "head_top": [
+      0,
+      -0.02,
+      1.02
+    ],
+    "shoulder": [
+      0.29,
+      -0.01,
+      0.55
+    ],
+    "elbow": [
+      0.37,
+      -0.01,
+      0.41
+    ],
+    "wrist": [
+      0.39,
+      -0.01,
+      0.3
+    ],
+    "hand_end": [
+      0.385,
+      -0.02,
+      0.16
+    ],
+    "hip": [
+      0.17,
+      0,
+      0.29
+    ],
+    "knee": [
+      0.18,
+      -0.01,
+      0.19
+    ],
+    "ankle": [
+      0.19,
+      0.03,
+      0.09
+    ],
+    "toe": [
+      0.2,
+      -0.16,
+      0.03
+    ]
+  },
+  "weights": {
+    "rigid_island_max": 0.3,
+    "power": 3
+  },
+  "weapon": {
+    "glb": "../input/ogre/mace.glb",
+    "hand": "R",
+    "rotate_deg": [
+      0,
+      0,
+      0
+    ],
+    "offset": [
+      0,
+      0,
+      0
+    ]
+  },
+  "clips": "ogre",
+  "team_texture": {
+    "from_hue": [
+      0.7,
+      0.9
+    ],
+    "to_hue": 0.105
+  },
+  "export": {
+    "glb": true,
+    "fbx": false,
+    "qa_sheets": true
+  }
+}

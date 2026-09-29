@@ -4,7 +4,7 @@ import type { Difficulty, Save, SoulProgress } from '../../../core/save.ts';
 import { SOULS } from '../../../core/data.ts';
 import type { SoulId } from '../../../core/data.ts';
 import { makeRng } from '../../../core/rng.ts';
-import { canLevelUp, clearCopies, clearCount, resetLevels, upgradeCosts, newUnlocks, unlockedKeys, difficultyLockReason, difficultyUnlocked, grantPack, levelUp, openOwnedPack, playable, stageLockReason, stageUnlocked } from '../../../core/progress.ts';
+import { endlessUnlocked, canLevelUp, clearCopies, clearCount, resetLevels, upgradeCosts, newUnlocks, unlockedKeys, difficultyLockReason, difficultyUnlocked, grantPack, levelUp, openOwnedPack, playable, stageLockReason, stageUnlocked } from '../../../core/progress.ts';
 import { STAGES } from '../../../core/waves.ts';
 import type { PackResult } from '../../../core/packs.ts';
 
@@ -29,6 +29,9 @@ export class SaveService {
   cleared(stage: string, d: Difficulty): boolean { return clearCount(this.state(), stage, d) > 0; }
   readonly packs = computed(() => this.state().packs);
   readonly replayMeter = computed(() => this.state().replayMeter);
+  /** Endless Depths: the deepest wave cleared, and whether the mode is open yet. */
+  readonly endlessBest = computed(() => this.state().endless.best);
+  readonly endlessOpen = computed(() => endlessUnlocked(this.state()));
   /** How many Souls have enough copies to level up right now (shown as a badge on the Souls tab). */
   readonly readyCount = computed(() => SOULS.filter((s) => canLevelUp(this.state(), s)).length);
 

@@ -26,13 +26,14 @@ export interface Save {
   nextPackId: number;
   clears: Record<string, number>;               // stage clears, keyed 'stage:difficulty'
   replayMeter: number;                          // replay clears toward the next replay pack
+  endless: { best: number };                    // Endless Depths: the deepest wave cleared
 }
 export interface Store { getItem(k: string): string | null; setItem(k: string, v: string): void }
 
 export function defaultSave(): Save {
   const souls = {} as Record<SoulId, SoulProgress>;
   for (const id of SOULS) souls[id] = { level: 1, copies: 0 };
-  return { v: VERSION, deck: SOULS.slice(0, DECK_SIZE), souls, settings: { music: true, sfx: true }, difficulty: 'normal', stage: 'crypt', seen: [], packs: [], nextPackId: 1, clears: {}, replayMeter: 0 };
+  return { v: VERSION, deck: SOULS.slice(0, DECK_SIZE), souls, settings: { music: true, sfx: true }, difficulty: 'normal', stage: 'crypt', seen: [], packs: [], nextPackId: 1, clears: {}, replayMeter: 0, endless: { best: 0 } };
 }
 
 export function browserStore(): Store | null { try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; } }
@@ -69,6 +70,7 @@ export function sanitize(raw: any): Save {
   base.nextPackId = Math.max(maxId + 1, Number.isInteger(raw.nextPackId) && raw.nextPackId > 0 ? raw.nextPackId : 1);
   if (raw.clears && typeof raw.clears === 'object') for (const [k, v] of Object.entries(raw.clears)) if (typeof k === 'string' && k.length < 40 && Number.isInteger(v) && (v as number) > 0) base.clears[k] = v as number;
   if (Number.isInteger(raw.replayMeter) && raw.replayMeter >= 0 && raw.replayMeter < 50) base.replayMeter = raw.replayMeter;
+  if (raw.endless && Number.isInteger(raw.endless.best) && raw.endless.best >= 0 && raw.endless.best <= 9999) base.endless.best = raw.endless.best;
   return base;
 }
 

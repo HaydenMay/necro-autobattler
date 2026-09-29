@@ -4,6 +4,7 @@
 import { BALANCE } from './balance.ts';
 import { SOULS } from './data.ts';
 import type { SoulId } from './data.ts';
+import { ENDLESS_PACK_EVERY, endlessPackTier } from './endless.ts';
 import { LEVEL_COST_MULT, PACK_TIERS, RARITY_OF, openPack } from './packs.ts';
 import type { PackItem, PackResult } from './packs.ts';
 import type { Rng } from './rng.ts';
@@ -83,6 +84,20 @@ export function recordClearAndSave(stageId: string, difficulty: Difficulty, stor
   const s = loadSave(store); const r = recordClear(s, stageId, difficulty); writeSave(s, store); return r;
 }
 
+// ------------------------------------------------------------------------------------------------ Endless Depths
+export interface EndlessReward { wave: number; pack: PackItem | null; newBest: boolean }
+/** Wave `wave` of an endless run was cleared: a pack on every 10th wave (better tiers deeper), and the best depth is remembered. */
+export function recordEndlessWave(save: Save, wave: number): EndlessReward {
+  const newBest = wave > save.endless.best; if (newBest) save.endless.best = wave;
+  const pack = wave > 0 && wave % ENDLESS_PACK_EVERY === 0 ? grantPack(save, endlessPackTier(wave), 'Endless · wave ' + wave) : null;
+  return { wave, pack, newBest };
+}
+export function recordEndlessWaveAndSave(wave: number, store?: Store | null): EndlessReward {
+  const s = loadSave(store); const r = recordEndlessWave(s, wave); writeSave(s, store); return r;
+}
+/** Endless Depths opens once the last campaign stage has been cleared on Normal. */
+export const endlessUnlocked = (save: Save): boolean => clearCount(save, STAGES[STAGES.length - 1].id, 'normal') > 0;
+
 // ------------------------------------------------------------------------------------------------ unlock rules
 // Easy and Normal are open on every unlocked stage. Clearing Normal opens Hard on that stage AND unlocks the next stage. Clearing Hard opens Nightmare.
 export const clearCount = (save: Save, stage: string, d: Difficulty): number => save.clears[stage + ':' + d] ?? 0;
@@ -114,6 +129,7 @@ export function unlockedKeys(save: Save): string[] {
     if (i > 0 && stageUnlocked(save, i)) keys.push('stage:' + st.id);
     for (const d of ['hard', 'nightmare'] as Difficulty[]) if (difficultyUnlocked(save, st.id, d)) keys.push('tier:' + st.id + ':' + d);
   });
+  if (endlessUnlocked(save)) keys.push('endless');
   return keys;
 }
 /** Unlocks not yet celebrated. */
@@ -121,6 +137,7 @@ export const newUnlocks = (save: Save): string[] => unlockedKeys(save).filter((k
 const TIER_NAME: Record<string, string> = { hard: 'Hard mode', nightmare: 'Nightmare mode' };
 /** Words for an unlock key, for banners. */
 export function describeUnlock(key: string): string {
+  if (key === 'endless') return 'Endless Depths (new mode)';
   const [kind, stage, tier] = key.split(':');
   if (kind === 'stage') return stageById(stage).name + ' (new stage)';
   return (TIER_NAME[tier] ?? tier) + ' on ' + stageById(stage).name;

@@ -7,6 +7,7 @@
 
 import { COST, CURVES, SOULS } from './data.ts';
 import type { SoulId } from './data.ts';
+import { ENDLESS_ID, endlessPower, endlessWave } from './endless.ts';
 import { makeRng } from './rng.ts';
 
 export interface EnemySpec { soul: SoulId; star: number }
@@ -61,18 +62,21 @@ export const DIFFICULTY_INFO = [
 // ---- what the next battle uses (set when a run starts)
 export let difficultyName: string = 'normal';
 export let currentStageId: string = 'crypt';
-let power = 1;
-/** Enemy health/damage multiplier for the current stage and tier. */
-export const enemyPower = (): number => power;
+let power = 1, endlessMode = false;
+/** Enemy health/damage multiplier for the current stage and tier (in endless mode it depends on the wave). */
+export const enemyPower = (wave = 1): number => (endlessMode ? endlessPower(wave) : power);
+export const isEndless = (): boolean => endlessMode;
 
 /** Hand-authored waves for the current stage and tier (10 waves). Edited in place by setStageDifficulty. */
 export const AUTHORED: EnemySpec[][] = DIFFICULTY.normal.map(parseWave);
 
 export function setStageDifficulty(stage: string, name: string): void {
   const st = stageById(stage); if (!DIFFS.includes(name as Diff)) return;
-  currentStageId = st.id; difficultyName = name; power = st.power[name as Diff];
+  endlessMode = false; currentStageId = st.id; difficultyName = name; power = st.power[name as Diff];
   AUTHORED.length = 0; st.lists[name as Diff].forEach((w) => AUTHORED.push(parseWave(w)));
 }
+/** Switch to Endless Depths: waves come from core/endless.ts instead of a stage list. */
+export function setEndless(): void { endlessMode = true; currentStageId = ENDLESS_ID; difficultyName = 'endless'; power = 1; AUTHORED.length = 0; }
 /** Change the tier within the current stage. */
 export function setDifficulty(name: string): void { setStageDifficulty(currentStageId, name); }
 
@@ -80,6 +84,7 @@ export const waveCost = (w: EnemySpec[]): number => w.reduce((n, e) => n + COST[
 
 /** Enemy army for a wave (1-based). Waves past the authored ones are generated from a fixed seed so retries face the same army. */
 export function enemyWave(wave: number, stageSeed = 0): EnemySpec[] {
+  if (endlessMode) return endlessWave(wave, stageSeed);
   if (wave <= AUTHORED.length) return AUTHORED[wave - 1].map((e) => ({ ...e }));
   const cap = CURVES.doc[Math.min(wave, CURVES.doc.length) - 1];
   const budget = Math.round(cap * 0.92);

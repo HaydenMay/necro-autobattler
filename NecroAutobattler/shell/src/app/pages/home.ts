@@ -4,6 +4,7 @@ import type { SoulId } from '../../../../core/data.ts';
 import { SOUL_NAME } from '../../../../core/balance.ts';
 import { PROTOTYPE_RULES } from '../../../../core/prototype.ts';
 import { DIFFICULTY_INFO, STAGES, stageById } from '../../../../core/waves.ts';
+import { ENDLESS_ID } from '../../../../core/endless.ts';
 import { REWARDS, describeUnlock } from '../../../../core/progress.ts';
 import type { Difficulty } from '../../../../core/save.ts';
 import { GameLink } from '../game-link.service';
@@ -89,8 +90,9 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     <div class="wrap">
       <div class="box stage" [style.--accent]="look().accent">
         <div class="hero"><div class="heroimg" [style.background-image]="mood" [style.background-position]="look().pos" [style.filter]="'hue-rotate(' + look().hue + 'deg) saturate(1.2)'"></div>
-          <div class="herotxt"><h2>{{ stageDef().name }}</h2><div class="sub">{{ stageDef().blurb }}</div></div></div>
+          <div class="herotxt"><h2>{{ heroName() }}</h2><div class="sub">{{ heroBlurb() }}</div></div></div>
         <div class="in">
+        @if (endlessRun()) { <div class="blurb" style="margin:6px 0 2px">This run: Endless Depths. Finish or start over to change it. A Soul Pack for every 10 waves cleared.</div> } @else {
         <div class="path">
           @for (w of waves; track w) {
             @if (w > 1) { <span class="link" [class.done]="w <= current()"></span> }
@@ -107,6 +109,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
         <div class="hint">{{ hint() }}</div>
         <div class="blurb">{{ run() ? 'This run: ' + stageDef().name + ', ' + label(shown()) + '. Finish or start over to change it.' : blurb() }}</div>
         <div class="rec">Recommended Soul level: <b [class.ok]="deckAvg() >= rec()" [class.low]="deckAvg() < rec()">{{ rec() }}</b> <span class="muted">(your deck averages {{ deckAvg().toFixed(1) }})</span></div>
+        }
         <div class="deck">
           <span class="muted">Deck</span>
           <div class="dk">@for (s of deckSlots(); track $index) { <span class="dc" [class.empty]="!s" [class.art]="!!s && art(s)" [style.border-color]="s ? rc(s) : null" [style.background]="s ? bg(s) : null" [title]="s ? name(s) : 'empty slot'">@if (s) { <img [src]="icon(s)" alt=""><b>Lv {{ save.progress(s).level }}</b> } @else { + }</span> }</div>
@@ -115,7 +118,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
         </div>
         <div class="acts">
           @if (run(); as r) {
-            <button class="big" (click)="resume()">Continue <small style="font-size:.5em;letter-spacing:0">Wave {{ r.wave }}/{{ r.total }} &middot; @for (h of heartList(r.hearts); track $index) { <img class="ic" [src]="h ? heartFull : heartEmpty" alt=""> }</small></button>
+            <button class="big" (click)="resume()">Continue <small style="font-size:.5em;letter-spacing:0">Wave {{ r.wave }}{{ endlessRun() ? '' : '/' + r.total }} &middot; @for (h of heartList(r.hearts); track $index) { <img class="ic" [src]="h ? heartFull : heartEmpty" alt=""> }</small></button>
             <button class="blue" (click)="confirmRestart()">{{ confirming() ? 'Tap again to abandon run' : 'Start over' }}</button>
           } @else {
             <button class="big" [disabled]="!link.ready() || !deckOk()" (click)="start()">{{ link.ready() ? 'Start Battle' : 'Loading army…' }}</button>
@@ -137,6 +140,17 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
             </span>
           </button>
         }
+        <button class="sc endl" [style.--ac]="lookOf('endless').accent" [class.fresh]="isFresh('endless')" [class.sel]="endlessRun()" [class.lock]="!save.endlessOpen()" [disabled]="!save.endlessOpen() || (!!run() && !endlessRun())" (click)="startEndless()">
+          <span class="th" [style.background-image]="mood" [style.background-position]="lookOf('endless').pos" [style.filter]="'hue-rotate(' + lookOf('endless').hue + 'deg) saturate(1.25) brightness(1.35)'"></span>
+          <span class="tx"><b>Endless Depths</b>
+          @if (save.endlessOpen()) {
+            <small>{{ endlessRun() ? 'Run in progress' : 'Best: wave ' + save.endlessBest() }}</small>
+            <div class="marks"><span class="mark">{{ endlessRun() ? 'Run in progress' : 'Best: wave ' + save.endlessBest() }}</span><span class="mark">A pack every 10 waves</span></div>
+          } @else {
+            <small class="lk"><img class="ic" style="width:1.1em;height:1.1em" [src]="lockIcon" alt=""> Clear {{ lastStageName }} on Normal to unlock.</small>
+          }
+          </span>
+        </button>
         <div class="box rp"><span>Bonus pack</span><span class="meter"><i [style.width.%]="(100 * save.replayMeter()) / replayNeeded"></i></span><span>{{ save.replayMeter() }}/{{ replayNeeded }} clears</span></div>
         <div class="box more" style="opacity:.55"><b>More stages</b> <span class="tag soon">coming</span><div style="font-size:.9em;margin-top:3px">New enemies, bosses and first-clear Soul Packs.</div></div>
       </div>
@@ -178,7 +192,12 @@ export class Home implements OnDestroy {
   /** While a run is going Home shows THAT run's stage and tier; otherwise what will start next. */
   shownStage = computed(() => this.run()?.stage ?? this.save.stage());
   shown = computed(() => (this.run()?.difficulty ?? this.save.difficulty()) as Difficulty);
+  /** True while the run in progress is an Endless Depths run (Home then shows that instead of a stage and tier). */
+  endlessRun = computed(() => this.run()?.stage === ENDLESS_ID);
+  lastStageName = STAGES[STAGES.length - 1].name;
   stageDef = computed(() => stageById(this.shownStage()));
+  heroName = computed(() => (this.endlessRun() ? 'Endless Depths' : this.stageDef().name));
+  heroBlurb = computed(() => (this.endlessRun() ? 'No last wave. The enemy keeps growing: how deep can you go?' : this.stageDef().blurb));
   rec = computed(() => this.stageDef().rec[this.shown()]);
   deckAvg = computed(() => { const d = this.save.deck(); return d.reduce((n, s) => n + this.save.progress(s).level, 0) / Math.max(1, d.length); });
   blurb = computed(() => DIFFICULTY_INFO.find((d) => d.id === this.shown())?.blurb ?? '');
@@ -198,11 +217,20 @@ export class Home implements OnDestroy {
   private say(msg: string) { this.hint.set(msg); clearTimeout(this.hintTimer); this.hintTimer = window.setTimeout(() => this.hint.set(''), 3500); }
   pickDiff(d: Difficulty) { if (this.run()) return; const why = this.save.setDifficulty(d); this.say(why ?? ''); }
   pickStage(id: string, index: number) { if (this.run()) return; const why = this.save.setStage(id); this.say(why ?? (this.save.stageOpen(index) ? '' : this.save.stageReason(index))); }
+  /** Endless Depths: start a fresh run, or go back into the one in progress. */
+  startEndless() {
+    if (!this.save.endlessOpen()) return;
+    if (this.endlessRun()) { this.resume(); return; }
+    if (this.run()) return;
+    if (!this.deckOk() || !this.link.ready()) { this.say('Equip ' + this.save.deckSize + ' Souls to start.'); return; }
+    this.link.newEndless(); this.router.navigateByUrl('/run');
+  }
   start() { if (!this.deckOk() || !this.link.ready()) return; this.link.newRun(); this.router.navigateByUrl('/run'); }
   resume() { this.router.navigateByUrl('/run'); }
   confirmRestart() {
     if (!this.confirming()) { this.confirming.set(true); setTimeout(() => this.confirming.set(false), 3000); return; }
     if (!this.deckOk()) { this.confirming.set(false); return; }
-    this.link.newRun(); this.router.navigateByUrl('/run');
+    if (this.endlessRun()) this.link.newEndless(); else this.link.newRun();
+    this.router.navigateByUrl('/run');
   }
 }

@@ -4,6 +4,7 @@ export interface Look { hue: number; fog: string; pos: string; accent: string }
 const LOOK: Record<string, Look> = {
   crypt: { hue: 0, fog: 'rgba(47,217,166,.55)', pos: '50% 62%', accent: '#2fd9a6' },
   graveyard: { hue: -66, fog: 'rgba(150,222,70,.5)', pos: '18% 55%', accent: '#a6e04a' },
+  endless: { hue: 190, fog: 'rgba(255,90,70,.5)', pos: '50% 55%', accent: '#ff7a5c' },
   bastion: { hue: 104, fog: 'rgba(140,120,255,.5)', pos: '88% 40%', accent: '#9a8cff' },
 };
 export const lookOf = (id: string): Look => LOOK[id] ?? LOOK['crypt'];

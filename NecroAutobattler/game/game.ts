@@ -11,13 +11,14 @@ import type { State } from '../core/rules.ts';
 import { buildArena } from './arena.ts';
 import { Battle, cellPos, FRONT_X, GRID_SP, simulate } from '../core/battle.ts';
 import type { BEvent } from '../core/battle.ts';
-import { currentStageId, difficultyName, enemyPower, enemyWave, setDifficulty, setStageDifficulty } from '../core/waves.ts';
-import { PROTOTYPE_RULES } from '../core/prototype.ts';
+import { currentStageId, difficultyName, enemyPower, enemyWave, isEndless, setDifficulty, setEndless, setStageDifficulty } from '../core/waves.ts';
+import { ENDLESS_ID, ENDLESS_PACK_EVERY } from '../core/endless.ts';
+import { ENDLESS_RULES, PROTOTYPE_RULES } from '../core/prototype.ts';
 import { loadSave } from '../core/save.ts';
 import { Necromancer } from './necromancer.ts';
 import { audio } from './audio.ts';
 import { clearRun, loadRun, saveRun, serializeState } from '../core/runsave.ts';
-import { playable, recordClearAndSave } from '../core/progress.ts';
+import { playable, recordClearAndSave, recordEndlessWaveAndSave } from '../core/progress.ts';
 import type { ClearReward } from '../core/progress.ts';
 import type { RunSnapshot } from '../core/runsave.ts';
 import type { State } from '../core/rules.ts';
@@ -44,6 +45,8 @@ export class Game {
   necro!: Necromancer;
   /** What the last stage clear earned (shown on the stage-cleared screen). */
   reward: ClearReward | null = null;
+  /** The endless run in progress: the best depth when it began (to spot a new record), the waves cleared so far, and the packs earned. */
+  endless: { startBest: number; cleared: number; packs: number } | null = null;
   private cine = false;                                   // a result cutscene is playing: the battle camera and fighter sync stand down
   private tweens: { t: number; dur: number; fn: (u: number) => void; done?: () => void }[] = [];
   private tween(dur: number, fn: (u: number) => void, done?: () => void) { this.tweens.push({ t: 0, dur, fn, done }); }
@@ -188,18 +191,20 @@ export class Game {
       const s = this.s; if (!s) return;
       if (s.status !== 'building') { clearRun(); return; }
       if (this.phase !== 'build' && this.phase !== 'draft') return;
-      const snap: RunSnapshot = { v: 1, seed: this.seed, attempt: this.attempt, stage: currentStageId, difficulty: difficultyName, phase: this.phase, draft: this.phase === 'draft' ? this.draft : null, state: serializeState(s) };
+      const snap: RunSnapshot = { v: 1, seed: this.seed, attempt: this.attempt, stage: currentStageId, difficulty: difficultyName, phase: this.phase, draft: this.phase === 'draft' ? this.draft : null, state: serializeState(s), startBest: this.endless?.startBest };
       saveRun(snap);
     } catch { /* never let saving break the game */ }
   }
   /** Rebuild the screen from a saved run (a reload, or Safari discarding the page). */
   private restore(r: { snap: RunSnapshot; state: State }) {
     const { snap, state } = r;
-    this.cine = false; this.flushTweens(); this.necro.revive(); setStageDifficulty(snap.stage, snap.difficulty); this.arena.setTheme(currentStageId);
+    this.cine = false; this.flushTweens(); this.necro.revive();
+    if (snap.stage === ENDLESS_ID) { setEndless(); const done = Math.max(0, state.wave - 1); this.endless = { startBest: snap.startBest ?? loadSave().endless.best, cleared: done, packs: Math.floor(done / ENDLESS_PACK_EVERY) }; } else { setStageDifficulty(snap.stage, snap.difficulty); this.endless = null; }
+    this.arena.setTheme(currentStageId);
     this.seed = snap.seed; this.attempt = snap.attempt; this.s = state; this.seenMerges = state.stats.merges;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = snap.phase === 'draft' ? snap.draft : null; this.phase = this.draft ? 'draft' : 'build';
-    this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast(`Run restored: wave ${state.wave}/${stageWaves(state)}, ${state.hearts} heart${state.hearts === 1 ? '' : 's'}.`);
+    this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast(`Run restored: wave ${isEndless() ? state.wave : state.wave + '/' + stageWaves(state)}, ${state.hearts} heart${state.hearts === 1 ? '' : 's'}.`);
   }
 
   // ---- performance readout: rolling frame stats, per-battle summaries, optional on-screen FPS, and a paste-friendly report
@@ -248,10 +253,21 @@ export class Game {
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
     this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
-    this.seed = seed; this.attempt = 0; const sv = loadSave(), pl = playable(sv); setStageDifficulty(pl.stage, pl.difficulty); this.arena.setTheme(currentStageId); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
+    this.seed = seed; this.attempt = 0; this.endless = null; const sv = loadSave(), pl = playable(sv); setStageDifficulty(pl.stage, pl.difficulty); this.arena.setTheme(currentStageId); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build';
     this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');
+  }
+  /** Fresh Endless Depths run (Home > Endless Depths calls this): same rules as a stage, but the waves never stop and the enemy keeps growing. */
+  newEndless() { this.startEndless(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
+  startEndless(seed: number) {
+    this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
+    this.seed = seed; this.attempt = 0; const sv = loadSave(); setEndless(); this.arena.setTheme(ENDLESS_ID);
+    this.endless = { startBest: sv.endless.best, cleared: 0, packs: 0 };
+    this.s = newStage({ ...ENDLESS_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
+    this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
+    this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build';
+    this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast('Endless Depths: how deep can you go? A Soul Pack every 10 waves.');
   }
   private clearBattle() {
     this.fvis.forEach((v, id) => { if (!this.fUnit.has(id)) v.dispose(); }); this.fvis.clear(); this.fUnit.clear(); this.lastState.clear(); this.battle = null;
@@ -347,7 +363,7 @@ export class Game {
     this.sel = null; this.swapMode = false; this.attempt++; this.handled = false; this.resultAt = -1;
     const s = this.s, units = s.units.slice();
     const saved = loadSave().souls, levels: Record<string, number> = {}; for (const k of Object.keys(saved)) levels[k] = (saved as any)[k].level;   // permanent Soul levels
-    this.battle = new Battle(units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemyWave(s.wave, this.seed), this.seed * 131 + s.wave * 17 + this.attempt, levels, enemyPower());
+    this.battle = new Battle(units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemyWave(s.wave, this.seed), this.seed * 131 + s.wave * 17 + this.attempt, levels, enemyPower(s.wave));
     this.fvis.clear(); this.fUnit.clear(); this.lastState.clear();
     this.battle.fighters.forEach((f) => {
       if (f.team === 0) { const u = units[f.id - 1]; const v = this.unitVis.get(u.id)!; this.fvis.set(f.id, v); this.fUnit.set(f.id, u.id); v.setHp(1); v.setMana(f.maxMana ? 0 : null); }
@@ -420,6 +436,12 @@ export class Game {
     if (b.winner === 0) {
       this.playResult('win', () => {                        // the army is raised again, then the next wave / the draft
         this.cine = false;
+        if (isEndless() && this.endless) {
+          try {
+            const r = recordEndlessWaveAndSave(s.wave); this.endless.cleared = s.wave; window.dispatchEvent(new Event('necro-save-changed'));
+            if (r.pack) { this.endless.packs++; this.toast('Wave ' + s.wave + ' cleared! You earned a Soul Pack (see the Shop).'); }
+          } catch { /* saving must never break a run */ }
+        }
         if (advanceWave(s)) {
           this.phase = 'won'; clearRun();
           try { this.reward = recordClearAndSave(currentStageId, difficultyName as any); window.dispatchEvent(new Event('necro-save-changed')); } catch { this.reward = null; }

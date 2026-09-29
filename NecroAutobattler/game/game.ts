@@ -14,6 +14,7 @@ import { difficultyName, enemyWave, setDifficulty } from '../core/waves.ts';
 import { PROTOTYPE_RULES } from '../core/prototype.ts';
 import { loadSave } from '../core/save.ts';
 import { Necromancer } from './necromancer.ts';
+import { audio } from './audio.ts';
 import { createVisual, isTripo, loadAssets } from './visuals.ts';
 import type { Assets, UnitVisual } from './visuals.ts';
 import { Ui } from './ui.ts';
@@ -37,6 +38,9 @@ export class Game {
   private cine = false;                                   // a result cutscene is playing: the battle camera and fighter sync stand down
   private tweens: { t: number; dur: number; fn: (u: number) => void; done?: () => void }[] = [];
   private tween(dur: number, fn: (u: number) => void, done?: () => void) { this.tweens.push({ t: 0, dur, fn, done }); }
+  /** Finish every running animation at once (so nothing is left half-way or undisposed when the phase changes). */
+  private flushTweens() { for (const w of this.tweens.splice(0)) { w.fn(1); if (w.done) w.done(); } }
+  private seenMerges = 0;
 
   async init(canvas: HTMLCanvasElement) {
     const qs = new URLSearchParams(location.search);
@@ -162,8 +166,8 @@ export class Game {
   /** Fresh run with the currently equipped Soul Deck (the shell's Campaign > Play button calls this). */
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
-    this.cine = false; this.tweens.length = 0; if (this.necro) this.necro.revive();
-    this.seed = seed; this.attempt = 0; this.s = newStage({ ...PROTOTYPE_RULES, pool: loadSave().deck }, seed);
+    this.cine = false; this.flushTweens(); if (this.necro) this.necro.revive();
+    this.seed = seed; this.attempt = 0; this.s = newStage({ ...PROTOTYPE_RULES, pool: loadSave().deck }, seed); this.seenMerges = 0;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build'; this.setCam(this.poses().build);
     this.syncBuild(); this.ui.render(); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');
@@ -174,12 +178,21 @@ export class Game {
   }
   private pos(cell: number) { return cellPos(0, cell); }
   syncBuild() {
+    const merged = this.s.stats.merges > this.seenMerges; this.seenMerges = this.s.stats.merges;
+    const grown = merged ? this.s.units.find((u) => { const gv = this.unitVis.get(u.id); return !!gv && gv.star !== u.star; }) : undefined;   // the unit that just gained a star
     const alive = new Set(this.s.units.map((u) => u.id));
-    for (const [id, v] of this.unitVis) if (!alive.has(id)) { this.visToUnit.delete(v); const p = v.holder.position; this.burst(p.x, p.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 16); v.dispose(); this.unitVis.delete(id); }
+    for (const [id, v] of this.unitVis) if (!alive.has(id)) {
+      this.visToUnit.delete(v); this.unitVis.delete(id); const p = v.holder.position;
+      if (grown) {                                          // merge: the consumed unit is drawn into the survivor and vanishes in a flash
+        const to = this.pos(grown.cell), x0 = p.x, z0 = p.z, sc = v.holder.scaling.x; v.play('idle');
+        this.tween(0.33, (t) => { v.holder.position.set(x0 + (to.x - x0) * t, Math.sin(t * Math.PI) * 0.4, z0 + (to.z - z0) * t); v.holder.scaling.setAll(sc * (1 - 0.75 * t)); },
+          () => { this.burst(to.x, to.z, [0.85, 0.6, 1, 0.9], [0.5, 0.3, 1, 0.7], 14); v.dispose(); });
+      } else { this.burst(p.x, p.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 16); v.dispose(); }
+    }
     for (const u of this.s.units) {
       let v = this.unitVis.get(u.id); const p = this.pos(u.cell);
-      if (!v) { v = createVisual(this.A, u.soul, 0, u.star); this.unitVis.set(u.id, v); this.visToUnit.set(v, u.id); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.play('spawn'); this.summonFx(p.x, p.z); const vv = v; this.later(1.1, () => { if (this.phase === 'build') vv.play('idle'); }); }
-      else { v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; if (v.star !== u.star) { v.setStar(u.star); v.pulse(); this.fxRing(p.x, p.z, new BABYLON.Color3(1, 0.85, 0.4), 0.2, 1.4, 0.6); this.burst(p.x, p.z, [1, 0.85, 0.4, 0.9], [0.8, 0.4, 1, 0.8], 24); } }
+      if (!v) { v = createVisual(this.A, u.soul, 0, u.star); this.unitVis.set(u.id, v); this.visToUnit.set(v, u.id); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.play('spawn'); this.summonFx(p.x, p.z); audio.play('summon'); const vv = v; this.later(1.1, () => { if (this.phase === 'build') vv.play('idle'); }); }
+      else { v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; if (v.star !== u.star) { const fv = v; v.setStar(u.star); this.later(grown && grown.id === u.id ? 0.33 : 0, () => this.mergeFx(fv, p.x, p.z)); } }
     }
     for (let c = 0; c < GRID_CELLS; c++) this.tint(c, 'normal');
     const sel = this.sel;
@@ -191,6 +204,13 @@ export class Game {
       const u = this.s.units.find((x) => x.id === sel.id);
       if (u) { this.tint(u.cell, 'sel'); for (const o of this.s.units) if (canMergeDeployed(u, o)) this.tint(o.cell, 'partner'); for (let c = 0; c < GRID_CELLS; c++) if (cellFree(this.s, c)) this.tint(c, 'free'); }
     }
+  }
+  /** The merge moment: a flash of rings and sparks, a punch in size, a rising chime. */
+  private mergeFx(v: UnitVisual, x: number, z: number) {
+    audio.play('merge'); v.pulse(); const target = v.holder.scaling.x;
+    this.fxRing(x, z, new BABYLON.Color3(1, 0.85, 0.4), 0.2, 2.0, 0.65); this.later(0.12, () => this.fxRing(x, z, new BABYLON.Color3(1, 1, 1), 0.2, 3.0, 0.8));
+    this.burst(x, z, [1, 0.85, 0.4, 0.9], [0.8, 0.4, 1, 0.8], 46); this.burst(x, z, [0.85, 0.6, 1, 0.9], [0.5, 0.3, 1, 0.7], 24);
+    this.tween(0.55, (t) => v.holder.scaling.setAll(target * (1 + 0.45 * Math.sin(t * Math.PI) * (1 - t * 0.4))), () => v.holder.scaling.setAll(target));
   }
   private summonFx(x: number, z: number) { this.burst(x, z, [0.7, 0.3, 1, 0.9], [0.35, 0.1, 0.7, 0.8], 30); this.fxRing(x, z, new BABYLON.Color3(0.7, 0.3, 1), 0.2, 1.2, 0.7); }
 
@@ -241,6 +261,7 @@ export class Game {
   // -------------------------------------------------------------------------------------------- battle
   startBattle() {
     if (this.phase !== 'build' || !this.s.units.length) { if (!this.s.units.length) this.toast('Summon at least one unit first.'); return; }
+    this.flushTweens(); audio.play('start');
     this.sel = null; this.swapMode = false; this.attempt++; this.handled = false; this.resultAt = -1;
     const s = this.s, units = s.units.slice();
     this.battle = new Battle(units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemyWave(s.wave, this.seed), this.seed * 131 + s.wave * 17 + this.attempt);
@@ -256,12 +277,12 @@ export class Game {
     const b = this.battle!;
     for (const e of evs) {
       if (e.t === 'swing') { const v = this.fvis.get(e.id); if (v) v.play('attack', e.speed); }
-      else if (e.t === 'hit') { const v = this.fvis.get(e.to); if (v) v.pulse(); }
-      else if (e.t === 'arrow') { const f = b.byId(e.from)!, to = b.byId(e.to)!; this.spawnArrow(f.team, f.x, f.z, to.x, to.z, e.dur); }
-      else if (e.t === 'death') { const v = this.fvis.get(e.id); if (v) { v.play('death'); v.setHp(null); v.setMana(null); const f = b.byId(e.id)!; this.burst(f.x, f.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 12); if (f.team === 1) this.later(5, () => { if (this.fvis.get(e.id) === v && this.phase !== 'build') { v.holder.setEnabled(false); } }); } }
-      else if (e.t === 'cast') { const f = b.byId(e.id)!; this.fxRing(f.x, f.z, new BABYLON.Color3(0.5, 0.8, 1), 0.15, 1.1, 0.35); }
-      else if (e.t === 'taunt') { const f = b.byId(e.id)!; this.fxRing(f.x, f.z, new BABYLON.Color3(1, 0.85, 0.3), 0.3, BALANCE.taunt.radius, 0.6); }
-      else if (e.t === 'smash') this.fxRing(e.x, e.z, new BABYLON.Color3(1, 0.5, 0.2), 0.2, e.r * 1.6, 0.45);
+      else if (e.t === 'hit') { const v = this.fvis.get(e.to); if (v) v.pulse(); if (e.kind === 'arrow') audio.play('hitArrow'); else if (e.kind === 'melee') audio.play('hit'); }
+      else if (e.t === 'arrow') { const f = b.byId(e.from)!, to = b.byId(e.to)!; this.spawnArrow(f.team, f.x, f.z, to.x, to.z, e.dur); audio.play('arrow'); }
+      else if (e.t === 'death') { const v = this.fvis.get(e.id); if (v) { v.play('death'); v.setHp(null); v.setMana(null); const f = b.byId(e.id)!; audio.play('death'); this.burst(f.x, f.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 12); if (f.team === 1) this.later(5, () => { if (this.fvis.get(e.id) === v && this.phase !== 'build') { v.holder.setEnabled(false); } }); } }
+      else if (e.t === 'cast') { const f = b.byId(e.id)!; audio.play('cast'); this.fxRing(f.x, f.z, new BABYLON.Color3(0.5, 0.8, 1), 0.15, 1.1, 0.35); }
+      else if (e.t === 'taunt') { const f = b.byId(e.id)!; audio.play('taunt'); this.fxRing(f.x, f.z, new BABYLON.Color3(1, 0.85, 0.3), 0.3, BALANCE.taunt.radius, 0.6); }
+      else if (e.t === 'smash') { audio.play('smash'); this.fxRing(e.x, e.z, new BABYLON.Color3(1, 0.5, 0.2), 0.2, e.r * 1.6, 0.45); }
     }
   }
   private spawnArrow(team: number, x0: number, z0: number, x1: number, z1: number, dur: number) {
@@ -329,7 +350,7 @@ export class Game {
   private playResult(kind: 'win' | 'loss' | 'final', done: () => void) {
     const b = this.battle!, n = this.necro; this.cine = true; this.tweenCam(this.poses().necro, 1.1);
     const home = () => {                                    // every fallen ally is pulled back to its grid tile and stands up
-      n.cast(); const c = n.crystalPos(); this.burst(c.x, c.z, [0.85, 0.5, 1, 0.9], [0.5, 0.2, 1, 0.7], 30);
+      n.cast(); audio.play('resurrect'); const c = n.crystalPos(); this.burst(c.x, c.z, [0.85, 0.5, 1, 0.9], [0.5, 0.2, 1, 0.7], 30);
       for (const f of b.fighters) {
         if (f.team !== 0) continue; const uid = this.fUnit.get(f.id), u = this.s.units.find((x) => x.id === uid), v = this.fvis.get(f.id); if (!u || !v) continue;
         const to = this.pos(u.cell), x0 = v.holder.position.x, z0 = v.holder.position.z; v.setHp(null); v.setMana(null);
@@ -338,11 +359,11 @@ export class Game {
           () => { v.holder.position.y = 0; this.burst(to.x, to.z, [0.75, 0.4, 1, 0.9], [0.4, 0.15, 0.9, 0.7], 10); });
       }
     };
-    if (kind === 'win') { n.cast(); this.later(0.25, home); this.later(2.0, done); return; }
-    n.hurt(); this.later(0.15, () => { const c = n.crystalPos(); this.burst(c.x, c.z, [1, 0.3, 0.3, 0.9], [0.8, 0.1, 0.2, 0.6], 16); });
-    if (kind === 'final') { this.later(0.6, () => n.defeat()); this.later(2.6, done); return; }
+    if (kind === 'win') { n.cast(); audio.play('victory'); this.later(0.25, home); this.later(2.0, done); return; }
+    n.hurt(); audio.play('heartLost'); this.later(0.15, () => { const c = n.crystalPos(); this.burst(c.x, c.z, [1, 0.3, 0.3, 0.9], [0.8, 0.1, 0.2, 0.6], 16); });
+    if (kind === 'final') { this.later(0.6, () => { n.defeat(); audio.play('defeat'); }); this.later(2.6, done); return; }
     this.later(1.0, () => {                                 // repulsion shockwave: survivors are flung back to where they started and heal to full
-      n.cast(); const c = n.crystalPos();
+      n.cast(); audio.play('shockwave'); const c = n.crystalPos();
       this.fxRing(c.x, 0, new BABYLON.Color3(0.85, 0.55, 1), 0.6, 30, 1.1); this.fxRing(c.x, 0, new BABYLON.Color3(1, 1, 1), 0.4, 22, 0.8);
       this.burst(c.x, c.z, [1, 0.85, 1, 0.9], [0.7, 0.4, 1, 0.7], 40);
       for (const f of b.fighters) {
@@ -355,7 +376,7 @@ export class Game {
   }
   pickDraft(idx: number) { if (!this.draft) return; takeDraft(this.s, this.draft, idx); this.draft = null; normalDraw(this.s); this.toBuild(); }
   private toBuild() {
-    this.cine = false; this.necro.revive(); this.tweens.length = 0;
+    this.cine = false; this.necro.revive(); this.flushTweens();
     this.clearBattle();
     for (const u of this.s.units) {                       // resurrection: everyone rises again at full health
       const v = this.unitVis.get(u.id)!; const p = this.pos(u.cell); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.holder.setEnabled(true); v.setHp(null); v.setMana(null); v.play('spawn'); this.summonFx(p.x, p.z);

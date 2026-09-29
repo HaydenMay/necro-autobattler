@@ -4,6 +4,7 @@ import { SOULS } from '../core/data.ts';
 import type { SoulId } from '../core/data.ts';
 import { canMergeDeployed, canMergeFromHand, canSummon, cost, dominionFree, dominionUsed, stageWaves } from '../core/rules.ts';
 import { enemyWave, previewText } from '../core/waves.ts';
+import { audio } from './audio.ts';
 
 const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}', goblin: '\u{1F5E1}️', knight: '\u{1F6E1}️', ogre: '\u{1F528}', barbarian: '\u{1FA93}' };
 const $ = (id: string) => document.getElementById(id)!;
@@ -17,6 +18,9 @@ export class Ui {
     document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => (b.onclick = () => g.setSpeed(+b.dataset.speed!)));
     document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => (b.onclick = () => g.setCamMode(b.dataset.cam!)));
     $('gear').onclick = () => { this.dbg.classList.toggle('open'); this.renderDebug(); };
+    const snd = () => { $('btnMusic').classList.toggle('off', !audio.music); $('btnSfx').classList.toggle('off', !audio.sfx); };
+    $('btnMusic').onclick = () => { audio.setMusic(!audio.music); snd(); }; $('btnSfx').onclick = () => { audio.setSfx(!audio.sfx); snd(); };
+    window.addEventListener('necro-settings', snd); snd();
     this.dbg = $('debug'); if (new URLSearchParams(location.search).get('debug')) this.dbg.classList.add('open');
     this.renderDebug();
   }
@@ -57,7 +61,7 @@ export class Ui {
     $('speed').style.display = ph === 'battle' || ph === 'transition' ? 'flex' : 'none';
     document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => b.classList.toggle('on', +b.dataset.speed! === g.timeScale));
     document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === g.camMode));
-    document.body.classList.toggle('inbattle', ph === 'battle' || ph === 'transition');
+    document.body.classList.toggle('inbattle', ph === 'battle' || ph === 'transition'); audio.setMode(ph === 'battle' || ph === 'transition' ? 'battle' : 'build');
     // overlay
     const ov = $('overlay'); ov.className = ''; ov.innerHTML = '';
     if (ph === 'draft' && g.draft) {

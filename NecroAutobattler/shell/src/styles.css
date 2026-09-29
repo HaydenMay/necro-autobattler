@@ -83,3 +83,8 @@ button.go, a.btn, .btn, #btnBattle { background:linear-gradient(var(--go),var(--
 
 @keyframes heartHurt { 0% { transform:scale(1); } 20% { transform:scale(1.55) rotate(-7deg); filter:drop-shadow(0 0 8px #f33); } 45% { transform:scale(1.2) rotate(5deg); } 100% { transform:scale(1); } }
 #hearts.hurt { display:inline-block; animation:heartHurt .9s ease-out; }
+
+/* sound switches in the battle screen, left of the debug gear */
+#snd { top:calc(var(--sat) + 6px); right:calc(var(--sar) + 50px); display:flex; gap:2px; padding:3px 5px; }
+#snd button { background:none; border:0; padding:3px 6px; font-size:clamp(14px,2.6vmin,18px); line-height:1; }
+#snd button.off { opacity:.35; text-decoration:line-through; }

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newStage, draftOptions, discardRedraw } from '../core/rules.ts';
 import { PROTOTYPE_RULES } from '../core/prototype.ts';
-import { defaultSave, loadSave, sanitize, writeSave, DECK_SIZE } from '../core/save.ts';
+import { defaultSave, loadSave, sanitize, updateSettings, writeSave, DECK_SIZE } from '../core/save.ts';
 
 const fakeStore = () => { const m = new Map<string, string>(); return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) }; };
 
@@ -37,4 +37,14 @@ test('save: round trip, and damaged data is repaired instead of crashing', () =>
   assert.deepEqual(sanitize({ deck: [] }).deck, defaultSave().deck, 'an empty deck falls back to the default');
   const st2 = fakeStore(); st2.setItem('necro-save', '{not json'); assert.deepEqual(loadSave(st2), defaultSave());
   assert.doesNotThrow(() => loadSave(null));
+});
+
+test('sound settings default on, persist, and ignore junk', () => {
+  const st = fakeStore();
+  assert.deepEqual(loadSave(st).settings, { music: true, sfx: true });
+  assert.deepEqual(updateSettings({ music: false }, st), { music: false, sfx: true });
+  assert.deepEqual(loadSave(st).settings, { music: false, sfx: true });
+  assert.deepEqual(sanitize({ settings: { music: 'no', sfx: false } }).settings, { music: true, sfx: false });
+  const save = loadSave(st); save.deck = ['ogre']; writeSave(save, st);
+  assert.equal(loadSave(st).settings.music, false, 'changing the deck keeps the sound settings');
 });

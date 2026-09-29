@@ -1,0 +1,1 @@
+var r=["warrior","archer","goblin","knight","ogre","barbarian"],e={warrior:[2,3,4],archer:[4,6,9],goblin:[3,4,6],knight:[5,7,10],ogre:[7,10,15],barbarian:[5,7,10]};var o={doc:[9,13,17,21,25,28,31,34,37,40],recalled:[9,12,15,18,21,24,26,28,30,32]};export{r as a,e as b,o as c};

@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { DECK_SIZE, loadSave, writeSave } from '../../../core/save.ts';
+import { DECK_SIZE, loadSave, updateSettings, writeSave } from '../../../core/save.ts';
 import type { Save } from '../../../core/save.ts';
 import { SOULS } from '../../../core/data.ts';
 import type { SoulId } from '../../../core/data.ts';
@@ -10,6 +10,15 @@ export class SaveService {
   private state = signal<Save>(loadSave());
   readonly deck = computed(() => this.state().deck);
   readonly deckSize = DECK_SIZE;
+  readonly settings = computed(() => this.state().settings);
+
+  constructor() { window.addEventListener('necro-settings', () => this.state.set({ ...this.state(), settings: loadSave().settings })); }
+
+  /** Music / sound-effect switch. The game's audio engine picks the change up through the event. */
+  setSound(which: 'music' | 'sfx', on: boolean) {
+    const settings = updateSettings({ [which]: on }); this.state.set({ ...this.state(), settings });
+    window.dispatchEvent(new Event('necro-settings-changed'));
+  }
 
   progress(id: SoulId) { return this.state().souls[id]; }
   isEquipped(id: SoulId) { return this.state().deck.includes(id); }
@@ -27,5 +36,5 @@ export class SaveService {
   /** Fill every free slot (the roster is small, so this is usually "everything"). */
   recommended() { this.set({ ...this.state(), deck: SOULS.slice(0, DECK_SIZE) }); }
 
-  private set(s: Save) { this.state.set(s); writeSave(s); }
+  private set(s: Save) { const merged = { ...s, settings: loadSave().settings }; this.state.set(merged); writeSave(merged); }
 }

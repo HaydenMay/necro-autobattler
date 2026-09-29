@@ -7,6 +7,7 @@ export const routes: Routes = [
   { path: 'battle', component: Battle },
   { path: 'campaign', loadComponent: () => import('./pages/campaign').then((m) => m.Campaign) },
   { path: 'souls', loadComponent: () => import('./pages/souls').then((m) => m.Souls) },
+  { path: 'settings', loadComponent: () => import('./pages/settings').then((m) => m.Settings) },
   { path: 'shop', loadComponent: () => import('./pages/shop').then((m) => m.Shop) },
   { path: '**', redirectTo: 'battle' },
 ];

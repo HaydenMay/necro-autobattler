@@ -3,6 +3,7 @@
   <a routerLink="/campaign" routerLinkActive="active"><span class="ri">&#128506;&#65039;</span>Campaign</a>
   <a routerLink="/souls" routerLinkActive="active"><span class="ri">&#128128;</span>Souls</a>
   <a routerLink="/shop" routerLinkActive="active"><span class="ri">&#127873;</span>Shop</a>
+  <a routerLink="/settings" routerLinkActive="active"><span class="ri">&#9881;&#65039;</span>Settings</a>
 </nav>
 
 <main class="page" [class.hide]="onBattle()"><router-outlet /></main>
@@ -13,6 +14,7 @@
   <div id="top" class="panel"><span id="hearts"></span><span id="wave"></span><span id="domwrap">&#128293; <span id="dom"></span><span id="dombar"><span id="domfill" style="display:block"></span></span></span></div>
   <div id="enemy" class="panel"></div>
   <button id="gear" class="panel" title="Debug panel">&#9881;</button>
+  <div id="snd" class="panel"><button id="btnMusic" title="Music on/off">&#127925;</button><button id="btnSfx" title="Sound effects on/off">&#128266;</button></div>
   <div id="speed" class="panel"><button data-speed="1">1x</button><button data-speed="2">2x</button><button data-speed="4">4x</button><span style="width:6px"></span><button data-cam="close" title="Follow the action up close">Close</button><button data-cam="wide" title="See both whole armies">Wide</button></div>
   <div id="bottom"><div id="info" class="panel"></div><div id="hand" class="panel"></div></div>
   <div id="side" class="panel"><div id="unitpanel"><button id="btnMerge">Merge</button><button id="btnRemove">Remove</button></div><button id="btnSwap">Swap (1/round)</button><button id="btnBattle">BATTLE</button></div>

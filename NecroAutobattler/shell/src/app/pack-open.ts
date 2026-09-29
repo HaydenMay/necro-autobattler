@@ -61,14 +61,24 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
     .flipped .inner { transform:rotateY(180deg); }
     .face { position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; }
     .face.back { font-size:calc(var(--sz) * .42); }
-    .face.front { transform:rotateY(180deg); border:3px solid var(--c); border-radius:12px; background:#160d24; box-shadow:0 0 22px var(--c); display:flex; flex-direction:column; overflow:hidden; text-align:center; }
+    /* the frame is a ChatGPT picture with see-through windows; the numbers below are where each rarity's art window and name plate sit (percent of the card) */
+    .face.front { transform:rotateY(180deg); text-align:center; }
+    .face.front[data-r=common] { --wl:11.69; --ww:76.62; --wt:14.29; --wh:52.42; --pt:77.68; --ph:10.84; }
+    .face.front[data-r=rare] { --wl:12.13; --ww:76.24; --wt:14.89; --wh:51.78; --pt:77.74; --ph:10.68; }
+    .face.front[data-r=epic] { --wl:11.91; --ww:76.18; --wt:15.68; --wh:50.44; --pt:77.54; --ph:10.04; }
+    .face.front[data-r=legendary] { --wl:12.1; --ww:76.05; --wt:18.09; --wh:47.46; --pt:77.45; --ph:9.41; }
+    .win { position:absolute; left:calc(var(--wl) * 1%); top:calc(var(--wt) * 1%); width:calc(var(--ww) * 1%); height:calc(var(--wh) * 1%); overflow:hidden; border-radius:6%; }
+    .win .por { position:absolute; inset:0; }
+    .frm { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .plate { position:absolute; left:calc(var(--wl) * 1%); width:calc(var(--ww) * 1%); top:calc(var(--pt) * 1%); height:calc(var(--ph) * 1%); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.05; }
+    .plate .nm { padding:0; font-size:calc(var(--sz) * .078); white-space:nowrap; text-shadow:0 1px 2px #000, 0 0 4px #000; }
+    .cnt { position:absolute; right:-7%; top:-5%; width:calc(var(--sz) * .26); height:calc(var(--sz) * .26); border-radius:50%; background:var(--c); color:#150a24; font-weight:900; font-size:calc(var(--sz) * .12); display:flex; align-items:center; justify-content:center; border:2px solid #fff8; box-shadow:0 2px 6px #000a; }
     .face.front.epic { box-shadow:0 0 40px var(--c), 0 0 12px var(--c); } .face.front.legend { animation:legend 1.1s ease-in-out infinite; }
     @keyframes legend { 50% { box-shadow:0 0 70px var(--c), 0 0 18px #fff; } }
     .por.art { position:relative; overflow:hidden; } .por.art img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 35%; filter:none; }
     .por { flex:1; display:flex; align-items:center; justify-content:center; font-size:calc(var(--sz) * .5); }
     .nm { font-weight:800; font-size:calc(var(--sz) * .1); padding:3px 4px 0; } .rar { font-size:calc(var(--sz) * .075); font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
-    .cnt { background:var(--c); color:#150a24; font-weight:900; font-size:calc(var(--sz) * .15); padding:2px 0 3px; }
-    .lvrow { width:calc(var(--sz) * 1.1); text-align:center; font-size:clamp(11px,2vmin,14px); }
+        .lvrow { width:calc(var(--sz) * 1.1); text-align:center; font-size:clamp(11px,2vmin,14px); }
     .lvbar { height:12px; border-radius:7px; background:#0c0716; overflow:hidden; border:1px solid #4a3470; margin-bottom:4px; } .lvbar i { display:block; height:100%; background:#4a8be0; transition:width .9s ease-out; } .lvbar.ready i { background:#2fd9a6; }
 
     .banner img, .summary .sk img, .up img { width:1em; height:1em; vertical-align:-.15em; }
@@ -115,9 +125,10 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
             <div class="flipcard" [class.flipped]="flipped()" [style.--c]="color(r.rarity)">
               <div class="inner">
                 <div class="face back" [style.background-image]="back"></div>
-                <div class="face front" [style.--c]="color(r.rarity)" [class.epic]="r.rarity === 'epic'" [class.legend]="r.rarity === 'legendary'">
-                  <div class="por" [class.art]="art(r.soul)" [style.background]="bg(r.soul)"><img [src]="icon(r.soul)" alt=""></div>
-                  <div class="nm">{{ name(r.soul) }}</div><div class="rar" [style.color]="color(r.rarity)"><img class="gm" [src]="gem(r.rarity)" alt="">{{ rarityName(r.rarity) }}</div>
+                <div class="face front" [attr.data-r]="r.rarity" [style.--c]="color(r.rarity)" [class.epic]="r.rarity === 'epic'" [class.legend]="r.rarity === 'legendary'">
+                  <div class="win"><div class="por" [class.art]="art(r.soul)" [style.background]="bg(r.soul)"><img [src]="icon(r.soul)" alt=""></div></div>
+                  <img class="frm" [src]="frameImg(r.rarity)" alt="" draggable="false">
+                  <div class="plate"><div class="nm">{{ name(r.soul) }}</div></div>
                   <div class="cnt">&times;{{ r.copies }}</div>
                 </div>
               </div>
@@ -176,6 +187,7 @@ export class PackOpen implements OnInit, OnDestroy {
   skullIcon = skullIcon; range = range; gem = gemIcon;
   icon = (s: SoulId) => soulArt(s); art = (s: SoulId) => hasArt(s); bg = (s: SoulId) => (hasArt(s) ? artBg(s) : BG[s]);
   back = 'url(assets/packs/cardback.png)';
+  frameImg = (r: Rarity) => `assets/packs/frame_${r}.png`;
   packImg = () => `assets/packs/pack_${this.tier()}.png`; name = (s: SoulId) => SOUL_NAME[s];
   color = (r: Rarity) => RARITY_COLOR[r]; rarityName = (r: Rarity) => RARITY_NAME[r];
   rot(i: number) { const n = this.data().result.reveals.length; return n <= 1 ? 0 : -30 + (60 * i) / (n - 1); }

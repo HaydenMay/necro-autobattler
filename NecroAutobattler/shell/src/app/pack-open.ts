@@ -6,7 +6,7 @@ import type { PackResult, Rarity } from '../../../core/packs.ts';
 import { SOUL_NAME } from '../../../core/balance.ts';
 import { copiesNeeded, isMaxLevel } from '../../../core/progress.ts';
 import type { SoulProgress } from '../../../core/save.ts';
-import { BG, ICON, RARITY_COLOR, skulls } from './soul-ui';
+import { BG, RARITY_COLOR, gemIcon, range, skullIcon, soulIcon } from './soul-ui';
 
 export interface OpenData { result: PackResult; before: Record<SoulId, SoulProgress> }
 type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary';
@@ -75,6 +75,12 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
     .lvrow { width:calc(var(--sz) * 1.1); text-align:center; font-size:clamp(11px,2vmin,14px); }
     .lvbar { height:12px; border-radius:7px; background:#0c0716; overflow:hidden; border:1px solid #4a3470; margin-bottom:4px; } .lvbar i { display:block; height:100%; background:#4a8be0; transition:width .9s ease-out; } .lvbar.ready i { background:#2fd9a6; }
 
+    .emb img { width:calc(var(--sz) * .5); height:calc(var(--sz) * .5); filter:drop-shadow(0 0 14px var(--edge)); }
+    .tiers img { width:calc(var(--sz) * .17); height:calc(var(--sz) * .17); margin:0 1px; filter:drop-shadow(0 0 5px var(--edge)); }
+    .banner img, .summary .sk img, .up img { width:1em; height:1em; vertical-align:-.15em; }
+    .cb img, .face.back img { width:52%; opacity:.92; filter:drop-shadow(0 0 8px var(--c)); }
+    .por img { width:64%; height:64%; object-fit:contain; filter:drop-shadow(0 2px 4px #000a); }
+    .rar .gm { width:1.3em; height:1.3em; vertical-align:-.3em; margin-right:3px; }
     /* ---- summary */
     .summary { display:flex; flex-direction:column; align-items:center; gap:clamp(8px,2vmin,16px); max-width:min(760px,94vw); }
     .summary h2 { margin:0; font-size:clamp(20px,4.6vmin,32px); color:#ffd24a; } .summary .sk { color:#dcbcff; letter-spacing:.1em; }
@@ -91,18 +97,18 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
       @if (showPack()) {
         <div class="stagebox">
           <div class="pack" [class.t1]="tier() === 1" [class.t2]="tier() === 2" [class.t3]="tier() === 3" [class.shake]="stage() === 'charge'" [class.pulse]="stage() === 'tierup'" [class.tearing]="stage() === 'tear'">
-            <div class="pbody"><div class="foil"></div><div class="emb">&#9760;</div><div class="plabel">SOUL PACK</div><div class="tiers">{{ skulls(tier()) }}</div></div>
+            <div class="pbody"><div class="foil"></div><div class="emb"><img [src]="skullIcon" alt=""></div><div class="plabel">SOUL PACK</div><div class="tiers">@for (i of range(tier()); track i) { <img [src]="skullIcon" alt=""> }</div></div>
             <div class="ptop"></div>
           </div>
           @if (stage() === 'tear') { @for (s of sparks; track $index) { <i class="spark" [style.--dx]="s.dx + 'px'" [style.--dy]="s.dy + 'px'" [style.animation-delay]="s.delay + 'ms'" [style.width.px]="s.size" [style.height.px]="s.size"></i> } }
-          @if (stage() === 'tierup') { <div class="banner">TIER UP! {{ skulls(tier()) }}</div> }
+          @if (stage() === 'tierup') { <div class="banner">TIER UP! @for (i of range(tier()); track i) { <img [src]="skullIcon" alt=""> }</div> }
           @if (stage() === 'idle') { <div class="hint">TAP TO OPEN</div> }
         </div>
       }
 
       @if (stage() === 'fan') {
         <div class="stagebox"><div class="fan">
-          @for (r of data().result.reveals; track $index) { <div class="cb" [style.--r]="rot($index) + 'deg'" [style.--c]="color(r.rarity)" [style.animation-delay]="$index * 70 + 'ms'">&#9760;</div> }
+          @for (r of data().result.reveals; track $index) { <div class="cb" [style.--r]="rot($index) + 'deg'" [style.--c]="color(r.rarity)" [style.animation-delay]="$index * 70 + 'ms'"><img [src]="skullIcon" alt=""></div> }
         </div></div>
       }
 
@@ -112,10 +118,10 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
           @for (r of [cur()]; track idx()) {
             <div class="flipcard" [class.flipped]="flipped()">
               <div class="inner">
-                <div class="face back" [style.--c]="color(r.rarity)">&#9760;</div>
+                <div class="face back" [style.--c]="color(r.rarity)"><img [src]="skullIcon" alt=""></div>
                 <div class="face front" [style.--c]="color(r.rarity)" [class.epic]="r.rarity === 'epic'" [class.legend]="r.rarity === 'legendary'">
-                  <div class="por" [style.background]="bg(r.soul)">{{ icon(r.soul) }}</div>
-                  <div class="nm">{{ name(r.soul) }}</div><div class="rar" [style.color]="color(r.rarity)">{{ rarityName(r.rarity) }}</div>
+                  <div class="por" [style.background]="bg(r.soul)"><img [src]="icon(r.soul)" alt=""></div>
+                  <div class="nm">{{ name(r.soul) }}</div><div class="rar" [style.color]="color(r.rarity)"><img class="gm" [src]="gem(r.rarity)" alt="">{{ rarityName(r.rarity) }}</div>
                   <div class="cnt">&times;{{ r.copies }}</div>
                 </div>
               </div>
@@ -131,12 +137,12 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
 
       @if (stage() === 'summary') {
         <div class="summary" (click)="$event.stopPropagation()">
-          <h2>Pack opened! <span class="sk">{{ skulls(data().result.finalTier) }}</span></h2>
-          @if (data().result.upgrades.length) { <div class="up">Tier up! {{ skulls(data().result.startTier) }} &rarr; {{ skulls(data().result.finalTier) }}</div> }
+          <h2>Pack opened! <span class="sk">@for (i of range(data().result.finalTier); track i) { <img [src]="skullIcon" alt=""> }</span></h2>
+          @if (data().result.upgrades.length) { <div class="up">Tier up! @for (i of range(data().result.startTier); track i) { <img [src]="skullIcon" alt=""> } &rarr; @for (i of range(data().result.finalTier); track i) { <img [src]="skullIcon" alt=""> }</div> }
           <div class="cards">
             @for (t of totals(); track t.soul; let i = $index) {
               <div class="mini" [style.--c]="color(t.rarity)" [style.animation-delay]="i * 80 + 'ms'">
-                <div class="por" [style.background]="bg(t.soul)">{{ icon(t.soul) }}</div>
+                <div class="por" [style.background]="bg(t.soul)"><img [src]="icon(t.soul)" alt=""></div>
                 <b>&times;{{ t.copies }}</b><span>{{ name(t.soul) }}</span>
                 @if (t.ready) { <em>Ready to level!</em> }
               </div>
@@ -171,8 +177,8 @@ export class PackOpen implements OnInit, OnDestroy {
       .sort((a, b) => ['common', 'rare', 'epic', 'legendary'].indexOf(a.rarity) - ['common', 'rare', 'epic', 'legendary'].indexOf(b.rarity));
   });
 
-  skulls = skulls;
-  icon = (s: SoulId) => ICON[s]; bg = (s: SoulId) => BG[s]; name = (s: SoulId) => SOUL_NAME[s];
+  skullIcon = skullIcon; range = range; gem = gemIcon;
+  icon = (s: SoulId) => soulIcon(s); bg = (s: SoulId) => BG[s]; name = (s: SoulId) => SOUL_NAME[s];
   color = (r: Rarity) => RARITY_COLOR[r]; rarityName = (r: Rarity) => RARITY_NAME[r];
   rot(i: number) { const n = this.data().result.reveals.length; return n <= 1 ? 0 : -30 + (60 * i) / (n - 1); }
 

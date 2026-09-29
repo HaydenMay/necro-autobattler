@@ -3,9 +3,10 @@ import { SOULS, COST } from '../../../../core/data.ts';
 import type { SoulId } from '../../../../core/data.ts';
 import { BALANCE, ROLE_TEXT, SOUL_NAME, abilityInfo } from '../../../../core/balance.ts';
 import { copiesNeeded, isMaxLevel } from '../../../../core/progress.ts';
+import { RARITY_NAME, RARITY_OF } from '../../../../core/packs.ts';
 import { SaveService } from '../save.service';
+import { checkIcon, closeIcon, gemIcon, soulIcon, upgradeIcon } from '../soul-ui';
 
-const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}', goblin: '\u{1F5E1}️', knight: '\u{1F6E1}️', ogre: '\u{1F528}', barbarian: '\u{1FA93}' };
 const BG: Record<SoulId, string> = {
   warrior: 'linear-gradient(#6b4a8f,#2c1b45)', archer: 'linear-gradient(#5a4a9a,#251a4a)', goblin: 'linear-gradient(#4f7a3a,#1d2d17)',
   knight: 'linear-gradient(#3f6aa8,#15243f)', ogre: 'linear-gradient(#8a6a3a,#33230f)', barbarian: 'linear-gradient(#a8483a,#3a1512)',
@@ -54,6 +55,8 @@ type Filter = 'all' | 'skill' | 'passive';
     .dots { display:flex; gap:8px; justify-content:center; margin:var(--gap) 0 0; } .dots button { width:12px; height:12px; padding:0; border-radius:50%; background:#5a6a90; border:0; } .dots button.on { background:#ffd24a; }
     .acts { display:flex; gap:var(--gap); grid-column:1 / -1; } .acts button { flex:1; padding:.5em .4em; font-size:1em; font-weight:800; }
     .grey { background:#7d8394; border-color:#b8bfd0; color:#e8ebf4; } .grey small { display:block; font-weight:600; opacity:.85; font-size:.75em; }
+    .port img { width:62%; height:62%; object-fit:contain; filter:drop-shadow(0 2px 3px #000a); } .big img { width:64%; height:78%; object-fit:contain; filter:drop-shadow(0 3px 5px #000a); }
+    .tick img { width:80%; height:80%; } .x img { width:78%; height:78%; } .rarlab { display:flex; align-items:center; gap:4px; font-size:.9em; opacity:.9; margin-top:2px; } .rarlab img { width:1.3em; height:1.3em; }
     .note { font-size:.82em; opacity:.7; margin-top:6px; } .ptable { width:100%; font-size:.95em; border-collapse:collapse; } .ptable td, .ptable th { padding:4px 6px; text-align:left; } .ptable th { opacity:.7; font-size:.85em; }
   `],
   template: `
@@ -63,7 +66,7 @@ type Filter = 'all' | 'skill' | 'passive';
       @for (i of slots(); track $index) {
         @if (i) {
           <button class="tile eq slotfull" (click)="openDetail(i, $event)">
-            <span class="gem">{{ cost(i) }}</span><span class="port" [style.background]="bg(i)">{{ icon(i) }}</span><span class="lv">LV {{ save.progress(i).level }}</span></button>
+            <span class="gem">{{ cost(i) }}</span><span class="port" [style.background]="bg(i)"><img [src]="icon(i)" alt=""></span><span class="lv">LV {{ save.progress(i).level }}</span></button>
         } @else { <div class="slot">+</div> }
       }
     </div>
@@ -75,8 +78,8 @@ type Filter = 'all' | 'skill' | 'passive';
       @for (s of shown(); track s) {
         <div class="tw">
           <button class="tile" [class.lift]="pop() === s" [class.eq]="save.isEquipped(s)" (click)="tapTile(s, $event)">
-            <span class="gem">{{ cost(s) }}</span>@if (save.isEquipped(s)) { <span class="tick">&#10003;</span> }
-            <span class="port" [style.background]="bg(s)">{{ icon(s) }}</span><span class="lv">Level {{ save.progress(s).level }}</span>
+            <span class="gem">{{ cost(s) }}</span>@if (save.isEquipped(s)) { <span class="tick"><img [src]="checkIcon" alt=""></span> }
+            <span class="port" [style.background]="bg(s)"><img [src]="icon(s)" alt=""></span><span class="lv">Level {{ save.progress(s).level }}</span>
             <span class="bar" [class.ready]="canLevel(s)" [class.max]="isMax(s)"><i [style.width.%]="pct(s)"></i><b>{{ isMax(s) ? 'Max' : save.progress(s).copies + '/' + need(s) }}</b></span>
           </button>
           @if (pop() === s) {
@@ -93,9 +96,9 @@ type Filter = 'all' | 'skill' | 'passive';
     @if (detail(); as d) {
       <div class="scrim" (click)="detail.set(null)">
         <div class="modal" (click)="$event.stopPropagation()">
-          <button class="x" (click)="detail.set(null)">&#10005;</button>
-          <div><div class="big" [style.background]="bg(d)">{{ icon(d) }}</div>
-            <div class="nm">{{ name(d) }}</div><div class="sub">Level {{ save.progress(d).level }}</div>
+          <button class="x" (click)="detail.set(null)"><img [src]="closeIcon" alt="Close"></button>
+          <div><div class="big" [style.background]="bg(d)"><img [src]="icon(d)" alt=""></div>
+            <div class="nm">{{ name(d) }}</div><div class="sub">Level {{ save.progress(d).level }}</div><div class="rarlab"><img [src]="gem(rarityOf(d))" alt="">{{ rarityName(d) }}</div>
             <div class="note">{{ role(d) }}</div></div>
           <div>
             <div class="tabs"><button [class.on]="page() === 0" (click)="page.set(0)">Stats</button><button [class.on]="page() === 1" (click)="page.set(1)">{{ ability(d).kind === 'skill' ? 'Skill' : 'Passive' }}</button><button [class.on]="page() === 2" (click)="page.set(2)">Stars</button></div>
@@ -127,7 +130,7 @@ type Filter = 'all' | 'skill' | 'passive';
             <div class="swipehint">swipe or tap the tabs</div>
           </div>
           <div class="acts">
-            <button [class]="canLevel(d) ? 'go' : 'grey'" [disabled]="!canLevel(d)" (click)="upgrade(d, $event)">Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
+            <button [class]="canLevel(d) ? 'go' : 'grey'" [disabled]="!canLevel(d)" (click)="upgrade(d, $event)">@if (canLevel(d)) { <img class="ic" [src]="upgradeIcon" alt=""> }Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
             <button [class]="save.isEquipped(d) ? 'blue' : 'go'" (click)="toggle(d, $event)">{{ save.isEquipped(d) ? 'Unequip' : 'Equip' }}</button>
           </div>
         </div>
@@ -136,6 +139,8 @@ type Filter = 'all' | 'skill' | 'passive';
 })
 export class Souls {
   save = inject(SaveService);
+  checkIcon = checkIcon; closeIcon = closeIcon; upgradeIcon = upgradeIcon; gem = gemIcon;
+  rarityOf = (s: SoulId) => RARITY_OF[s]; rarityName = (s: SoulId) => RARITY_NAME[RARITY_OF[s]];
   filters: Filter[] = ['all', 'skill', 'passive'];
   filter = signal<Filter>('all');
   pop = signal<SoulId | null>(null);
@@ -147,7 +152,7 @@ export class Souls {
   avg = computed(() => { const d = this.save.deck(); return (d.reduce((n, s) => n + COST[s][0], 0) / Math.max(1, d.length)).toFixed(1); });
   shown = computed(() => SOULS.filter((s) => this.filter() === 'all' || abilityInfo(s).kind === this.filter()));
 
-  icon = (s: SoulId) => ICON[s]; bg = (s: SoulId) => BG[s]; name = (s: SoulId) => SOUL_NAME[s]; role = (s: SoulId) => ROLE_TEXT[s];
+  icon = (s: SoulId) => soulIcon(s); bg = (s: SoulId) => BG[s]; name = (s: SoulId) => SOUL_NAME[s]; role = (s: SoulId) => ROLE_TEXT[s];
   cost = (s: SoulId) => COST[s][0]; base = (s: SoulId) => BALANCE.stats[s]; ability = (s: SoulId) => abilityInfo(s);
   need = (s: SoulId) => copiesNeeded(this.save.progress(s).level, s);
   isMax = (s: SoulId) => isMaxLevel(this.save.progress(s).level);

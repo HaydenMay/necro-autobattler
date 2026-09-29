@@ -8,8 +8,8 @@ import { DIFFICULTY_INFO } from '../../../../core/waves.ts';
 import type { Difficulty } from '../../../../core/save.ts';
 import { GameLink } from '../game-link.service';
 import { SaveService } from '../save.service';
+import { heartEmptyIcon, heartIcon, skullIcon, soulIcon } from '../soul-ui';
 
-const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}', goblin: '\u{1F5E1}️', knight: '\u{1F6E1}️', ogre: '\u{1F528}', barbarian: '\u{1FA93}' };
 
 /** Home: the campaign path, your deck, and the one big button. The fight itself opens full-screen from here. */
 @Component({
@@ -29,6 +29,7 @@ const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}'
     .diffs button[disabled] { opacity:.45; } .blurb { font-size:.9em; opacity:.75; min-height:1.3em; }
     .deck { display:flex; align-items:center; gap:8px; margin:clamp(6px,1.6vmin,12px) 0; flex-wrap:wrap; }
     .ic { display:inline-flex; width:clamp(24px,4.6vmin,34px); height:clamp(24px,4.6vmin,34px); align-items:center; justify-content:center; border-radius:8px; background:#2b1c44; border:1px solid #6b46a3; font-size:1.3em; }
+    .di { width:82%; height:82%; object-fit:contain; }
     .ic.empty { border-style:dashed; opacity:.5; }
     .deck a { color:#8fb0f0; }
     .warn { color:#ff9a90; font-weight:700; }
@@ -46,22 +47,22 @@ const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}'
         <div class="path">
           @for (w of waves; track w) {
             @if (w > 1) { <span class="link" [class.done]="w <= current()"></span> }
-            <span class="pip" [class.done]="w < current()" [class.now]="w === current()" [class.boss]="w === total">{{ w === total ? '&#9760;' : w }}</span>
+            <span class="pip" [class.done]="w < current()" [class.now]="w === current()" [class.boss]="w === total">@if (w === total) { <img class="ic" [src]="skullIcon" alt=""> } @else { {{ w }} }</span>
           }
         </div>
         <div class="diffs">
-          @for (d of diffs; track d.id) { <button [class.on]="shown() === d.id" [class.nm]="d.id === 'nightmare'" [disabled]="!!run()" (click)="pick($any(d.id))">{{ d.label }}{{ d.id === 'nightmare' ? ' ☠' : '' }}</button> }
+          @for (d of diffs; track d.id) { <button [class.on]="shown() === d.id" [class.nm]="d.id === 'nightmare'" [disabled]="!!run()" (click)="pick($any(d.id))">{{ d.label }}</button> }
         </div>
         <div class="blurb">{{ run() ? 'This run is on ' + label(shown()) + '. Finish or start over to change it.' : blurb() }}</div>
         <div class="deck">
           <span class="muted">Deck</span>
-          @for (s of deckSlots(); track $index) { <span class="ic" [class.empty]="!s" [title]="s ? name(s) : 'empty slot'">{{ s ? icon(s) : '+' }}</span> }
+          @for (s of deckSlots(); track $index) { <span class="ic" [class.empty]="!s" [title]="s ? name(s) : 'empty slot'">@if (s) { <img class="di" [src]="icon(s)" alt=""> } @else { + }</span> }
           <a routerLink="/souls" class="muted" style="margin-left:4px">change</a>
           @if (!deckOk()) { <span class="warn">Equip {{ save.deckSize }} Souls to start ({{ save.deck().length }}/{{ save.deckSize }})</span> }
         </div>
         <div class="acts">
           @if (run(); as r) {
-            <button class="big" (click)="resume()">Continue <small style="font-size:.5em;letter-spacing:0">Wave {{ r.wave }}/{{ r.total }} &middot; {{ hearts(r.hearts) }}</small></button>
+            <button class="big" (click)="resume()">Continue <small style="font-size:.5em;letter-spacing:0">Wave {{ r.wave }}/{{ r.total }} &middot; @for (h of heartList(r.hearts); track $index) { <img class="ic" [src]="h ? heartFull : heartEmpty" alt=""> }</small></button>
             <button class="blue" (click)="confirmRestart()">{{ confirming() ? 'Tap again to abandon run' : 'Start over' }}</button>
           } @else {
             <button class="big" [disabled]="!link.ready() || !deckOk()" (click)="start()">{{ link.ready() ? 'Start Battle' : 'Loading army…' }}</button>
@@ -91,8 +92,9 @@ export class Home {
   current = computed(() => this.run()?.wave ?? 1);
   deckSlots = computed(() => Array.from({ length: this.save.deckSize }, (_, i) => this.save.deck()[i] ?? null));
   deckOk = computed(() => this.save.deck().length === this.save.deckSize);
-  icon = (s: SoulId) => ICON[s]; name = (s: SoulId) => SOUL_NAME[s];
-  hearts = (n: number) => '❤️'.repeat(n) + '\u{1F5A4}'.repeat(Math.max(0, 3 - n));
+  icon = (s: SoulId) => soulIcon(s); name = (s: SoulId) => SOUL_NAME[s];
+  skullIcon = skullIcon; heartFull = heartIcon; heartEmpty = heartEmptyIcon;
+  heartList = (n: number) => Array.from({ length: 3 }, (_, i) => i < n);
 
   start() { if (!this.deckOk() || !this.link.ready()) return; this.link.newRun(); this.router.navigateByUrl('/run'); }
   resume() { this.router.navigateByUrl('/run'); }

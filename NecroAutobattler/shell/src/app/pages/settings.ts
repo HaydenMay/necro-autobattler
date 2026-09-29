@@ -14,15 +14,15 @@ import { SaveService } from '../save.service';
   template: `
     <h1>Settings</h1>
     <p class="lead">Sound is made in the game itself, so there are no audio files to download. Your choices are saved on this device.</p>
-    <div class="box row"><span style="font-size:26px">&#127925;</span><div class="grow"><b>Music</b><span>Ambient score, more intense in battle</span></div>
+    <div class="box row"><img class="ic" style="width:34px;height:34px" src="assets/icons/music.png" alt=""><div class="grow"><b>Music</b><span>Ambient score, more intense in battle</span></div>
       <button class="sw" [class.on]="save.settings().music" role="switch" [attr.aria-checked]="save.settings().music" (click)="save.setSound('music', !save.settings().music)"></button></div>
-    <div class="box row"><span style="font-size:26px">&#128266;</span><div class="grow"><b>Sound effects</b><span>Hits, spells, summoning, merging</span></div>
+    <div class="box row"><img class="ic" style="width:34px;height:34px" src="assets/icons/sound_on.png" alt=""><div class="grow"><b>Sound effects</b><span>Hits, spells, summoning, merging</span></div>
       <button class="sw" [class.on]="save.settings().sfx" role="switch" [attr.aria-checked]="save.settings().sfx" (click)="save.setSound('sfx', !save.settings().sfx)"></button></div>
-    <div class="box row"><span style="font-size:26px">&#128264;</span><div class="grow"><b>Sound check</b><span>{{ msg() }}</span></div>
+    <div class="box row"><img class="ic" style="width:34px;height:34px" src="assets/icons/info.png" alt=""><div class="grow"><b>Sound check</b><span>{{ msg() }}</span></div>
       <button class="go" (click)="test()">Test sound</button></div>
-    <div class="box row" style="flex-wrap:wrap"><span style="font-size:26px">&#128295;</span><div class="grow"><b>Testing helpers</b><span>Add packs to your Shop, or copies to every Soul, to try the opening and levelling without playing a whole stage.</span></div>
-      <button class="go" (click)="save.grantTestPack(1)">+ &#9760; pack</button><button class="go" (click)="save.grantTestPack(2)">+ &#9760;&#9760;</button><button class="go" (click)="save.grantTestPack(3)">+ &#9760;&#9760;&#9760;</button><button class="blue" (click)="save.grantTestCopies(20)">+20 copies each</button></div>
-    <p class="lead" style="margin-top:14px">The battle screen also has quick 🎵 / 🔊 buttons next to the gear.</p>`,
+    <div class="box row" style="flex-wrap:wrap"><img class="ic" style="width:34px;height:34px" src="assets/icons/settings.png" alt=""><div class="grow"><b>Testing helpers</b><span>Add packs to your Shop, or copies to every Soul, to try the opening and levelling without playing a whole stage.</span></div>
+      <button class="go" (click)="save.grantTestPack(1)">+ Tier 1 pack</button><button class="go" (click)="save.grantTestPack(2)">+ Tier 2 pack</button><button class="go" (click)="save.grantTestPack(3)">+ Tier 3 pack</button><button class="blue" (click)="save.grantTestCopies(20)">+20 copies each</button></div>
+    <p class="lead" style="margin-top:14px">The battle screen also has quick music and sound-effect buttons next to the gear.</p>`,
 })
 export class Settings implements OnDestroy {
   save = inject(SaveService);

@@ -5,8 +5,9 @@ import type { SoulId } from '../core/data.ts';
 import { canMergeDeployed, canMergeFromHand, canSummon, cost, dominionFree, dominionUsed, stageWaves } from '../core/rules.ts';
 import { enemyWave, previewText } from '../core/waves.ts';
 import { audio } from './audio.ts';
+import { SOUL_ICON, heartsHtml, iconImg, iconUrl, skullImgs } from '../ui/icons.ts';
 
-const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}', goblin: '\u{1F5E1}️', knight: '\u{1F6E1}️', ogre: '\u{1F528}', barbarian: '\u{1FA93}' };
+const ICON = Object.fromEntries(SOULS.map((s) => [s, iconImg(SOUL_ICON[s], 'ic')])) as Record<SoulId, string>;
 const $ = (id: string) => document.getElementById(id)!;
 const stars = (n: number) => '★'.repeat(n);
 
@@ -19,7 +20,7 @@ export class Ui {
     document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => (b.onclick = () => g.setSpeed(+b.dataset.speed!)));
     document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => (b.onclick = () => g.setCamMode(b.dataset.cam!)));
     $('gear').onclick = () => { this.dbg.classList.toggle('open'); this.renderDebug(); };
-    const snd = () => { $('btnMusic').classList.toggle('off', !audio.music); $('btnSfx').classList.toggle('off', !audio.sfx); };
+    const snd = () => { $('btnMusic').classList.toggle('off', !audio.music); $('btnSfx').classList.toggle('off', !audio.sfx); const si = $('btnSfx').querySelector('img'); if (si) si.src = iconUrl(audio.sfx ? 'sound_on' : 'sound_off'); };
     $('btnMusic').onclick = () => { audio.setMusic(!audio.music); snd(); }; $('btnSfx').onclick = () => { audio.setSfx(!audio.sfx); snd(); };
     window.addEventListener('necro-settings', snd); snd();
     this.dbg = $('debug'); if (new URLSearchParams(location.search).get('debug')) this.dbg.classList.add('open');
@@ -32,7 +33,7 @@ export class Ui {
 
   render() {
     const g = this.g, s = g.s, ph = g.phase, build = ph === 'build';
-    $('hearts').textContent = '❤️'.repeat(s.hearts) + '\u{1F5A4}'.repeat(Math.max(0, 3 - s.hearts));
+    $('hearts').innerHTML = heartsHtml(s.hearts);
     $('wave').textContent = `Wave ${s.wave}/${stageWaves(s)}`;
     const used = dominionUsed(s); $('dom').textContent = `${used}/${s.cap}`; ($('domfill') as HTMLElement).style.width = Math.min(100, (used / s.cap) * 100) + '%';
     // enemy preview: what is coming, never where
@@ -44,7 +45,7 @@ export class Ui {
       const el = document.createElement('div'); const sel = g.sel && g.sel.type === 'card' && g.sel.idx === i; const afford = canSummon(s, i), canMerge = s.units.some((u: any) => canMergeFromHand(s, i, u.id)), usable = afford || canMerge;
       el.className = 'card' + (sel ? ' sel' : '') + (!usable && !g.swapMode ? ' dis' : '') + (g.swapMode ? ' swap' : '');
       const tag = afford ? `<span class="ok">Summon</span>` : canMerge ? '<span class="ok mg">Merge only</span>' : '<span class="no">No room</span>';
-      el.innerHTML = `<div class="cost">${cost(soul, 1)}</div><div class="ic">${ICON[soul]}</div><div class="nm">${SOUL_NAME[soul]}</div><div class="cs">${tag}</div>`; el.title = ROLE_TEXT[soul] + (afford ? '' : canMerge ? ' - Dominion is full, but you can merge it into your matching 1-star unit.' : ' - Not enough free Dominion to summon this.');
+      el.innerHTML = `<div class="cost">${cost(soul, 1)}</div>${ICON[soul]}<div class="nm">${SOUL_NAME[soul]}</div><div class="cs">${tag}</div>`; el.title = ROLE_TEXT[soul] + (afford ? '' : canMerge ? ' - Dominion is full, but you can merge it into your matching 1-star unit.' : ' - Not enough free Dominion to summon this.');
       el.onclick = () => g.onCard(i); hand.appendChild(el);
     });
     if (!s.hand.length) hand.innerHTML = '<div class="empty">No cards in hand</div>';
@@ -66,11 +67,11 @@ export class Ui {
     // overlay
     const ov = $('overlay'); ov.className = ''; ov.innerHTML = '';
     if (ph === 'draft' && g.draft) {
-      ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>Victory Draft</h2><div class="sub">Wave cleared. Dominion is now ${s.cap}. Keep one:</div><div class="row">${g.draft.map((soul: SoulId, i: number) => `<div class="card big" data-i="${i}"><div class="cost">${cost(soul, 1)}</div><div class="ic">${ICON[soul]}</div><div class="nm">${SOUL_NAME[soul]}</div><div class="role">${ROLE_TEXT[soul]}</div></div>`).join('')}</div></div>`;
+      ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>Victory Draft</h2><div class="sub">Wave cleared. Dominion is now ${s.cap}. Keep one:</div><div class="row">${g.draft.map((soul: SoulId, i: number) => `<div class="card big" data-i="${i}"><div class="cost">${cost(soul, 1)}</div>${ICON[soul]}<div class="nm">${SOUL_NAME[soul]}</div><div class="role">${ROLE_TEXT[soul]}</div></div>`).join('')}</div></div>`;
       ov.querySelectorAll<HTMLElement>('.card').forEach((c) => (c.onclick = () => g.pickDraft(+c.dataset.i!)));
     } else if (ph === 'won' || ph === 'lost') {
-      const rw = ph === 'won' ? g.reward : null, sk = (n: number) => '\u2620'.repeat(n);
-      const rewardHtml = rw ? `<div class="sub" style="color:#ffd24a;font-weight:700">${rw.pack ? (rw.first ? `\u{1F381} First clear! You earned a ${sk(rw.pack.tier)} Soul Pack.` : `\u{1F381} Replay reward: a ${sk(rw.pack.tier)} Soul Pack.`) : `Replay progress ${rw.replayMeter}/${rw.replayNeeded} toward a Soul Pack.`}</div>` : '';
+      const rw = ph === 'won' ? g.reward : null, sk = (n: number) => skullImgs(n);
+      const rewardHtml = rw ? `<div class="sub" style="color:#ffd24a;font-weight:700">${rw.pack ? (rw.first ? `${iconImg('shop')} First clear! You earned a ${sk(rw.pack.tier)} Soul Pack.` : `${iconImg('shop')} Replay reward: a ${sk(rw.pack.tier)} Soul Pack.`) : `Replay progress ${rw.replayMeter}/${rw.replayNeeded} toward a Soul Pack.`}</div>` : '';
       ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>${ph === 'won' ? 'Stage cleared!' : 'Stage lost'}</h2><div class="sub">${g.lastBattle}</div>${rewardHtml}<div class="row">${rw && rw.pack ? '<button id="toShop" class="go">Open pack</button>' : ''}<button id="again" class="${rw && rw.pack ? 'blue' : 'go'}">${ph === 'won' ? 'Play again' : 'Try again'}</button><button id="toHome" class="blue">Home</button></div></div>`;
       $('again').onclick = () => g.newRun(); $('toHome').onclick = () => window.dispatchEvent(new Event('necro-go-home'));
       const ts = document.getElementById('toShop'); if (ts) ts.onclick = () => window.dispatchEvent(new Event('necro-go-shop'));

@@ -93,6 +93,8 @@ export class Game {
   setActive(on: boolean) { this.active = on; }
 
   // -------------------------------------------------------------------------------------------- scene helpers
+  /** The placement grid is a build-screen tool: hide it during the fight so the battle looks like a scene, not a board. */
+  private showGrid(on: boolean) { for (const t of this.tiles) t.setEnabled(on); }
   private makeTile(team: 0 | 1, cell: number) {
     const p = cellPos(team, cell), t = BABYLON.MeshBuilder.CreatePlane('tile' + cell, { size: GRID_SP * 0.92 }, this.scene);
     t.rotation.x = Math.PI / 2; t.position.set(p.x, 0.015, p.z);
@@ -340,7 +342,7 @@ export class Game {
   // -------------------------------------------------------------------------------------------- battle
   startBattle() {
     if (this.phase !== 'build' || !this.s.units.length) { if (!this.s.units.length) this.toast('Summon at least one unit first.'); return; }
-    this.flushTweens(); audio.play('start'); this.beginBattlePerf();
+    this.flushTweens(); audio.play('start'); this.beginBattlePerf(); this.showGrid(false);
     this.sel = null; this.swapMode = false; this.attempt++; this.handled = false; this.resultAt = -1;
     const s = this.s, units = s.units.slice();
     const saved = loadSave().souls, levels: Record<string, number> = {}; for (const k of Object.keys(saved)) levels[k] = (saved as any)[k].level;   // permanent Soul levels
@@ -462,7 +464,7 @@ export class Game {
   pickDraft(idx: number) { if (!this.draft) return; takeDraft(this.s, this.draft, idx); this.draft = null; normalDraw(this.s); this.toBuild(); }
   private toBuild() {
     this.cine = false; this.necro.revive(); this.flushTweens();
-    this.clearBattle();
+    this.clearBattle(); this.showGrid(true);
     for (const u of this.s.units) {                       // resurrection: everyone rises again at full health
       const v = this.unitVis.get(u.id)!; const p = this.pos(u.cell); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.holder.setEnabled(true); v.setHp(null); v.setMana(null); v.play('spawn'); this.summonFx(p.x, p.z);
       this.later(1.1, () => v.play('idle'));

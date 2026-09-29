@@ -83,9 +83,68 @@ export function buildArena(scene: any, ground: any): { update(t: number): void }
 
   // ---- dark teal surround that swallows the far edge of the floor
   scene.clearColor = new BABYLON.Color4(0.02, 0.05, 0.06, 1);
-  scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR; scene.fogColor = new BABYLON.Color3(0.02, 0.05, 0.06); scene.fogStart = 20; scene.fogEnd = 44;
+  scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR; scene.fogColor = new BABYLON.Color3(0.02, 0.05, 0.06); scene.fogStart = 24; scene.fogEnd = 56;
 
   placeProps(scene).catch((e) => console.warn('arena props failed', e));
+  const cave = buildCave(scene, tex);
 
-  return { update: (t: number) => { rm.alpha = 0.45 + 0.15 * Math.sin(t * 1.4); } };
+  return { update: (t: number) => { rm.alpha = 0.45 + 0.15 * Math.sin(t * 1.4); cave.update(t); } };
+}
+
+// ---- the cave: a rough stone wall all the way round, rock spires along its foot, drifting mist, and a dark vignette on the floor
+const RX = 26, RZ = 20, CZ = -6, WALL_H = 18;   // the ring is centred behind the field so the far wall sits about 14 m past it
+const wobble = (a: number, y: number): number => Math.sin(3 * a + 1.3) * 0.5 + Math.sin(7 * a + y * 0.5) * 0.3 + Math.sin(13 * a - y * 0.35) * 0.2 + Math.sin(23 * a + y) * 0.08;
+
+function mistTexture(scene: any, seed: number): any {
+  const S = 256, t = new BABYLON.DynamicTexture('mist' + seed, { width: S, height: S }, scene, true), c = t.getContext();
+  c.clearRect(0, 0, S, S);
+  let r = seed * 9301 + 49297; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 46; i++) {
+    const x = rnd() * S, y = rnd() * S, rad = 26 + rnd() * 46;
+    for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) {          // draw wrapped copies so the picture tiles with no seam
+      const g = c.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, rad); g.addColorStop(0, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = g; c.fillRect(0, 0, S, S);
+    }
+  }
+  t.update(); t.hasAlpha = true; t.wrapU = t.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE; return t;
+}
+
+function buildCave(scene: any, floorTex: any): { update(t: number): void } {
+  // rough wall: an oval ring whose radius wobbles with angle and height, darker the higher it goes
+  const N = 120, M = 12, pos: number[] = [], uv: number[] = [], col: number[] = [], idx: number[] = [];
+  for (let j = 0; j <= M; j++) for (let i = 0; i <= N; i++) {
+    const a = (i / N) * Math.PI * 2, h = (j / M) * WALL_H, k = 1 + 0.06 * wobble(a, h) + (j === 0 ? 0 : 0.05 * Math.sin(a * 5 + j));
+    const overhang = 1 - 0.1 * Math.sin((j / M) * Math.PI);                        // leans in a little so it feels like a cavern
+    pos.push(Math.cos(a) * RX * k * overhang, h, CZ + Math.sin(a) * RZ * k * overhang); uv.push((i / N) * 14, (j / M) * 3.2);
+    const b = Math.max(0.06, 1.0 - (j / M) * 0.9); col.push(b * 0.8, b, b, 1);
+  }
+  for (let j = 0; j < M; j++) for (let i = 0; i < N; i++) { const a = j * (N + 1) + i, b = a + 1, c = a + N + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
+  const wall = new BABYLON.Mesh('cave', scene), vd = new BABYLON.VertexData(); vd.positions = pos; vd.indices = idx; vd.uvs = uv; vd.colors = col;
+  const nrm: number[] = []; BABYLON.VertexData.ComputeNormals(pos, idx, nrm); vd.normals = nrm; vd.applyToMesh(wall);
+  const wm = new BABYLON.StandardMaterial('cavem', scene); wm.diffuseTexture = floorTex.clone(); wm.diffuseTexture.uScale = 1; wm.diffuseTexture.vScale = 1;
+  wm.specularColor = BABYLON.Color3.Black(); wm.backFaceCulling = false; wm.diffuseColor = new BABYLON.Color3(0.75, 0.85, 0.9); wall.material = wm; wall.isPickable = false; wall.useVertexColors = true; wm.useVertexColor = true;
+  // rock spires standing along the foot of the wall (one shared mesh, many copies)
+  const spire = BABYLON.MeshBuilder.CreateCylinder('spire', { diameterTop: 0, diameterBottom: 1.6, height: 1, tessellation: 5 }, scene);
+  const sm = new BABYLON.StandardMaterial('spirem', scene); sm.diffuseColor = new BABYLON.Color3(0.03, 0.045, 0.055); sm.specularColor = BABYLON.Color3.Black(); sm.emissiveColor = new BABYLON.Color3(0.004, 0.012, 0.014); spire.material = sm;
+  spire.convertToFlatShadedMesh(); spire.setEnabled(false); spire.isPickable = false;
+  let r = 12345; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 46; i++) {
+    const a = (i / 46) * Math.PI * 2 + (rnd() - 0.5) * 0.12, d = 0.86 + rnd() * 0.1, hgt = 1.4 + rnd() * 3.2, w = 0.7 + rnd() * 1.0;
+    const s = spire.createInstance('sp' + i); s.isPickable = false; s.position.set(Math.cos(a) * RX * d, hgt / 2 - 0.2, CZ + Math.sin(a) * RZ * d);
+    s.scaling.set(w, hgt, w); s.rotation.y = rnd() * 6; s.rotation.z = (rnd() - 0.5) * 0.18;
+  }
+  // mist: two slow layers just above the floor
+  const layers = [0.28, 0.75].map((y, n) => {
+    const p = BABYLON.MeshBuilder.CreateGround('mist' + n, { width: 60, height: 44 }, scene); p.position.y = y; p.isPickable = false;
+    const m = new BABYLON.StandardMaterial('mistm' + n, scene), t = mistTexture(scene, n + 3); t.uScale = 5 - n; t.vScale = 3.4 - n * 0.6;
+    m.diffuseTexture = t; m.useAlphaFromDiffuseTexture = true; m.emissiveColor = new BABYLON.Color3(0.2, 0.6, 0.55); m.disableLighting = true; m.alpha = 0.15 - n * 0.06; m.backFaceCulling = false;
+    m.disableDepthWrite = true; p.material = m; p.alphaIndex = 5 + n; return { t, n };
+  });
+  // vignette: darkens the floor toward the edges so the field looks like a lit pool inside the cave
+  const vt = new BABYLON.DynamicTexture('vig', { width: 256, height: 256 }, scene, true), vc = vt.getContext(), g = vc.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.42, 'rgba(0,0,0,0)'); g.addColorStop(0.8, 'rgba(0,4,6,0.7)'); g.addColorStop(1, 'rgba(0,4,6,0.95)');
+  vc.fillStyle = g; vc.fillRect(0, 0, 256, 256); vt.update(); vt.hasAlpha = true;
+  const vig = BABYLON.MeshBuilder.CreateGround('vig', { width: 46, height: 30 }, scene); vig.position.y = 0.03; vig.isPickable = false;
+  const vm = new BABYLON.StandardMaterial('vigm', scene); vm.diffuseTexture = vt; vm.useAlphaFromDiffuseTexture = true; vm.disableLighting = true; vm.emissiveColor = new BABYLON.Color3(0, 0.01, 0.015); vm.disableDepthWrite = true; vig.material = vm; vig.alphaIndex = 1;
+  return { update: (t: number) => { for (const l of layers) { l.t.uOffset = t * (0.006 + l.n * 0.004); l.t.vOffset = t * 0.003 * (l.n ? -1 : 1); } } };
 }

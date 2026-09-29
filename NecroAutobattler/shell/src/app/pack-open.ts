@@ -6,7 +6,7 @@ import type { PackResult, Rarity } from '../../../core/packs.ts';
 import { SOUL_NAME } from '../../../core/balance.ts';
 import { copiesNeeded, isMaxLevel } from '../../../core/progress.ts';
 import type { SoulProgress } from '../../../core/save.ts';
-import { BG, RARITY_COLOR, gemIcon, range, skullIcon, soulIcon } from './soul-ui';
+import { BG, RARITY_COLOR, artBg, gemIcon, hasArt, range, skullIcon, soulArt } from './soul-ui';
 
 export interface OpenData { result: PackResult; before: Record<SoulId, SoulProgress> }
 type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary';
@@ -18,27 +18,21 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
 @Component({
   selector: 'app-pack-open',
   styles: [`
-    :host { display:block; --sz:clamp(120px,27vmin,210px); }
+    :host { display:block; --sz:clamp(120px,27vmin,210px); --pz:clamp(96px,23vmin,190px); }
     .scrim { position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center; overflow:hidden; user-select:none; -webkit-user-select:none;
-             background:radial-gradient(ellipse at 50% 55%, #3a1866 0%, #150a26 55%, #07030d 100%); padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+             background:radial-gradient(ellipse at 50% 55%, #0f3a34 0%, #08121c 55%, #05030a 100%); padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
     .skip { position:absolute; top:calc(env(safe-area-inset-top) + 10px); right:calc(env(safe-area-inset-right) + 12px); z-index:3; background:rgba(0,0,0,.45); }
     .stagebox { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(10px,2.4vmin,22px); width:100%; height:100%; }
     .hint { font-size:clamp(12px,2.2vmin,16px); opacity:.8; letter-spacing:.08em; animation:blink 1.4s ease-in-out infinite; }
     @keyframes blink { 50% { opacity:.35; } }
 
-    /* ---- the pack */
-    .pack { position:relative; width:var(--sz); aspect-ratio:3/4.3; filter:drop-shadow(0 0 22px var(--glow)); --glow:rgba(150,110,220,.5); }
-    .pack.t1 { --a:#5c5468; --b:#28222f; --edge:#c9c0d4; --glow:rgba(200,190,220,.35); }
-    .pack.t2 { --a:#7a44d6; --b:#2a1257; --edge:#dcbcff; --glow:rgba(160,90,255,.65); }
-    .pack.t3 { --a:#2b1c3a; --b:#0a0610; --edge:#ffcc33; --glow:rgba(255,200,60,.65); }
-    .pbody, .ptop { position:absolute; left:0; right:0; border:2px solid var(--edge); background:linear-gradient(160deg,var(--a),var(--b)); overflow:hidden; }
-    .pbody { top:9%; bottom:0; border-radius:0 0 12px 12px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:14% 6% 8%; }
-    .ptop { top:0; height:12%; border-radius:12px 12px 0 0; clip-path:polygon(0 0,100% 0,100% 70%,92% 100%,84% 62%,76% 100%,68% 62%,60% 100%,52% 62%,44% 100%,36% 62%,28% 100%,20% 62%,12% 100%,4% 62%,0 100%); z-index:2; }
-    .foil { position:absolute; inset:0; background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.32) 50%,transparent 62%); background-size:280% 100%; animation:sweep 2.6s linear infinite; pointer-events:none; }
-    @keyframes sweep { from { background-position:150% 0; } to { background-position:-150% 0; } }
-    .emb { font-size:calc(var(--sz) * .42); line-height:1; color:var(--edge); text-shadow:0 0 18px var(--edge), 0 0 4px #000; }
-    .plabel { font-size:calc(var(--sz) * .11); font-weight:900; letter-spacing:.2em; color:var(--edge); }
-    .tiers { font-size:calc(var(--sz) * .16); color:var(--edge); letter-spacing:.1em; text-shadow:0 0 8px var(--edge); }
+    /* ---- the pack: ChatGPT art, cut out by Pipeline/blender/cutout.py, standing on the altar. The tear splits the same picture into a strip and a body. */
+    .altarwrap { position:relative; display:flex; flex-direction:column; align-items:center; }
+    .pack { position:relative; z-index:2; height:calc(var(--pz) * 1.5); aspect-ratio:301/640; --glow:rgba(47,217,166,.35); filter:drop-shadow(0 10px 12px #000a) drop-shadow(0 0 22px var(--glow)); }
+    .pack.t2 { --glow:rgba(47,217,166,.6); } .pack.t3 { --glow:rgba(255,204,51,.7); }
+    .pbody, .ptop { position:absolute; inset:0; } .pbody img, .ptop img { display:block; width:100%; height:100%; }
+    .ptop { z-index:2; } .ptop img { clip-path:inset(0 0 87% 0); } .pbody img { clip-path:inset(12% 0 0 0); }
+    .altar { position:relative; z-index:1; width:calc(var(--pz) * 3.3); max-width:92vw; margin-top:calc(var(--pz) * -0.72); pointer-events:none; }
     .shake { animation:shake .12s linear infinite; }
     @keyframes shake { 0% { transform:translate(-2px,1px) rotate(-1.2deg); } 50% { transform:translate(2px,-1px) rotate(1.2deg); } 100% { transform:translate(-2px,1px) rotate(-1.2deg); } }
     .pulse { animation:pulse .9s ease-out; }
@@ -54,13 +48,14 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
 
     /* ---- the fan of card backs */
     .fan { position:relative; width:var(--sz); height:calc(var(--sz) * 1.5); }
-    .cb, .face.back { border:2px solid var(--c); background:linear-gradient(160deg,#241636,#0e0817); box-shadow:0 0 16px var(--c), inset 0 0 18px rgba(0,0,0,.6); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--c); }
-    .cb { position:absolute; left:0; bottom:0; width:var(--sz); aspect-ratio:3/4.2; transform-origin:50% 120%; transform:rotate(var(--r)); animation:fanOut .8s ease-out both; font-size:calc(var(--sz) * .4); }
+    .cb, .face.back { background-position:center; background-size:100% 100%; background-repeat:no-repeat; }   /* the picture itself is set in the template (Angular would try to bundle a url() here) */
+    .cb { filter:drop-shadow(0 0 10px var(--c)); }
+    .cb { position:absolute; left:0; bottom:0; width:var(--sz); aspect-ratio:464/720; transform-origin:50% 120%; transform:rotate(var(--r)); animation:fanOut .8s ease-out both; font-size:calc(var(--sz) * .4); }
     @keyframes fanOut { from { transform:rotate(0deg) translateY(20px) scale(.6); opacity:0; } to { transform:rotate(var(--r)); opacity:1; } }
 
     /* ---- one card, flipped by a tap */
     .pips { display:flex; gap:7px; } .pips i { width:9px; height:9px; border-radius:50%; background:#3b2a5c; } .pips i.on { background:#b98aff; box-shadow:0 0 8px #b98aff; }
-    .flipcard { width:var(--sz); aspect-ratio:3/4.2; perspective:900px; animation:cardIn .45s ease-out; }
+    .flipcard { width:var(--sz); aspect-ratio:464/720; perspective:900px; filter:drop-shadow(0 0 14px var(--c)); animation:cardIn .45s ease-out; }
     @keyframes cardIn { from { transform:translateY(40px) scale(.7); opacity:0; } to { transform:none; opacity:1; } }
     .inner { position:relative; width:100%; height:100%; transform-style:preserve-3d; transition:transform .55s cubic-bezier(.3,.7,.3,1); }
     .flipped .inner { transform:rotateY(180deg); }
@@ -69,16 +64,14 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
     .face.front { transform:rotateY(180deg); border:3px solid var(--c); border-radius:12px; background:#160d24; box-shadow:0 0 22px var(--c); display:flex; flex-direction:column; overflow:hidden; text-align:center; }
     .face.front.epic { box-shadow:0 0 40px var(--c), 0 0 12px var(--c); } .face.front.legend { animation:legend 1.1s ease-in-out infinite; }
     @keyframes legend { 50% { box-shadow:0 0 70px var(--c), 0 0 18px #fff; } }
+    .por.art { position:relative; overflow:hidden; } .por.art img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 35%; filter:none; }
     .por { flex:1; display:flex; align-items:center; justify-content:center; font-size:calc(var(--sz) * .5); }
     .nm { font-weight:800; font-size:calc(var(--sz) * .1); padding:3px 4px 0; } .rar { font-size:calc(var(--sz) * .075); font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
     .cnt { background:var(--c); color:#150a24; font-weight:900; font-size:calc(var(--sz) * .15); padding:2px 0 3px; }
     .lvrow { width:calc(var(--sz) * 1.1); text-align:center; font-size:clamp(11px,2vmin,14px); }
     .lvbar { height:12px; border-radius:7px; background:#0c0716; overflow:hidden; border:1px solid #4a3470; margin-bottom:4px; } .lvbar i { display:block; height:100%; background:#4a8be0; transition:width .9s ease-out; } .lvbar.ready i { background:#2fd9a6; }
 
-    .emb img { width:calc(var(--sz) * .5); height:calc(var(--sz) * .5); filter:drop-shadow(0 0 14px var(--edge)); }
-    .tiers img { width:calc(var(--sz) * .17); height:calc(var(--sz) * .17); margin:0 1px; filter:drop-shadow(0 0 5px var(--edge)); }
     .banner img, .summary .sk img, .up img { width:1em; height:1em; vertical-align:-.15em; }
-    .cb img, .face.back img { width:52%; opacity:.92; filter:drop-shadow(0 0 8px var(--c)); }
     .por img { width:64%; height:64%; object-fit:contain; filter:drop-shadow(0 2px 4px #000a); }
     .rar .gm { width:1.3em; height:1.3em; vertical-align:-.3em; margin-right:3px; }
     /* ---- summary */
@@ -96,9 +89,12 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
 
       @if (showPack()) {
         <div class="stagebox">
-          <div class="pack" [class.t1]="tier() === 1" [class.t2]="tier() === 2" [class.t3]="tier() === 3" [class.shake]="stage() === 'charge'" [class.pulse]="stage() === 'tierup'" [class.tearing]="stage() === 'tear'">
-            <div class="pbody"><div class="foil"></div><div class="emb"><img [src]="skullIcon" alt=""></div><div class="plabel">SOUL PACK</div><div class="tiers">@for (i of range(tier()); track i) { <img [src]="skullIcon" alt=""> }</div></div>
-            <div class="ptop"></div>
+          <div class="altarwrap">
+            <div class="pack" [class.t1]="tier() === 1" [class.t2]="tier() === 2" [class.t3]="tier() === 3" [class.shake]="stage() === 'charge'" [class.pulse]="stage() === 'tierup'" [class.tearing]="stage() === 'tear'">
+              <div class="pbody"><img [src]="packImg()" alt="" draggable="false"></div>
+              <div class="ptop"><img [src]="packImg()" alt="" draggable="false"></div>
+            </div>
+            <img class="altar" src="assets/packs/altar.png" alt="" draggable="false">
           </div>
           @if (stage() === 'tear') { @for (s of sparks; track $index) { <i class="spark" [style.--dx]="s.dx + 'px'" [style.--dy]="s.dy + 'px'" [style.animation-delay]="s.delay + 'ms'" [style.width.px]="s.size" [style.height.px]="s.size"></i> } }
           @if (stage() === 'tierup') { <div class="banner">TIER UP! @for (i of range(tier()); track i) { <img [src]="skullIcon" alt=""> }</div> }
@@ -108,7 +104,7 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
 
       @if (stage() === 'fan') {
         <div class="stagebox"><div class="fan">
-          @for (r of data().result.reveals; track $index) { <div class="cb" [style.--r]="rot($index) + 'deg'" [style.--c]="color(r.rarity)" [style.animation-delay]="$index * 70 + 'ms'"><img [src]="skullIcon" alt=""></div> }
+          @for (r of data().result.reveals; track $index) { <div class="cb" [style.--r]="rot($index) + 'deg'" [style.--c]="color(r.rarity)" [style.animation-delay]="$index * 70 + 'ms'" [style.background-image]="back"></div> }
         </div></div>
       }
 
@@ -116,11 +112,11 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
         <div class="stagebox">
           <div class="pips">@for (r of data().result.reveals; track $index) { <i [class.on]="$index <= idx()"></i> }</div>
           @for (r of [cur()]; track idx()) {
-            <div class="flipcard" [class.flipped]="flipped()">
+            <div class="flipcard" [class.flipped]="flipped()" [style.--c]="color(r.rarity)">
               <div class="inner">
-                <div class="face back" [style.--c]="color(r.rarity)"><img [src]="skullIcon" alt=""></div>
+                <div class="face back" [style.background-image]="back"></div>
                 <div class="face front" [style.--c]="color(r.rarity)" [class.epic]="r.rarity === 'epic'" [class.legend]="r.rarity === 'legendary'">
-                  <div class="por" [style.background]="bg(r.soul)"><img [src]="icon(r.soul)" alt=""></div>
+                  <div class="por" [class.art]="art(r.soul)" [style.background]="bg(r.soul)"><img [src]="icon(r.soul)" alt=""></div>
                   <div class="nm">{{ name(r.soul) }}</div><div class="rar" [style.color]="color(r.rarity)"><img class="gm" [src]="gem(r.rarity)" alt="">{{ rarityName(r.rarity) }}</div>
                   <div class="cnt">&times;{{ r.copies }}</div>
                 </div>
@@ -142,7 +138,7 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
           <div class="cards">
             @for (t of totals(); track t.soul; let i = $index) {
               <div class="mini" [style.--c]="color(t.rarity)" [style.animation-delay]="i * 80 + 'ms'">
-                <div class="por" [style.background]="bg(t.soul)"><img [src]="icon(t.soul)" alt=""></div>
+                <div class="por" [class.art]="art(t.soul)" [style.background]="bg(t.soul)"><img [src]="icon(t.soul)" alt=""></div>
                 <b>&times;{{ t.copies }}</b><span>{{ name(t.soul) }}</span>
                 @if (t.ready) { <em>Ready to level!</em> }
               </div>
@@ -178,7 +174,9 @@ export class PackOpen implements OnInit, OnDestroy {
   });
 
   skullIcon = skullIcon; range = range; gem = gemIcon;
-  icon = (s: SoulId) => soulIcon(s); bg = (s: SoulId) => BG[s]; name = (s: SoulId) => SOUL_NAME[s];
+  icon = (s: SoulId) => soulArt(s); art = (s: SoulId) => hasArt(s); bg = (s: SoulId) => (hasArt(s) ? artBg(s) : BG[s]);
+  back = 'url(assets/packs/cardback.png)';
+  packImg = () => `assets/packs/pack_${this.tier()}.png`; name = (s: SoulId) => SOUL_NAME[s];
   color = (r: Rarity) => RARITY_COLOR[r]; rarityName = (r: Rarity) => RARITY_NAME[r];
   rot(i: number) { const n = this.data().result.reveals.length; return n <= 1 ? 0 : -30 + (60 * i) / (n - 1); }
 

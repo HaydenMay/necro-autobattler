@@ -37,6 +37,7 @@ export class Game {
   private fvis = new Map<number, UnitVisual>();           // fighter id -> visual during a battle
   private fUnit = new Map<number, number>();              // fighter id -> unit id (player side)
   private lastState = new Map<number, string>();
+  private arena!: { update(t: number): void; setTheme(stage: string): void };
   private tiles: any[] = []; private tileMats: any[] = []; private ringFx: any[] = []; private arrows: any[] = []; private timers: { t: number; fn: () => void }[] = [];
   private acc = 0; private camFrom: any = null; private camTo: any = null; private camT = 1; private camDur = 2.0; private resultAt = -1; private handled = false; private startStepAt = 0;
   private arrowMats: any[] = []; private arrowMesh: any[] = [];
@@ -60,7 +61,7 @@ export class Game {
     this.camera = new BABYLON.FreeCamera('cam', new BABYLON.Vector3(0, 8, -9), scene); this.camera.minZ = 0.1; this.camera.maxZ = 200; this.camera.fov = 0.8; this.camera.inputs.clear();
 
     const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 60, height: 40 }, scene);
-    ground.isPickable = false; const arena = buildArena(scene, ground); scene.onBeforeRenderObservable.add(() => arena.update(performance.now() / 1000));
+    ground.isPickable = false; const arena = this.arena = buildArena(scene, ground); scene.onBeforeRenderObservable.add(() => arena.update(performance.now() / 1000));
     for (const team of [0, 1] as const) for (let c = 0; c < GRID_CELLS; c++) { const t = this.makeTile(team, c); if (team === 0) this.tiles.push(t); else t.setEnabled(false); }
 
     this.A = await loadAssets(scene);
@@ -194,7 +195,7 @@ export class Game {
   /** Rebuild the screen from a saved run (a reload, or Safari discarding the page). */
   private restore(r: { snap: RunSnapshot; state: State }) {
     const { snap, state } = r;
-    this.cine = false; this.flushTweens(); this.necro.revive(); setStageDifficulty(snap.stage, snap.difficulty);
+    this.cine = false; this.flushTweens(); this.necro.revive(); setStageDifficulty(snap.stage, snap.difficulty); this.arena.setTheme(currentStageId);
     this.seed = snap.seed; this.attempt = snap.attempt; this.s = state; this.seenMerges = state.stats.merges;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = snap.phase === 'draft' ? snap.draft : null; this.phase = this.draft ? 'draft' : 'build';
@@ -247,7 +248,7 @@ export class Game {
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
     this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
-    this.seed = seed; this.attempt = 0; const sv = loadSave(), pl = playable(sv); setStageDifficulty(pl.stage, pl.difficulty); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
+    this.seed = seed; this.attempt = 0; const sv = loadSave(), pl = playable(sv); setStageDifficulty(pl.stage, pl.difficulty); this.arena.setTheme(currentStageId); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build';
     this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');

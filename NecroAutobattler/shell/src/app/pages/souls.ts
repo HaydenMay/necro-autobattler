@@ -3,7 +3,7 @@ import { SOULS, COST } from '../../../../core/data.ts';
 import type { SoulId } from '../../../../core/data.ts';
 import { BALANCE, ROLE_TEXT, SOUL_NAME, abilityInfo } from '../../../../core/balance.ts';
 import { copiesNeeded, isMaxLevel } from '../../../../core/progress.ts';
-import { RARITY_NAME, RARITY_OF } from '../../../../core/packs.ts';
+import { RARITIES, RARITY_NAME, RARITY_OF } from '../../../../core/packs.ts';
 import { SaveService } from '../save.service';
 import { checkIcon, closeIcon, gemIcon, soulIcon, upgradeIcon } from '../soul-ui';
 
@@ -57,11 +57,17 @@ type Filter = 'all' | 'skill' | 'passive';
     .grey { background:#7d8394; border-color:#b8bfd0; color:#e8ebf4; } .grey small { display:block; font-weight:600; opacity:.85; font-size:.75em; }
     .port img { width:62%; height:62%; object-fit:contain; filter:drop-shadow(0 2px 3px #000a); } .big img { width:64%; height:78%; object-fit:contain; filter:drop-shadow(0 3px 5px #000a); }
     .tick img { width:80%; height:80%; } .x img { width:78%; height:78%; } .rarlab { display:flex; align-items:center; gap:4px; font-size:.9em; opacity:.9; margin-top:2px; } .rarlab img { width:1.3em; height:1.3em; }
+    .sortlab { opacity:.6; margin-left:10px; align-self:center; font-size:.9em; } .arr { width:1em; height:1em; vertical-align:-.15em; margin-left:3px; } .arr.down { transform:rotate(180deg); }
+    .upbtn { position:absolute; left:6px; right:6px; bottom:6px; height:clamp(16px,3vmin,22px); z-index:4; padding:0; border-radius:10px; font-size:.85em; font-weight:800; display:flex; align-items:center; justify-content:center; gap:3px;
+             background:linear-gradient(var(--go),var(--go-lo)); color:var(--go-ink); border:1px solid var(--go-hi); box-shadow:0 0 10px var(--go); animation:upPulse 1.2s ease-in-out infinite; }
+    .upbtn img { width:1.2em; height:1.2em; margin:0; } @keyframes upPulse { 50% { box-shadow:0 0 20px var(--go); } }
+    .tile.flash { animation:flashUp .7s ease-out; } @keyframes flashUp { 0% { box-shadow:0 0 0 #fff; } 35% { box-shadow:0 0 34px #fff; transform:scale(1.07); } 100% { box-shadow:none; } }
     .note { font-size:.82em; opacity:.7; margin-top:6px; } .ptable { width:100%; font-size:.95em; border-collapse:collapse; } .ptable td, .ptable th { padding:4px 6px; text-align:left; } .ptable th { opacity:.7; font-size:.85em; }
   `],
   template: `
     <div class="top"><h1>Souls</h1><span class="meta">Deck <b>{{ deck().length }}/{{ save.deckSize }}</b> &middot; avg Dominion <b>{{ avg() }}</b> (1★)</span>
-      <button class="go small" style="margin-left:auto" (click)="recommended($event)">Recommended</button></div>
+      <span style="margin-left:auto;display:flex;gap:8px">@if (save.readyCount() > 0) { <button class="go small" (click)="upgradeAll($event)"><img class="ic" [src]="upgradeIcon" alt="">Upgrade all ({{ save.readyCount() }})</button> }
+      <button class="go small" (click)="recommended($event)">Recommended</button></span></div>
     <div class="box strip">
       @for (i of slots(); track $index) {
         @if (i) {
@@ -73,15 +79,18 @@ type Filter = 'all' | 'skill' | 'passive';
     <p class="note">A run only draws from your equipped Souls. Changes apply to your next run: press <b>Start Battle</b> on Home. You need all {{ save.deckSize }} slots filled to start.</p>
     <div class="filters">
       @for (f of filters; track f) { <button class="chip" [class.on]="filter() === f" (click)="setFilter(f, $event)">{{ f === 'all' ? 'All' : f === 'skill' ? 'Skill' : 'Passive' }}</button> }
+      <span class="sortlab">Sort</span>
+      @for (k of sortKeys; track k.id) { <button class="chip" [class.on]="sortKey() === k.id" (click)="setSort(k.id, $event)">{{ k.label }}@if (sortKey() === k.id) { <img class="ic arr" [class.down]="sortDir() < 0" [src]="upgradeIcon" alt=""> }</button> }
     </div>
     <div class="grid2">
       @for (s of shown(); track s) {
         <div class="tw">
-          <button class="tile" [class.lift]="pop() === s" [class.eq]="save.isEquipped(s)" (click)="tapTile(s, $event)">
+          <button class="tile" [class.lift]="pop() === s" [class.eq]="save.isEquipped(s)" [class.flash]="flashId() === s" (click)="tapTile(s, $event)">
             <span class="gem">{{ cost(s) }}</span>@if (save.isEquipped(s)) { <span class="tick"><img [src]="checkIcon" alt=""></span> }
             <span class="port" [style.background]="bg(s)"><img [src]="icon(s)" alt=""></span><span class="lv">Level {{ save.progress(s).level }}</span>
             <span class="bar" [class.ready]="canLevel(s)" [class.max]="isMax(s)"><i [style.width.%]="pct(s)"></i><b>{{ isMax(s) ? 'Max' : save.progress(s).copies + '/' + need(s) }}</b></span>
           </button>
+          @if (canLevel(s)) { <button class="upbtn" (click)="upgradeTile(s, $event)"><img class="ic" [src]="upgradeIcon" alt="">Upgrade</button> }
           @if (pop() === s) {
             <div class="pop" (click)="$event.stopPropagation()">
               <button class="blue" (click)="openDetail(s, $event)">Details</button>
@@ -150,7 +159,16 @@ export class Souls {
   deck = this.save.deck;
   slots = computed(() => Array.from({ length: this.save.deckSize }, (_, i) => this.save.deck()[i] ?? null));
   avg = computed(() => { const d = this.save.deck(); return (d.reduce((n, s) => n + COST[s][0], 0) / Math.max(1, d.length)).toFixed(1); });
-  shown = computed(() => SOULS.filter((s) => this.filter() === 'all' || abilityInfo(s).kind === this.filter()));
+  sortKeys = [{ id: 'level', label: 'Level' }, { id: 'cost', label: 'Cost' }, { id: 'rarity', label: 'Rarity' }] as const;
+  sortKey = signal<'none' | 'level' | 'cost' | 'rarity'>('none');
+  sortDir = signal<1 | -1>(1);
+  flashId = signal<SoulId | null>(null);
+  shown = computed(() => {
+    const base = SOULS.filter((s) => this.filter() === 'all' || abilityInfo(s).kind === this.filter()), k = this.sortKey(), d = this.sortDir();
+    if (k === 'none') return base;
+    const val = (s: SoulId) => (k === 'level' ? this.save.progress(s).level : k === 'cost' ? COST[s][0] : RARITIES.indexOf(RARITY_OF[s]));
+    return [...base].sort((a, b) => (val(a) - val(b)) * d || SOULS.indexOf(a) - SOULS.indexOf(b));      // ties keep the roster order
+  });
 
   icon = (s: SoulId) => soulIcon(s); bg = (s: SoulId) => BG[s]; name = (s: SoulId) => SOUL_NAME[s]; role = (s: SoulId) => ROLE_TEXT[s];
   cost = (s: SoulId) => COST[s][0]; base = (s: SoulId) => BALANCE.stats[s]; ability = (s: SoulId) => abilityInfo(s);
@@ -166,6 +184,22 @@ export class Souls {
   private sx = 0; private sy = 0;
   swipeStart(e: PointerEvent) { this.sx = e.clientX; this.sy = e.clientY; }
   swipeEnd(e: PointerEvent) { const dx = e.clientX - this.sx, dy = e.clientY - this.sy; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) this.page.set(Math.max(0, Math.min(2, this.page() + (dx < 0 ? 1 : -1)))); }
+  /** Tap a sort chip: ascending, tap again for descending, tap a third time to go back to roster order. */
+  setSort(k: 'level' | 'cost' | 'rarity', e: Event) {
+    e.stopPropagation(); this.pop.set(null);
+    if (this.sortKey() !== k) { this.sortKey.set(k); this.sortDir.set(1); } else if (this.sortDir() === 1) this.sortDir.set(-1); else { this.sortKey.set('none'); this.sortDir.set(1); }
+  }
+  private beep() { try { (window as any).__audio?.play('merge'); } catch { /* sound is optional */ } }
+  /** One tap on the tile's Upgrade button. */
+  upgradeTile(s: SoulId, e: Event) {
+    e.stopPropagation();
+    if (this.save.levelUp(s)) { this.beep(); this.flashId.set(s); setTimeout(() => this.flashId.set(null), 750); this.say(SOUL_NAME[s] + ' is now level ' + this.save.progress(s).level + '!'); }
+  }
+  upgradeAll(e: Event) {
+    e.stopPropagation(); let levels = 0, souls = 0;
+    for (const s of SOULS) { let n = 0; while (this.save.levelUp(s)) n++; if (n) { souls++; levels += n; } }
+    if (levels) { this.beep(); this.say('Upgraded ' + souls + (souls === 1 ? ' Soul' : ' Souls') + ' (+' + levels + (levels === 1 ? ' level)' : ' levels)')); }
+  }
   upgrade(s: SoulId, e: Event) { e.stopPropagation(); if (this.save.levelUp(s)) { try { (window as any).__audio?.play('merge'); } catch { /* optional */ } this.say(SOUL_NAME[s] + ' is now level ' + this.save.progress(s).level + '!'); } }
   setFilter(f: Filter, e: Event) { e.stopPropagation(); this.filter.set(f); this.pop.set(null); }
   tapTile(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(this.pop() === s ? null : s); }

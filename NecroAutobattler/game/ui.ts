@@ -77,6 +77,7 @@ export class Ui {
       const ts = document.getElementById('toShop'); if (ts) ts.onclick = () => window.dispatchEvent(new Event('necro-go-shop'));
     }
     this.renderDebugLive();
+    if (ph === 'build') requestAnimationFrame(() => g.reframeBuild());     // after layout: keep the grid clear of the hand and buttons
   }
 
   // ------------------------------------------------------------------------------------------ debug panel

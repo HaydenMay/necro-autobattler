@@ -4,7 +4,7 @@ import type { Difficulty, Save, SoulProgress } from '../../../core/save.ts';
 import { SOULS } from '../../../core/data.ts';
 import type { SoulId } from '../../../core/data.ts';
 import { makeRng } from '../../../core/rng.ts';
-import { grantPack, levelUp, openOwnedPack } from '../../../core/progress.ts';
+import { canLevelUp, grantPack, levelUp, openOwnedPack } from '../../../core/progress.ts';
 import type { PackResult } from '../../../core/packs.ts';
 
 /**
@@ -20,6 +20,8 @@ export class SaveService {
   readonly difficulty = computed(() => this.state().difficulty);
   readonly packs = computed(() => this.state().packs);
   readonly replayMeter = computed(() => this.state().replayMeter);
+  /** How many Souls have enough copies to level up right now (shown as a badge on the Souls tab). */
+  readonly readyCount = computed(() => SOULS.filter((s) => canLevelUp(this.state(), s)).length);
 
   constructor() {
     const refresh = () => this.state.set(loadSave());

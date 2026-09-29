@@ -110,3 +110,5 @@ img.sk { width:1.05em; height:1.05em; object-fit:contain; vertical-align:-0.18em
 .card.big .ic { width:clamp(40px,9vmin,58px); height:clamp(40px,9vmin,58px); }
 .erow img.ic { width:1.5em; height:1.5em; vertical-align:middle; }
 #overlay .sub img.sk { width:1.2em; height:1.2em; } #overlay .sub img.ic { width:1.5em; height:1.5em; vertical-align:-.4em; }
+
+.rbadge.ok { background:var(--go); color:var(--go-ink); }

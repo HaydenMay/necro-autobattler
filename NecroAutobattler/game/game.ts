@@ -135,6 +135,13 @@ export class Game {
     const necro = { pos: new BABYLON.Vector3(battle.pos.x - 1.4, battle.pos.y * 1.12, battle.pos.z * 1.12), tgt: new BABYLON.Vector3(-1.4, 0.35, 0) };   // result cutscenes: him and the field
     return { battle, build, necro };
   }
+  /** The hand / info bar can change size in the build phase (long ability text, more cards): re-frame so the grid never hides behind it. */
+  reframeBuild() {
+    if (this.phase !== 'build' || this.camT < 1 || this.cine || !this.canvas) return;
+    const p = this.poses().build, c = this.camera.position;
+    if (!isFinite(p.pos.x) || BABYLON.Vector3.Distance(c, p.pos) < 0.06) return;
+    this.tweenCam(p, 0.35);
+  }
   private canvas!: HTMLCanvasElement; private lastW = 0; private lastH = 0; lastTapInfo = '(no taps yet)';
   private handleResize() {
     if (!this.canvas.clientWidth || !this.canvas.clientHeight) return;   // hidden behind another tab
@@ -188,7 +195,7 @@ export class Game {
     this.seed = snap.seed; this.attempt = snap.attempt; this.s = state; this.seenMerges = state.stats.merges;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = snap.phase === 'draft' ? snap.draft : null; this.phase = this.draft ? 'draft' : 'build';
-    this.setCam(this.poses().build); this.syncBuild(); this.ui.render(); this.toast(`Run restored: wave ${state.wave}/${stageWaves(state)}, ${state.hearts} heart${state.hearts === 1 ? '' : 's'}.`);
+    this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast(`Run restored: wave ${state.wave}/${stageWaves(state)}, ${state.hearts} heart${state.hearts === 1 ? '' : 's'}.`);
   }
 
   // ---- performance readout: rolling frame stats, per-battle summaries, optional on-screen FPS, and a paste-friendly report
@@ -239,8 +246,8 @@ export class Game {
     this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
     this.seed = seed; this.attempt = 0; const sv = loadSave(); setDifficulty(sv.difficulty); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
-    this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build'; this.setCam(this.poses().build);
-    this.syncBuild(); this.ui.render(); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');
+    this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build';
+    this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');
   }
   private clearBattle() {
     this.fvis.forEach((v, id) => { if (!this.fUnit.has(id)) v.dispose(); }); this.fvis.clear(); this.fUnit.clear(); this.lastState.clear(); this.battle = null;
@@ -459,7 +466,8 @@ export class Game {
       const v = this.unitVis.get(u.id)!; const p = this.pos(u.cell); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.holder.setEnabled(true); v.setHp(null); v.setMana(null); v.play('spawn'); this.summonFx(p.x, p.z);
       this.later(1.1, () => v.play('idle'));
     }
-    this.phase = 'build'; this.sel = null; this.tweenCam(this.poses().build, 1.8); this.syncBuild(); this.ui.render();
+    this.phase = 'build'; this.sel = null; this.syncBuild(); this.ui.render();          // UI first: the camera must measure the hand and buttons while they are visible
+    this.tweenCam(this.poses().build, 1.8);
   }
   setSpeed(k: number) { this.timeScale = k; this.ui.render(); }
 

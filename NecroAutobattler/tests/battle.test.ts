@@ -21,24 +21,38 @@ test('a fight always ends with a winner', () => {
 
 test('Knight taunt forces nearby enemies to attack him', () => {
   const b = new Battle([P('knight', 3), P('warrior', 7)], [E('goblin'), E('goblin')], 2);
-  for (let i = 0; i < 90; i++) b.step(1 / 30);
+  for (let i = 0; i < 300; i++) b.step(1 / 30);
   const knight = b.fighters.find((f) => f.soul === 'knight')!;
   const taunted = b.fighters.filter((f) => f.team === 1 && f.alive && f.forcedTarget === knight.id).length;
   assert.ok(b.events.some((e) => e.t === 'taunt') || taunted > 0, 'knight should have cast Taunt');
 });
 
-test('Archer volley fires at several different enemies', () => {
-  const b = new Battle([P('archer', 3)], [E('warrior'), E('warrior'), E('warrior')], 3);
-  const targets = new Set<number>();
-  for (let i = 0; i < 200; i++) { b.step(1 / 30); for (const e of b.drain()) if (e.t === 'arrow') targets.add(e.to); }
-  assert.ok(targets.size >= 2, 'arrows should spread over at least 2 enemies, got ' + targets.size);
+test('Archer: basic shot is one arrow, Split Arrow skill hits several enemies once mana is full', () => {
+  const b = new Battle([P('archer', 3, 3)], [E('warrior'), E('warrior'), E('warrior')], 3);
+  const perShot: number[] = []; let casts = 0, arrowsSinceSwing = 0;
+  for (let i = 0; i < 400; i++) {
+    b.step(1 / 30);
+    for (const e of b.drain()) {
+      if (e.t === 'swing') { if (arrowsSinceSwing) perShot.push(arrowsSinceSwing); arrowsSinceSwing = 0; }
+      if (e.t === 'cast') casts++;
+      if (e.t === 'arrow') arrowsSinceSwing++;
+    }
+  }
+  assert.equal(perShot[0], 1, 'first shot should be a single arrow');
+  assert.ok(casts >= 1, 'archer should have cast Split Arrow');
+  assert.ok(perShot.some((n) => n >= 2), 'a skill shot should send 2+ arrows, shots were ' + perShot.join(','));
 });
 
-test('Ogre lands a Smash every 4th hit', () => {
+test('Ogre Smash fires from mana, about every 3rd swing, and mana resets', () => {
   const b = new Battle([P('ogre', 3, 3)], [E('knight', 3)], 4);   // a 3-star Ogre vs one 3-star Knight: lasts long enough for several hits
   let smashes = 0, swings = 0;
   for (let i = 0; i < 1200 && b.winner < 0; i++) { b.step(1 / 30); for (const e of b.drain()) { if (e.t === 'smash') smashes++; if (e.t === 'swing' && b.byId(e.id)!.soul === 'ogre') swings++; } }
-  assert.ok(smashes >= 1 && smashes <= Math.ceil(swings / 4) + 1, `smashes ${smashes} swings ${swings}`);
+  assert.ok(smashes >= 1 && smashes <= Math.ceil(swings / 3) + 1, `smashes ${smashes} swings ${swings}`);
+});
+
+test('Passive-only units have no mana bar', () => {
+  const b = new Battle([P('warrior', 3), P('barbarian', 7), P('goblin', 11)], [E('warrior')], 5);
+  assert.ok(b.fighters.filter((f) => f.team === 0).every((f) => f.maxMana === 0));
 });
 
 test('Barbarian frenzy builds up while swinging', () => {

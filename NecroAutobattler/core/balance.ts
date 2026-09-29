@@ -23,10 +23,11 @@ export interface Balance {
     scale: number[];  // visual size
   };
   phalanx: { radius: number; perAlly: number; maxStacks: number };          // Skeleton Warrior
-  volley: { targets: number; projectileSpeed: number };                     // Skeleton Archer
+  mana: Partial<Record<SoulId, { max: number; perAttack: number; perHit: number }>>; // units WITH a skill; the rest are passive-only
+  volley: { targets: number; projectileSpeed: number };                     // Skeleton Archer skill: Split Arrow
   opportunist: { bonus: number; seekRadius: number; woundedWeight: number }; // Goblin
-  taunt: { cooldown: number; duration: number; radius: number };            // Knight
-  smash: { every: number; mult: number; radius: number };                   // Ogre
+  taunt: { duration: number; radius: number };                              // Knight skill
+  smash: { mult: number; radius: number };                                  // Ogre skill
   frenzy: { perSwing: number; maxStacks: number; resetAfter: number };      // Barbarian
   sim: { separation: number; hitFraction: number; timeLimit: number; retargetEvery: number };
 }
@@ -43,10 +44,16 @@ export const DEFAULTS: Balance = {
   // "bodies = damage, stars = durability": HP grows faster than damage per star
   star: { hp: [1, 2.0, 3.2], dmg: [1, 1.5, 2.0], scale: [1, 1.12, 1.25] },
   phalanx: { radius: 2.0, perAlly: 0.08, maxStacks: 3 },
+  // mana fills fast: a basic attack gives perAttack, taking a hit gives perHit; a full bar fires the skill on the next attack, then resets
+  mana: {
+    archer: { max: 100, perAttack: 34, perHit: 6 },     // Split Arrow about every 3rd shot
+    ogre:   { max: 100, perAttack: 34, perHit: 6 },     // Smash about every 3rd swing
+    knight: { max: 100, perAttack: 25, perHit: 12 },    // Taunt every ~4 swings, sooner when he is being hit
+  },
   volley: { targets: 3, projectileSpeed: 14 },
   opportunist: { bonus: 0.5, seekRadius: 4.0, woundedWeight: 1.5 },
-  taunt: { cooldown: 6, duration: 3, radius: 4.5 },
-  smash: { every: 4, mult: 2.0, radius: 1.6 },
+  taunt: { duration: 3, radius: 4.5 },
+  smash: { mult: 2.0, radius: 1.6 },
   frenzy: { perSwing: 0.12, maxStacks: 8, resetAfter: 0.6 },
   sim: { separation: 0.6, hitFraction: 0.47, timeLimit: 120, retargetEvery: 0.5 },
 };
@@ -60,10 +67,10 @@ export function resetBalance(): void {
 
 export const ROLE_TEXT: Record<SoulId, string> = {
   warrior: 'Cheap and fast. Tougher near other Warriors.',
-  archer: 'Fragile. Fires 3 arrows at 3 different enemies.',
+  archer: 'Fragile. Skill: Split Arrow hits 3 different enemies.',
   goblin: 'Fast. Hits harder on enemies fighting someone else.',
-  knight: 'Tank. Taunt pulls enemies onto him.',
-  ogre: 'Slow, huge damage. Every 4th hit is a Smash.',
+  knight: 'Tank. Skill: Taunt pulls enemies onto him.',
+  ogre: 'Slow, huge damage. Skill: Smash, a big area slam.',
   barbarian: 'Swings faster with every uninterrupted hit.',
 };
 

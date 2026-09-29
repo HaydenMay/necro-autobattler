@@ -124,6 +124,24 @@ export class Game {
   private setCam(p: any) { this.camera.position.copyFrom(p.pos); this.camera.setTarget(p.tgt.clone()); }
   private tweenCam(to: any, dur: number) { this.camFrom = { pos: this.camera.position.clone(), tgt: this.camera.getTarget().clone() }; this.camTo = to; this.camT = 0; this.camDur = dur; }
 
+  // ---- battle camera: follows the fighters that are still alive, so the action (and the purple eyes) stays large on screen
+  camMode: 'close' | 'wide' = 'close'; private camTgt: any = new BABYLON.Vector3(0, 0.5, 0);
+  setCamMode(m: 'close' | 'wide') {
+    this.camMode = m;
+    if (m === 'wide' && this.battle) this.tweenCam(this.poses().battle, 0.9);
+    this.ui.render();
+  }
+  private frameBattle(dt: number) {
+    const b = this.battle; if (!b) return; const alive = b.fighters.filter((f) => f.alive); if (!alive.length) return;
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const f of alive) { x0 = Math.min(x0, f.x); x1 = Math.max(x1, f.x); z0 = Math.min(z0, f.z); z1 = Math.max(z1, f.z); }
+    const asp = this.engine.getRenderWidth() / this.engine.getRenderHeight(), tanV = Math.tan(this.camera.fov / 2);
+    const wide = this.poses().battle, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const d = Math.min(Math.max((x1 - x0 + 3.4) / (2 * tanV * asp * 0.9), (z1 - z0 + 3.2) / (2 * tanV * 0.62), 5.4), Math.hypot(wide.pos.y, wide.pos.z));
+    const tgt = new BABYLON.Vector3(cx, 0.55, cz), pos = new BABYLON.Vector3(cx - 0.06 * d, 0.32 * d + 0.5, cz - 0.9 * d);
+    const k = 1 - Math.exp(-dt * 2.0);
+    this.camera.position = BABYLON.Vector3.Lerp(this.camera.position, pos, k); this.camTgt = BABYLON.Vector3.Lerp(this.camTgt, tgt, k); this.camera.setTarget(this.camTgt.clone());
+  }
+
   // -------------------------------------------------------------------------------------------- stage flow
   startStage(seed: number) {
     this.seed = seed; this.attempt = 0; this.s = newStage(PROTOTYPE_RULES, seed);
@@ -209,8 +227,8 @@ export class Game {
     this.battle = new Battle(units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemyWave(s.wave, this.seed), this.seed * 131 + s.wave * 17 + this.attempt);
     this.fvis.clear(); this.fUnit.clear(); this.lastState.clear();
     this.battle.fighters.forEach((f) => {
-      if (f.team === 0) { const u = units[f.id - 1]; const v = this.unitVis.get(u.id)!; this.fvis.set(f.id, v); this.fUnit.set(f.id, u.id); v.setHp(1); }
-      else { const v = createVisual(this.A, f.soul, 1, f.star); v.holder.position.set(f.x, 0, f.z); v.holder.rotation.y = -Math.PI / 2; v.play('spawn'); v.setHp(1); this.fvis.set(f.id, v); this.later(1.1, () => { if (v.state === 'spawn') v.play('idle'); }); this.burst(f.x, f.z, [0.7, 0.6, 0.5, 0.7], [0.4, 0.35, 0.3, 0.6], 14); }
+      if (f.team === 0) { const u = units[f.id - 1]; const v = this.unitVis.get(u.id)!; this.fvis.set(f.id, v); this.fUnit.set(f.id, u.id); v.setHp(1); v.setMana(f.maxMana ? 0 : null); }
+      else { const v = createVisual(this.A, f.soul, 1, f.star); v.holder.position.set(f.x, 0, f.z); v.holder.rotation.y = -Math.PI / 2; v.play('spawn'); v.setHp(1); v.setMana(f.maxMana ? 0 : null); this.fvis.set(f.id, v); this.later(1.1, () => { if (v.state === 'spawn') v.play('idle'); }); this.burst(f.x, f.z, [0.7, 0.6, 0.5, 0.7], [0.4, 0.35, 0.3, 0.6], 14); }
     });
     for (let c = 0; c < GRID_CELLS; c++) this.tint(c, 'normal');
     this.phase = 'transition'; this.startStepAt = 1.0; this.acc = 0; this.tweenCam(this.poses().battle, 2.2); this.syncBuild(); this.ui.render();
@@ -221,7 +239,8 @@ export class Game {
       if (e.t === 'swing') { const v = this.fvis.get(e.id); if (v) v.play('attack', e.speed); }
       else if (e.t === 'hit') { const v = this.fvis.get(e.to); if (v) v.pulse(); }
       else if (e.t === 'arrow') { const f = b.byId(e.from)!, to = b.byId(e.to)!; this.spawnArrow(f.team, f.x, f.z, to.x, to.z, e.dur); }
-      else if (e.t === 'death') { const v = this.fvis.get(e.id); if (v) { v.play('death'); v.setHp(null); const f = b.byId(e.id)!; this.burst(f.x, f.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 12); if (f.team === 1) this.later(5, () => { if (this.fvis.get(e.id) === v && this.phase !== 'build') { v.holder.setEnabled(false); } }); } }
+      else if (e.t === 'death') { const v = this.fvis.get(e.id); if (v) { v.play('death'); v.setHp(null); v.setMana(null); const f = b.byId(e.id)!; this.burst(f.x, f.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 12); if (f.team === 1) this.later(5, () => { if (this.fvis.get(e.id) === v && this.phase !== 'build') { v.holder.setEnabled(false); } }); } }
+      else if (e.t === 'cast') { const f = b.byId(e.id)!; this.fxRing(f.x, f.z, new BABYLON.Color3(0.5, 0.8, 1), 0.15, 1.1, 0.35); }
       else if (e.t === 'taunt') { const f = b.byId(e.id)!; this.fxRing(f.x, f.z, new BABYLON.Color3(1, 0.85, 0.3), 0.3, BALANCE.taunt.radius, 0.6); }
       else if (e.t === 'smash') this.fxRing(e.x, e.z, new BABYLON.Color3(1, 0.5, 0.2), 0.2, e.r * 1.6, 0.45);
     }
@@ -237,7 +256,8 @@ export class Game {
     if (this.canvas.clientWidth !== this.lastW || this.canvas.clientHeight !== this.lastH) this.handleResize();   // e.g. the home-screen app resizing after launch
     for (let i = this.timers.length - 1; i >= 0; i--) { this.timers[i].t -= dt; if (this.timers[i].t <= 0) { const f = this.timers[i].fn; this.timers.splice(i, 1); f(); } }
     for (let i = this.ringFx.length - 1; i >= 0; i--) { const r = this.ringFx[i]; r.t += dt; const u = r.t / r.dur, s = r.r0 + (r.r1 - r.r0) * u; r.m.scaling.set(s, s, s); r.mm.alpha = 0.9 * (1 - u); if (u >= 1) { r.m.dispose(); r.mm.dispose(); this.ringFx.splice(i, 1); } }
-    if (this.camT < 1) { this.camT = Math.min(1, this.camT + dt / this.camDur); const e = this.camT * this.camT * (3 - 2 * this.camT); this.camera.position = BABYLON.Vector3.Lerp(this.camFrom.pos, this.camTo.pos, e); this.camera.setTarget(BABYLON.Vector3.Lerp(this.camFrom.tgt, this.camTo.tgt, e)); }
+    if (this.camT < 1) { this.camT = Math.min(1, this.camT + dt / this.camDur); const e = this.camT * this.camT * (3 - 2 * this.camT); this.camera.position = BABYLON.Vector3.Lerp(this.camFrom.pos, this.camTo.pos, e); this.camTgt = BABYLON.Vector3.Lerp(this.camFrom.tgt, this.camTo.tgt, e); this.camera.setTarget(this.camTgt.clone()); }
+    else if (this.phase === 'battle' && this.camMode === 'close') this.frameBattle(dt);
     for (const v of this.unitVis.values()) v.update(dt);
     this.fvis.forEach((v, id) => { if (!this.fUnit.has(id)) v.update(dt); });
 
@@ -251,7 +271,8 @@ export class Game {
       for (const f of b.fighters) {
         const v = this.fvis.get(f.id); if (!v) continue;
         if (this.phase === 'battle' || f.team === 1) { v.holder.position.x = f.x; v.holder.position.z = f.z; if (f.alive || true) v.holder.rotation.y = f.yaw; }
-        if (f.alive) v.setHp(f.hp / f.maxHp);
+        if (f.alive) { v.setHp(f.hp / f.maxHp); if (f.maxMana) v.setMana(f.mana / f.maxMana); }
+        else v.setMana(null);
         if (f.state !== 'attack' && f.alive) { const want = f.state === 'run' ? 'run' : 'idle'; if (this.lastState.get(f.id) !== want || (v.state !== want && v.state !== 'spawn')) { if (v.state !== 'spawn') { v.play(want as any); this.lastState.set(f.id, want); } } }
         if (f.state === 'attack') this.lastState.set(f.id, 'attack');
       }
@@ -283,7 +304,7 @@ export class Game {
   private toBuild() {
     this.clearBattle();
     for (const u of this.s.units) {                       // resurrection: everyone rises again at full health
-      const v = this.unitVis.get(u.id)!; const p = this.pos(u.cell); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.holder.setEnabled(true); v.setHp(null); v.play('spawn'); this.summonFx(p.x, p.z);
+      const v = this.unitVis.get(u.id)!; const p = this.pos(u.cell); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.holder.setEnabled(true); v.setHp(null); v.setMana(null); v.play('spawn'); this.summonFx(p.x, p.z);
       this.later(1.1, () => v.play('idle'));
     }
     this.phase = 'build'; this.sel = null; this.tweenCam(this.poses().build, 1.8); this.syncBuild(); this.ui.render();

@@ -3,10 +3,12 @@
 //
 // Abilities (numbers live in balance.ts):
 //   Skeleton Warrior  Phalanx     takes less damage for each nearby allied Warrior (capped)
-//   Skeleton Archer   Volley      each shot sends one arrow at up to 3 different enemies
+//   Skeleton Archer   Split Arrow (skill) one arrow at each of up to 3 different enemies; basic shots are a single arrow
 //   Goblin            Opportunist +damage on an enemy that is fighting someone else; prefers such targets
-//   Knight            Taunt       periodically forces nearby enemies to attack him
-//   Ogre              Smash       every Nth hit is a heavy slam that also hits enemies near the impact
+//   Knight            Taunt (skill)  forces nearby enemies to attack him
+//   Ogre              Smash (skill)  heavy slam that also hits enemies near the impact
+// Skills run on mana: basic attacks and damage taken fill a bar; when full, the next attack is the skill and the bar resets.
+// Warrior, Goblin and Barbarian have passives only (no mana).
 //   Barbarian         Frenzy      attacks faster with every uninterrupted swing
 
 import { GRID_COLS, GRID_ROWS } from './data.ts';
@@ -51,8 +53,8 @@ export interface Fighter {
   hp: number; maxHp: number; dmg: number; interval: number; range: number; speed: number; radius: number;
   alive: boolean; state: FState;
   target: number; retargetAt: number; forcedTarget: number; forcedUntil: number;
-  nextAttack: number; attackStart: number; attackDur: number; animSpeed: number; hitDone: boolean; attackCount: number;
-  nextTaunt: number; frenzy: number; deadAt: number;
+  nextAttack: number; attackStart: number; attackDur: number; animSpeed: number; hitDone: boolean;
+  mana: number; maxMana: number; casting: boolean; frenzy: number; deadAt: number;
 }
 
 export type BEvent =
@@ -60,6 +62,7 @@ export type BEvent =
   | { t: 'hit'; from: number; to: number; dmg: number; kind: 'melee' | 'arrow' | 'smash' }
   | { t: 'arrow'; from: number; to: number; dur: number }
   | { t: 'death'; id: number }
+  | { t: 'cast'; id: number; skill: 'split' | 'taunt' | 'smash' }
   | { t: 'taunt'; id: number }
   | { t: 'smash'; id: number; x: number; z: number; r: number }
   | { t: 'frenzy'; id: number; stacks: number };
@@ -88,8 +91,8 @@ export class Battle {
       id: this.nextId++, team, soul, star, cell, x: p.x, z: p.z, yaw: team === 0 ? 0 : Math.PI,
       hp, maxHp: hp, dmg: st.dmg * B.star.dmg[star - 1], interval: st.interval, range: st.range, speed: st.speed, radius: st.size * B.star.scale[star - 1],
       alive: true, state: 'idle', target: -1, retargetAt: 0, forcedTarget: -1, forcedUntil: 0,
-      nextAttack: this.rng.next() * 0.3, attackStart: -9, attackDur: 1, animSpeed: 1, hitFrac: 0, hitDone: true, attackCount: 0,
-      nextTaunt: 0.6, frenzy: 0, deadAt: 0,
+      nextAttack: this.rng.next() * 0.3, attackStart: -9, attackDur: 1, animSpeed: 1, hitFrac: 0, hitDone: true,
+      mana: 0, maxMana: B.mana[soul]?.max ?? 0, casting: false, frenzy: 0, deadAt: 0,
     } as Fighter;
     this.fighters.push(f); return f;
   }
@@ -124,14 +127,6 @@ export class Battle {
   // ------------------------------------------------------------------ per-fighter update
   private update(f: Fighter, dt: number): void {
     const B = BALANCE, st = B.stats[f.soul];
-    // Knight: Taunt
-    if (f.soul === 'knight' && this.time >= f.nextTaunt) {
-      const near = this.foes(f).filter((o) => Math.hypot(o.x - f.x, o.z - f.z) <= B.taunt.radius);
-      if (near.length) {
-        for (const o of near) { o.forcedTarget = f.id; o.forcedUntil = this.time + B.taunt.duration; o.retargetAt = 0; }
-        this.events.push({ t: 'taunt', id: f.id }); f.nextTaunt = this.time + B.taunt.cooldown;
-      } else f.nextTaunt = this.time + 0.5;
-    }
     this.separate(f, dt);
 
     if (f.state === 'attack') {
@@ -203,31 +198,37 @@ export class Battle {
     if (f.soul === 'barbarian') { f.frenzy = Math.min(B.frenzy.maxStacks, f.frenzy + 1); eff = f.interval / (1 + f.frenzy * B.frenzy.perSwing); this.events.push({ t: 'frenzy', id: f.id, stacks: f.frenzy }); }
     f.attackDur = Math.min(st.animLen, eff * 0.95); f.animSpeed = st.animLen / f.attackDur;
     f.attackStart = this.time; f.nextAttack = this.time + Math.max(eff, f.attackDur); f.hitDone = false; f.state = 'attack';
+    f.casting = f.maxMana > 0 && f.mana >= f.maxMana; if (f.casting) { f.mana = 0; this.events.push({ t: 'cast', id: f.id, skill: f.soul === 'archer' ? 'split' : f.soul === 'knight' ? 'taunt' : 'smash' }); }
     this.events.push({ t: 'swing', id: f.id, speed: f.animSpeed, dur: f.attackDur });
   }
 
   private resolveHit(f: Fighter): void {
     const B = BALANCE; const tg = this.byId(f.target); if (!tg || !tg.alive) return;
-    if (f.soul === 'archer') {                                           // Volley: one arrow at each of up to 3 different enemies
+    const M = B.mana[f.soul]; if (M && !f.casting) f.mana = Math.min(M.max, f.mana + M.perAttack);
+    if (f.soul === 'archer') {                                           // basic: one arrow. Skill (Split Arrow): one arrow at each of up to 3 different enemies
       const reach = f.range * 1.25;
       const foes = this.foes(f).map((o) => ({ o, d: Math.hypot(o.x - f.x, o.z - f.z) })).filter((e) => e.d <= reach).sort((a, b) => a.d - b.d);
-      const picked = [tg, ...foes.map((e) => e.o).filter((o) => o.id !== tg.id)].slice(0, B.volley.targets);
+      const picked = f.casting ? [tg, ...foes.map((e) => e.o).filter((o) => o.id !== tg.id)].slice(0, B.volley.targets) : [tg];
       for (const o of picked) {
         const dur = Math.max(0.15, Math.hypot(o.x - f.x, o.z - f.z) / B.volley.projectileSpeed);
         this.pending.push({ at: this.time + dur, from: f.id, to: o.id, dmg: f.dmg });
         this.events.push({ t: 'arrow', from: f.id, to: o.id, dur });
       }
-      return;
+      f.casting = false; return;
     }
-    if (Math.hypot(tg.x - f.x, tg.z - f.z) > f.range * 1.5) return;      // target slipped away: the blow misses
+    if (Math.hypot(tg.x - f.x, tg.z - f.z) > f.range * 1.5) { f.casting = false; return; }   // target slipped away: the blow misses
     let dmg = f.dmg;
     if (f.soul === 'goblin') { const eng = this.byId(tg.target); if (eng && eng.alive && eng.team === f.team && eng.id !== f.id) dmg *= 1 + B.opportunist.bonus; }
-    if (f.soul === 'ogre') {
-      f.attackCount++;
-      if (f.attackCount % B.smash.every === 0) {
+    if (f.casting) {
+      f.casting = false;
+      if (f.soul === 'ogre') {
         dmg *= B.smash.mult; this.events.push({ t: 'smash', id: f.id, x: tg.x, z: tg.z, r: B.smash.radius });
         for (const o of this.foes(f)) if (o.id !== tg.id && Math.hypot(o.x - tg.x, o.z - tg.z) <= B.smash.radius) this.damage(o, dmg * 0.6, f, 'smash');
         this.damage(tg, dmg, f, 'smash'); return;
+      }
+      if (f.soul === 'knight') {
+        for (const o of this.foes(f)) if (Math.hypot(o.x - f.x, o.z - f.z) <= B.taunt.radius) { o.forcedTarget = f.id; o.forcedUntil = this.time + B.taunt.duration; o.retargetAt = 0; }
+        this.events.push({ t: 'taunt', id: f.id });
       }
     }
     this.damage(tg, dmg, f, 'melee');
@@ -241,6 +242,7 @@ export class Battle {
       red = Math.min(B.phalanx.maxStacks, n) * B.phalanx.perAlly;
     }
     const dmg = amount * (1 - red); t.hp -= dmg;
+    const M = B.mana[t.soul]; if (M && t.hp > 0) t.mana = Math.min(M.max, t.mana + M.perHit);
     this.events.push({ t: 'hit', from: from.id, to: t.id, dmg, kind });
     if (t.hp <= 0) { t.hp = 0; t.alive = false; t.state = 'dead'; t.deadAt = this.time; this.events.push({ t: 'death', id: t.id }); }
   }

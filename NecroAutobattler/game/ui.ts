@@ -15,6 +15,7 @@ export class Ui {
     $('btnBattle').onclick = () => g.startBattle(); $('btnSwap').onclick = () => g.toggleSwap();
     $('btnMerge').onclick = () => g.mergeSelected(); $('btnRemove').onclick = () => g.removeSelected();
     document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => (b.onclick = () => g.setSpeed(+b.dataset.speed!)));
+    document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => (b.onclick = () => g.setCamMode(b.dataset.cam!)));
     $('gear').onclick = () => { this.dbg.classList.toggle('open'); this.renderDebug(); };
     this.dbg = $('debug'); if (new URLSearchParams(location.search).get('debug')) this.dbg.classList.add('open');
     this.renderDebug();
@@ -52,6 +53,7 @@ export class Ui {
       : ph === 'battle' || ph === 'transition' ? 'Battle! Units fight on their own.' : '';
     $('speed').style.display = ph === 'battle' || ph === 'transition' ? 'flex' : 'none';
     document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => b.classList.toggle('on', +b.dataset.speed! === g.timeScale));
+    document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === g.camMode));
     document.body.classList.toggle('inbattle', ph === 'battle' || ph === 'transition');
     // overlay
     const ov = $('overlay'); ov.className = ''; ov.innerHTML = '';

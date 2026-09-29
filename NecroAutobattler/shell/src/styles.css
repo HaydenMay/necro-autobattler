@@ -52,7 +52,7 @@
   }
 
 /* ------------------------------------------------------------------ navigation shell */
-:root { --rail: calc(74px + var(--sal)); }
+:root { --rail: calc(clamp(56px,9vmin,84px) + var(--sal)); }
 .rail { position:fixed; z-index:6; top:0; bottom:0; left:0; width:var(--rail); padding:calc(var(--sat) + 8px) 6px calc(var(--sab) + 8px) calc(var(--sal) + 6px); display:flex; flex-direction:column; gap:6px; justify-content:center;
         background:linear-gradient(90deg,#0d0914,#160f22); border-right:1px solid var(--edge); box-shadow:2px 0 14px rgba(120,60,200,.3); }
 .rail a { display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 2px; border-radius:11px; color:#b9a6d8; text-decoration:none; font-size:11px; font-weight:700; border:1px solid transparent; }
@@ -63,7 +63,7 @@
 #battleHost.on { display:block; }
 body.inbattle #battleHost { left:0; --sal:env(safe-area-inset-left,0px); }
 body.inbattle .rail { display:none; }
-.page { position:fixed; top:0; bottom:0; left:var(--rail); right:0; overflow-y:auto; padding:calc(var(--sat) + 14px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) 16px; touch-action:pan-y; }
+.page { z-index:10; position:fixed; top:0; bottom:0; left:var(--rail); right:0; overflow-y:auto; padding:calc(var(--sat) + 14px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) 16px; touch-action:pan-y; }
 .page h1 { margin:0 0 4px; font-size:24px; color:var(--gold); } .page .lead { margin:0 0 14px; opacity:.8; font-size:13px; max-width:60ch; }
 .box { background:var(--panel); border:1px solid var(--edge); border-radius:12px; padding:10px 12px; box-shadow:0 0 14px rgba(120,60,200,.25); }
 .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
@@ -72,7 +72,7 @@ body.inbattle .rail { display:none; }
 .muted { opacity:.6; } .row2 { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 a.btn, .btn { display:inline-block; background:linear-gradient(#8a2fe0,#5a1aa0); color:#fff; border:1px solid #d5a8ff; border-radius:10px; padding:9px 18px; font-weight:800; text-decoration:none; cursor:pointer; }
 .btn[disabled], .btn.off { opacity:.4; pointer-events:none; }
-@media (max-height:520px) { :root { --rail: calc(60px + var(--sal)); } .rail a { font-size:10px; padding:6px 1px; } .rail a .ri { font-size:19px; line-height:22px; } .page h1 { font-size:20px; } }
+.rail a { font-size:clamp(9px,1.7vmin,12px); padding:clamp(4px,1.2vmin,9px) 1px; } .rail a .ri { font-size:clamp(17px,3.6vmin,24px); line-height:1.2; } .page h1 { font-size:clamp(19px,3.6vmin,26px); }
 .page.hide { display:none; }
 
 /* ---- button colors: soulfire teal = the one main action; purple = brand / active tab; blue = neutral; red = enemy & danger; gold is kept for stars & rewards ---- */

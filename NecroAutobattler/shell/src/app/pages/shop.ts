@@ -12,6 +12,8 @@ import { range, skullIcon } from '../soul-ui';
   imports: [PackOpen],
   styles: [`
     :host { display:block; font-size:clamp(11px,1.9vmin,14px); }
+    .cols { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:clamp(10px,2.4vmin,24px); align-items:start; } .col { min-width:0; }
+    .shelf { display:block; width:min(100%,380px); margin:calc(clamp(34px,9vmin,64px) * -1) auto 0; pointer-events:none; position:relative; z-index:0; } .packs { position:relative; z-index:1; justify-content:center; }
     .packs { display:flex; flex-wrap:wrap; gap:clamp(14px,3vmin,28px); margin:8px 0 16px; }
     .pk { position:relative; width:clamp(104px,19vmin,160px); padding:0 0 10px; padding:0; background:none; border:0; text-align:center; cursor:pointer; color:inherit; }
     .mp { display:block; width:100%; transition:transform .12s, filter .2s; filter:drop-shadow(0 6px 8px #000a) drop-shadow(0 0 10px var(--glow)); }
@@ -28,6 +30,7 @@ import { range, skullIcon } from '../soul-ui';
   template: `
     <h1>Shop</h1>
     <p class="lead">Soul Packs give permanent copies of Souls. Copies fill a Soul's level bar, and a Soul at its threshold can be upgraded on the Souls page. Packs come from clearing stages.</p>
+    <div class="cols"><div class="col">
     <b>Your Soul Packs</b> @if (save.packs().length) { <span class="badge2">{{ save.packs().length }}</span> }
     @if (save.packs().length) {
       <div class="packs">
@@ -38,11 +41,13 @@ import { range, skullIcon } from '../soul-ui';
           </button>
         }
       </div>
+      <img class="shelf" src="assets/packs/altar.png" alt="" draggable="false">
     } @else {
       <div class="box" style="max-width:460px;margin:8px 0 16px"><b>No packs waiting.</b><div class="lead" style="margin:4px 0 0">Clear a stage to earn one. Your first clear on each difficulty gives a better pack.</div></div>
     }
 
-    <div class="box" style="max-width:520px">
+    </div><div class="col">
+    <div class="box">
       <b>How packs are earned</b> <span class="tag soon">placeholder numbers</span>
       <div style="margin-top:6px">
         @for (d of diffs; track d.id) { <div class="row3"><span style="flex:1">First clear on {{ d.label }}</span><span class="sk">@for (i of range(firstTier(d.id)); track i) { <img [src]="skullIcon" alt=""> }</span></div> }
@@ -52,6 +57,7 @@ import { range, skullIcon } from '../soul-ui';
       <div class="lead" style="margin:8px 0 0">A pack can also jump up a tier while it is being opened.</div>
     </div>
 
+    </div></div>
     @if (opening(); as o) { <app-pack-open [data]="o" (closed)="opening.set(null)" /> }`,
 })
 export class Shop {

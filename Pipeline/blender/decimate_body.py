@@ -49,6 +49,13 @@ lo.data.uv_layers.new(name='UVMap')
 bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
 bpy.ops.uv.smart_project(angle_limit=math.radians(70), island_margin=0.004)
 bpy.ops.object.mode_set(mode='OBJECT')
+# metal renders black in a colour-only bake (metallic surfaces have no diffuse colour): flatten the source to plain colour first
+for m_ in hi.data.materials:
+    if m_ and m_.use_nodes:
+        for nd_ in m_.node_tree.nodes:
+            if nd_.type == 'BSDF_PRINCIPLED':
+                for l_ in list(nd_.inputs['Metallic'].links): m_.node_tree.links.remove(l_)
+                nd_.inputs['Metallic'].default_value = 0.0
 # bake target
 img = bpy.data.images.new('body_color', px, px, alpha=False)
 mat = bpy.data.materials.new('body'); mat.use_nodes = True; nt = mat.node_tree; nt.nodes.clear()

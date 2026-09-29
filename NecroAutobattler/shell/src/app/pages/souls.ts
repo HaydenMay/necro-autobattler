@@ -62,6 +62,18 @@ type Filter = 'all' | 'skill' | 'passive';
     .port.art img, .big.art img, .cport.art img, .fxcard.art img { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 35%; border-radius:inherit; filter:none; pointer-events:none; }
     .big.art { height:clamp(84px,27vmin,158px); } .fxcard.art { border-radius:18px; } .cport.art { width:clamp(58px,13vmin,80px); }
     .tile.art { box-shadow:0 2px 8px #000a, inset 0 0 0 1px rgba(255,255,255,.08); } .tile.art.eq { box-shadow:0 0 12px rgba(47,217,166,.6), inset 0 0 0 1px rgba(47,217,166,.5); }
+    /* the ornate rarity frame (popups only; the grid keeps the calmer border + aura). Windows are percent of the card, measured from the frame art. */
+    .cardf { position:relative; width:100%; aspect-ratio:464/720; filter:drop-shadow(0 0 12px var(--c)); }
+    .cardf[data-r=common] { --wl:11.69; --ww:76.62; --wt:14.29; --wh:52.42; --pt:77.68; --ph:10.84; }
+    .cardf[data-r=rare] { --wl:12.13; --ww:76.24; --wt:14.89; --wh:51.78; --pt:77.74; --ph:10.68; }
+    .cardf[data-r=epic] { --wl:11.91; --ww:76.18; --wt:15.68; --wh:50.44; --pt:77.54; --ph:10.04; }
+    .cardf[data-r=legendary] { --wl:12.1; --ww:76.05; --wt:18.09; --wh:47.46; --pt:77.45; --ph:9.41; }
+    .cardf .win { position:absolute; left:calc(var(--wl) * 1%); top:calc(var(--wt) * 1%); width:calc(var(--ww) * 1%); height:calc(var(--wh) * 1%); overflow:hidden; border-radius:6%; display:flex; align-items:center; justify-content:center; }
+    .cardf .win img { width:62%; height:62%; object-fit:contain; }
+    .cardf .win.art img { width:100%; height:100%; object-fit:cover; object-position:50% 35%; }
+    .cardf .frm { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .cardf .plate { position:absolute; left:calc(var(--wl) * 1%); width:calc(var(--ww) * 1%); top:calc(var(--pt) * 1%); height:calc(var(--ph) * 1%); display:flex; align-items:center; justify-content:center; white-space:nowrap; font-weight:900; font-size:clamp(9px,1.9vmin,13px); letter-spacing:.06em; text-shadow:0 1px 2px #000, 0 0 4px #000; }
+    .detcard { width:clamp(78px,23vmin,132px); margin:0 auto; }
     .tick img { width:80%; height:80%; } .x img { width:78%; height:78%; } .rarlab { display:flex; align-items:center; gap:4px; font-size:.9em; opacity:.9; margin-top:2px; } .rarlab img { width:1.3em; height:1.3em; }
     .sortlab { opacity:.6; margin-left:10px; align-self:center; font-size:.9em; } .arr { width:1em; height:1em; vertical-align:-.15em; margin-left:3px; } .arr.down { transform:rotate(180deg); }
     .upbtn { position:absolute; left:6px; right:6px; bottom:6px; height:clamp(16px,3vmin,22px); z-index:4; padding:0; border-radius:10px; font-size:.85em; font-weight:800; display:flex; align-items:center; justify-content:center; gap:3px;
@@ -78,7 +90,8 @@ type Filter = 'all' | 'skill' | 'passive';
     .fxname { font-size:clamp(22px,5.4vmin,38px); font-weight:900; letter-spacing:.04em; text-shadow:0 3px 0 #000, 0 0 18px rgba(255,255,255,.35); }
     .fxlevel { font-size:clamp(16px,3.6vmin,26px); font-weight:800; color:#7ef2c8; text-shadow:0 0 14px var(--go); animation:lvPop .6s .35s cubic-bezier(.3,1.8,.5,1) both; } .fxlevel img.ic { width:1.1em; height:1.1em; vertical-align:-.2em; } .fxlevel b { font-size:1.3em; }
     @keyframes lvPop { from { transform:scale(.4); opacity:0; } to { transform:none; opacity:1; } }
-    .fxcardwrap { position:relative; width:clamp(90px,24vmin,150px); aspect-ratio:1; }
+    .fxcardwrap { position:relative; width:clamp(72px,17vmin,124px); aspect-ratio:464/720; }
+    .fxcardwrap .cardf { position:absolute; inset:0; }
     .fxcard { position:absolute; inset:0; border-radius:16px; border:3px solid #7ef2c8; box-shadow:0 0 30px rgba(126,242,200,.7); display:flex; align-items:center; justify-content:center; } .fxcard img { width:66%; height:66%; object-fit:contain; filter:drop-shadow(0 4px 6px #000a); }
     .fxring { position:absolute; left:50%; top:50%; width:100%; height:100%; margin:-50% 0 0 -50%; border-radius:50%; border:3px solid var(--go-hi); opacity:0; animation:fxRing .8s .6s ease-out both; }
     @keyframes fxRing { 0% { transform:scale(.6); opacity:.9; } 100% { transform:scale(3.2); opacity:0; } }
@@ -139,8 +152,8 @@ type Filter = 'all' | 'skill' | 'passive';
       <div class="scrim" (click)="detail.set(null)">
         <div class="modal" (click)="$event.stopPropagation()">
           <button class="x" (click)="detail.set(null)"><img [src]="closeIcon" alt="Close"></button>
-          <div><div class="big" [class.art]="art(d)" [style.background]="bg(d)" [style.border-color]="rc(d)"><img [src]="icon(d)" alt=""></div>
-            <div class="nm">{{ name(d) }}</div><div class="sub">Level {{ save.progress(d).level }}</div><div class="rarlab"><img [src]="gem(rarityOf(d))" alt="">{{ rarityName(d) }}</div>
+          <div><div class="cardf detcard" [attr.data-r]="rarityOf(d)" [style.--c]="rcol(d)"><div class="win" [class.art]="art(d)" [style.background]="bg(d)"><img [src]="icon(d)" alt=""></div><img class="frm" [src]="frameImg(d)" alt="" draggable="false"><div class="plate" [style.color]="rcol(d)">Level {{ save.progress(d).level }}</div></div>
+            <div class="nm">{{ name(d) }}</div><div class="rarlab"><img [src]="gem(rarityOf(d))" alt="">{{ rarityName(d) }}</div>
             <div class="note">{{ role(d) }}</div></div>
           <div>
             <div class="tabs"><button [class.on]="page() === 0" (click)="page.set(0)">Stats</button><button [class.on]="page() === 1" (click)="page.set(1)">{{ ability(d).kind === 'skill' ? 'Skill' : 'Passive' }}</button><button [class.on]="page() === 2" (click)="page.set(2)">Stars</button></div>
@@ -204,7 +217,7 @@ type Filter = 'all' | 'skill' | 'passive';
           <div class="fxcardwrap">
             <span class="fxring"></span>
             @for (sp of fxSparks; track $index) { <i class="fxspark" [style.--dx]="sp.dx + 'px'" [style.--dy]="sp.dy + 'px'" [style.animation-delay]="(600 + sp.delay) + 'ms'"></i> }
-            <div class="fxcard" [class.art]="art(f.soul)" [style.background]="bg(f.soul)"><img [src]="icon(f.soul)" alt=""></div>
+            <div class="cardf" [attr.data-r]="rarityOf(f.soul)" [style.--c]="rcol(f.soul)"><div class="win" [class.art]="art(f.soul)" [style.background]="bg(f.soul)"><img [src]="icon(f.soul)" alt=""></div><img class="frm" [src]="frameImg(f.soul)" alt="" draggable="false"><div class="plate" [style.color]="rcol(f.soul)">Level {{ f.level }}</div></div>
           </div>
           <div class="fxstat"><span class="lab">Health</span><span class="val">{{ hpShown() }}</span><span class="plus">+{{ f.hp1 - f.hp0 }}</span></div>
           <div class="fxstat"><span class="lab">Damage</span><span class="val">{{ dmgShown() }}</span><span class="plus">+{{ f.dmg1 - f.dmg0 }}</span></div>
@@ -216,7 +229,7 @@ type Filter = 'all' | 'skill' | 'passive';
 export class Souls {
   save = inject(SaveService);
   checkIcon = checkIcon; closeIcon = closeIcon; upgradeIcon = upgradeIcon; gem = gemIcon;
-  rarityOf = (s: SoulId) => RARITY_OF[s]; rarityName = (s: SoulId) => RARITY_NAME[RARITY_OF[s]];
+  rarityOf = (s: SoulId) => RARITY_OF[s]; rcol = (s: SoulId) => rarityColor(s); frameImg = (s: SoulId) => `assets/packs/frame_${RARITY_OF[s]}.png`; rarityName = (s: SoulId) => RARITY_NAME[RARITY_OF[s]];
   filters: Filter[] = ['all', 'skill', 'passive'];
   filter = signal<Filter>('all');
   pop = signal<SoulId | null>(null);

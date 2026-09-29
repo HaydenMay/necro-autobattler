@@ -14,8 +14,8 @@ const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}'
   selector: 'app-home',
   imports: [RouterLink],
   styles: [`
-    :host { display:block; font-size:clamp(11px,1.9vmin,14px); }
-    .wrap { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,1fr); gap:clamp(8px,2vmin,18px); max-width:960px; }
+    :host { display:flex; align-items:center; justify-content:center; min-height:100%; font-size:clamp(11px,1.9vmin,14px); }
+    .wrap { width:100%; display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,1fr); gap:clamp(8px,2vmin,18px); max-width:960px; }
     .stage { padding:clamp(10px,2.4vmin,20px); background:linear-gradient(160deg,rgba(60,28,100,.9),rgba(20,14,30,.92)); }
     .stage h2 { margin:0; font-size:1.7em; color:var(--gold); } .sub { opacity:.75; margin-bottom:clamp(8px,2vmin,16px); }
     .path { display:flex; align-items:center; margin:clamp(8px,2vmin,18px) 0; }

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { SaveService } from '../save.service';
 
 @Component({
@@ -18,6 +18,21 @@ import { SaveService } from '../save.service';
       <button class="sw" [class.on]="save.settings().music" role="switch" [attr.aria-checked]="save.settings().music" (click)="save.setSound('music', !save.settings().music)"></button></div>
     <div class="box row"><span style="font-size:26px">&#128266;</span><div class="grow"><b>Sound effects</b><span>Hits, spells, summoning, merging</span></div>
       <button class="sw" [class.on]="save.settings().sfx" role="switch" [attr.aria-checked]="save.settings().sfx" (click)="save.setSound('sfx', !save.settings().sfx)"></button></div>
+    <div class="box row"><span style="font-size:26px">&#128264;</span><div class="grow"><b>Sound check</b><span>{{ msg() }}</span></div>
+      <button class="go" (click)="test()">Test sound</button></div>
     <p class="lead" style="margin-top:14px">The battle screen also has quick 🎵 / 🔊 buttons next to the gear.</p>`,
 })
-export class Settings { save = inject(SaveService); }
+export class Settings implements OnDestroy {
+  save = inject(SaveService);
+  msg = signal('checking…');
+  private timer = window.setInterval(() => this.refresh(), 500);
+  constructor() { this.refresh(); }
+  ngOnDestroy() { clearInterval(this.timer); }
+  private get audio(): any { return (window as any).__audio; }
+  private refresh() {
+    const a = this.audio; if (!a) { this.msg.set('Still loading…'); return; }
+    const st = a.status();
+    this.msg.set(st.unlocked ? 'Sound is running. If you still hear nothing, raise the volume and check the silent switch.' : st.state === 'not started' ? 'Not started yet: tap Test sound.' : 'The phone paused sound (' + st.state + '): tap Test sound to wake it.');
+  }
+  test() { const a = this.audio; if (a) { a.test(); setTimeout(() => this.refresh(), 300); } }
+}

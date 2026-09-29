@@ -47,7 +47,9 @@ type Filter = 'all' | 'skill' | 'passive';
     .sgrid { display:grid; grid-template-columns:1fr 1fr; gap:calc(var(--gap) / 1.5); }
     .st { background:#dfe6f7; color:#15203c; border-radius:8px; padding:.35em .7em; } .st.up { background:#33c26b; color:#062a16; }
     .st span { display:block; opacity:.75; font-size:.82em; font-weight:700; } .st b { font-size:1.2em; } .st em { font-style:normal; font-weight:800; margin-left:4px; }
-    .pane { margin-top:clamp(20px,5vmin,30px); }
+    .tabs { display:flex; gap:6px; margin:0 clamp(34px,6vmin,44px) var(--gap) 0; } .tabs button { flex:1; padding:.35em .2em; font-size:.95em; font-weight:700; background:#25386b; border-color:#4a66b0; } .tabs button.on { background:#3a2260; border-color:#ffd24a; color:#ffd24a; }
+    .pane { overflow:hidden; touch-action:pan-y; } .track { display:flex; transition:transform .25s ease; } .slide { flex:0 0 100%; min-width:0; min-height:clamp(96px,26vmin,150px); }
+    .swipehint { text-align:center; font-size:.8em; opacity:.6; margin-top:4px; }
     .dots { display:flex; gap:8px; justify-content:center; margin:var(--gap) 0 0; } .dots button { width:12px; height:12px; padding:0; border-radius:50%; background:#5a6a90; border:0; } .dots button.on { background:#ffd24a; }
     .acts { display:flex; gap:var(--gap); grid-column:1 / -1; } .acts button { flex:1; padding:.5em .4em; font-size:1em; font-weight:800; }
     .grey { background:#7d8394; border-color:#b8bfd0; color:#e8ebf4; } .grey small { display:block; font-weight:600; opacity:.85; font-size:.75em; }
@@ -95,8 +97,10 @@ type Filter = 'all' | 'skill' | 'passive';
             <div class="nm">{{ name(d) }}</div><div class="sub">Level {{ save.progress(d).level }} <span class="muted">&middot; placeholder</span></div>
             <div class="note">{{ role(d) }}</div></div>
           <div>
-            <div class="pane">
-              @if (page() === 0) {
+            <div class="tabs"><button [class.on]="page() === 0" (click)="page.set(0)">Stats</button><button [class.on]="page() === 1" (click)="page.set(1)">{{ ability(d).kind === 'skill' ? 'Skill' : 'Passive' }}</button><button [class.on]="page() === 2" (click)="page.set(2)">Stars</button></div>
+            <div class="pane" (pointerdown)="swipeStart($event)" (pointerup)="swipeEnd($event)">
+              <div class="track" [style.transform]="'translateX(' + (-100 * page()) + '%)'">
+              <div class="slide">
                 <div class="sgrid">
                   <div class="st up"><span>Health</span><b>{{ stat(d,'hp') }}</b><em>+{{ gain(d,'hp') }}</em></div>
                   <div class="st up"><span>Damage</span><b>{{ stat(d,'dmg') }}</b><em>+{{ gain(d,'dmg') }}</em></div>
@@ -106,17 +110,20 @@ type Filter = 'all' | 'skill' | 'passive';
                   <div class="st"><span>Dominion (1★)</span><b>{{ cost(d) }}</b></div>
                 </div>
                 <div class="note">Green = what the next level would add. Levels are a preview: not applied in battles yet.</div>
-              } @else if (page() === 1) {
+              </div>
+              <div class="slide">
                 <span class="tag" [class.skill]="ability(d).kind === 'skill'" [class.passive]="ability(d).kind === 'passive'">{{ ability(d).kind === 'skill' ? 'Skill' : 'Passive' }}: {{ ability(d).name }}</span>
                 <p style="font-size:1.05em">{{ ability(d).text }}</p>
                 @if (manaLine(d)) { <div class="note">{{ manaLine(d) }}</div> }
-              } @else {
+              </div>
+              <div class="slide">
                 <table class="ptable"><tr><th></th><th>Dominion</th><th>Health</th><th>Damage</th></tr>
                   @for (r of starRows(d); track r.star) { <tr><td>{{ r.star }}★</td><td>{{ r.cost }}</td><td>{{ r.hp }}</td><td>{{ r.dmg }}</td></tr> }</table>
                 <div class="note">Stars come from merging during a run and reset after the stage.</div>
-              }
+              </div>
+              </div>
             </div>
-            <div class="dots">@for (p of [0,1,2]; track p) { <button [class.on]="page() === p" (click)="page.set(p)"></button> }</div>
+            <div class="swipehint">swipe or tap the tabs</div>
           </div>
           <div class="acts">
             <button class="grey" disabled>Upgrade<small>{{ isMax(d) ? 'Max level' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
@@ -150,6 +157,9 @@ export class Souls {
   starRows(s: SoulId) { return [1, 2, 3].map((star) => ({ star, cost: COST[s][star - 1], hp: Math.round(this.stat(s, 'hp') * BALANCE.star.hp[star - 1]), dmg: Math.round(this.stat(s, 'dmg') * BALANCE.star.dmg[star - 1]) })); }
   manaLine(s: SoulId) { const m = BALANCE.mana[s]; return m ? `Mana: +${m.perAttack} per attack, +${m.perHit} when hit, ${m.max} to cast (about every ${Math.ceil(m.max / m.perAttack)} attacks). Resets each battle.` : ''; }
 
+  private sx = 0; private sy = 0;
+  swipeStart(e: PointerEvent) { this.sx = e.clientX; this.sy = e.clientY; }
+  swipeEnd(e: PointerEvent) { const dx = e.clientX - this.sx, dy = e.clientY - this.sy; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) this.page.set(Math.max(0, Math.min(2, this.page() + (dx < 0 ? 1 : -1)))); }
   setFilter(f: Filter, e: Event) { e.stopPropagation(); this.filter.set(f); this.pop.set(null); }
   tapTile(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(this.pop() === s ? null : s); }
   openDetail(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(null); this.page.set(0); this.detail.set(s); }

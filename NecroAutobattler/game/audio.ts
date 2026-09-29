@@ -23,17 +23,39 @@ class AudioEngine {
 
   constructor() { const s = loadSave().settings; this.music = s.music; this.sfx = s.sfx; }
 
+  private silent: HTMLAudioElement | null = null; private primed = false;
+  /** iPhones mute Web Audio when the ringer switch is on, unless the page is playing "real" media. A silent looping <audio> element (plus the
+   *  audioSession hint on newer iOS) moves the page to the playback channel, so the game is heard even with the switch on silent. */
+  private playbackChannel() {
+    try { const a = (navigator as any).audioSession; if (a) a.type = 'playback'; } catch { /* not supported */ }
+    if (this.silent) return;
+    try {
+      const n = 441, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf), str = (o: number, t: string) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+      str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 44100, true); v.setUint32(28, 88200, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+      const el = new Audio(URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }))); el.loop = true; el.volume = 0.01; el.setAttribute('playsinline', ''); this.silent = el;
+      el.play().catch(() => { this.silent = null; });
+    } catch { /* fine: sound still works, just follows the silent switch */ }
+  }
+  /** What the Settings page shows so a silent phone can be diagnosed. */
+  status(): { state: string; unlocked: boolean } { return { state: this.ctx ? this.ctx.state : 'not started', unlocked: !!this.ctx && this.ctx.state === 'running' }; }
+  /** The Settings page's Test sound button: unlock and make a clearly audible sound. */
+  test() { this.unlock(); const t = () => { this.play('victory'); }; if (this.ctx && this.ctx.state !== 'running') this.ctx.resume().then(t).catch(() => {}); else t(); }
+
   /** Call from a user gesture (tap/click). Safe to call repeatedly. */
   unlock() {
+    this.playbackChannel();
     if (!this.ctx) {
       const C = (window as any).AudioContext || (window as any).webkitAudioContext; if (!C) return;
       const ctx: AudioContext = this.ctx = new C();
       const comp = ctx.createDynamicsCompressor(); comp.connect(ctx.destination);
       this.master = ctx.createGain(); this.master.gain.value = 0.9; this.master.connect(comp);
       this.musicBus = ctx.createGain(); this.musicBus.connect(this.master); this.sfxBus = ctx.createGain(); this.sfxBus.connect(this.master);
+      ctx.onstatechange = () => { window.dispatchEvent(new Event('necro-audio-state')); };
       const len = ctx.sampleRate; this.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate); const d = this.noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});             // 'suspended' or (iOS) 'interrupted'
+    if (!this.primed) { this.primed = true; try { const b = this.ctx.createBuffer(1, 1, 22050), s = this.ctx.createBufferSource(); s.buffer = b; s.connect(this.ctx.destination); s.start(0); } catch { /* ignore */ } }
     this.applyGains(); this.syncMusic();
   }
 
@@ -123,9 +145,9 @@ export const audio = new AudioEngine();
 (window as any).__audio = audio;
 
 // Phones only allow sound after a touch: the first tap anywhere unlocks it. Every button also gets a small click.
+// iOS only accepts an unlock from a FINISHED tap (touchend / click), not from the start of one, so listen to all of them.
 const unlockOnce = () => audio.unlock();
-document.addEventListener('pointerdown', unlockOnce, { capture: true });
-document.addEventListener('keydown', unlockOnce, { capture: true });
+for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) document.addEventListener(ev, unlockOnce, { capture: true });
 document.addEventListener('click', (e) => { const el = e.target as HTMLElement | null; if (el && el.closest && el.closest('button, a.btn, .rail a')) audio.play('tap'); }, true);
 document.addEventListener('visibilitychange', () => { const c = (audio as any).ctx as AudioContext | null; if (!c) return; if (document.hidden) c.suspend(); else if (audio.music || audio.sfx) c.resume(); });
 window.addEventListener('necro-settings-changed', () => audio.reload());

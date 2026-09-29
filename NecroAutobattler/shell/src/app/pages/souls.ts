@@ -66,8 +66,7 @@ type Filter = 'all' | 'skill' | 'passive';
   `],
   template: `
     <div class="top"><h1>Souls</h1><span class="meta">Deck <b>{{ deck().length }}/{{ save.deckSize }}</b> &middot; avg Dominion <b>{{ avg() }}</b> (1★)</span>
-      <span style="margin-left:auto;display:flex;gap:8px">@if (save.readyCount() > 0) { <button class="go small" (click)="upgradeAll($event)"><img class="ic" [src]="upgradeIcon" alt="">Upgrade all ({{ save.readyCount() }})</button> }
-      <button class="go small" (click)="recommended($event)">Recommended</button></span></div>
+      <button class="go small" style="margin-left:auto" (click)="recommended($event)">Recommended</button></div>
     <div class="box strip">
       @for (i of slots(); track $index) {
         @if (i) {
@@ -159,14 +158,15 @@ export class Souls {
   deck = this.save.deck;
   slots = computed(() => Array.from({ length: this.save.deckSize }, (_, i) => this.save.deck()[i] ?? null));
   avg = computed(() => { const d = this.save.deck(); return (d.reduce((n, s) => n + COST[s][0], 0) / Math.max(1, d.length)).toFixed(1); });
-  sortKeys = [{ id: 'level', label: 'Level' }, { id: 'cost', label: 'Cost' }, { id: 'rarity', label: 'Rarity' }] as const;
-  sortKey = signal<'none' | 'level' | 'cost' | 'rarity'>('none');
+  sortKeys = [{ id: 'level', label: 'Level' }, { id: 'cost', label: 'Cost' }, { id: 'rarity', label: 'Rarity' }, { id: 'progress', label: 'Progress' }] as const;
+  sortKey = signal<'none' | 'level' | 'cost' | 'rarity' | 'progress'>('none');
   sortDir = signal<1 | -1>(1);
   flashId = signal<SoulId | null>(null);
   shown = computed(() => {
     const base = SOULS.filter((s) => this.filter() === 'all' || abilityInfo(s).kind === this.filter()), k = this.sortKey(), d = this.sortDir();
     if (k === 'none') return base;
-    const val = (s: SoulId) => (k === 'level' ? this.save.progress(s).level : k === 'cost' ? COST[s][0] : RARITIES.indexOf(RARITY_OF[s]));
+    // progress = copies toward the next level (a Soul that already has enough ranks above a full bar); max-level Souls count as 0
+    const val = (s: SoulId) => (k === 'level' ? this.save.progress(s).level : k === 'cost' ? COST[s][0] : k === 'progress' ? (this.isMax(s) ? 0 : this.save.progress(s).copies / Math.max(1, this.need(s))) : RARITIES.indexOf(RARITY_OF[s]));
     return [...base].sort((a, b) => (val(a) - val(b)) * d || SOULS.indexOf(a) - SOULS.indexOf(b));      // ties keep the roster order
   });
 
@@ -185,7 +185,7 @@ export class Souls {
   swipeStart(e: PointerEvent) { this.sx = e.clientX; this.sy = e.clientY; }
   swipeEnd(e: PointerEvent) { const dx = e.clientX - this.sx, dy = e.clientY - this.sy; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) this.page.set(Math.max(0, Math.min(2, this.page() + (dx < 0 ? 1 : -1)))); }
   /** Tap a sort chip: ascending, tap again for descending, tap a third time to go back to roster order. */
-  setSort(k: 'level' | 'cost' | 'rarity', e: Event) {
+  setSort(k: 'level' | 'cost' | 'rarity' | 'progress', e: Event) {
     e.stopPropagation(); this.pop.set(null);
     if (this.sortKey() !== k) { this.sortKey.set(k); this.sortDir.set(1); } else if (this.sortDir() === 1) this.sortDir.set(-1); else { this.sortKey.set('none'); this.sortDir.set(1); }
   }
@@ -194,11 +194,6 @@ export class Souls {
   upgradeTile(s: SoulId, e: Event) {
     e.stopPropagation();
     if (this.save.levelUp(s)) { this.beep(); this.flashId.set(s); setTimeout(() => this.flashId.set(null), 750); this.say(SOUL_NAME[s] + ' is now level ' + this.save.progress(s).level + '!'); }
-  }
-  upgradeAll(e: Event) {
-    e.stopPropagation(); let levels = 0, souls = 0;
-    for (const s of SOULS) { let n = 0; while (this.save.levelUp(s)) n++; if (n) { souls++; levels += n; } }
-    if (levels) { this.beep(); this.say('Upgraded ' + souls + (souls === 1 ? ' Soul' : ' Souls') + ' (+' + levels + (levels === 1 ? ' level)' : ' levels)')); }
   }
   upgrade(s: SoulId, e: Event) { e.stopPropagation(); if (this.save.levelUp(s)) { try { (window as any).__audio?.play('merge'); } catch { /* optional */ } this.say(SOUL_NAME[s] + ' is now level ' + this.save.progress(s).level + '!'); } }
   setFilter(f: Filter, e: Event) { e.stopPropagation(); this.filter.set(f); this.pop.set(null); }

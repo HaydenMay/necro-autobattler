@@ -7,16 +7,19 @@ import { advanceWave, checkInvariants, dominionUsed, draftOptions, failWave, new
 import { simulate } from '../core/battle.ts';
 import { enemyWave, waveCost } from '../core/waves.ts';
 import { POLICIES } from './policies.ts';
+import { SOULS } from '../core/data.ts';
 
 export { PROTOTYPE_RULES };
 
-export function playStage(policyName: string, seed: number) {
+/** `level`: every Soul's permanent level (1 = a brand-new player). Levels make the player's units tougher, so difficulty must be judged with them. */
+export function playStage(policyName: string, seed: number, level = 1) {
+  const levels = level > 1 ? Object.fromEntries(SOULS.map((k) => [k, level])) : undefined;
   const policy = POLICIES[policyName]; const s = newStage(PROTOTYPE_RULES, seed);
   const tries: number[] = new Array(12).fill(0); const firstTry: boolean[] = []; let guard = 0;
   while (s.status === 'building' && guard++ < 80) {
     policy.build(s); checkInvariants(s);
     const slots = s.units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell }));
-    const r = simulate(slots, enemyWave(s.wave, seed), seed * 97 + guard);
+    const r = simulate(slots, enemyWave(s.wave, seed), seed * 97 + guard, 130, levels);
     tries[s.wave]++;
     if (r.winner === 0 && slots.length) {
       if (tries[s.wave] === 1) firstTry[s.wave] = true;

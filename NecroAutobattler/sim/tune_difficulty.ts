@@ -12,7 +12,7 @@ for (const [name, waves] of Object.entries(CANDIDATES)) {
   const RUNS = 300; const res: string[] = [];
   for (const pol of ['smart', 'lazy']) {
     let clear = 0, hearts = 0; const reached = new Array(12).fill(0);
-    for (let i = 0; i < RUNS; i++) { const r = playStage(pol, 7000 + i); if (r.state.status === 'won') clear++; hearts += r.state.hearts; reached[r.state.wave]++; }
+    for (let i = 0; i < RUNS; i++) { const r = playStage(pol, 7000 + i, +(process.env.LEVEL || 1)); if (r.state.status === 'won') clear++; hearts += r.state.hearts; reached[r.state.wave]++; }
     res.push(`${pol}: clear ${Math.round((100 * clear) / RUNS)}% hearts ${(hearts / RUNS).toFixed(2)}`);
   }
   console.log(name.padEnd(5), 'costs', AUTHORED.map(waveCost).join('/'), '|', res.join(' | '));

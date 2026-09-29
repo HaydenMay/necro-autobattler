@@ -251,8 +251,8 @@ export class Battle {
 }
 
 /** Run a whole fight without any graphics. Returns who won and how it went. */
-export function simulate(players: Slot[], enemies: Spec[], seed = 1, maxSeconds = 130): { winner: 0 | 1; time: number; left: number; hpLeft: number } {
-  const b = new Battle(players, enemies, seed);
+export function simulate(players: Slot[], enemies: Spec[], seed = 1, maxSeconds = 130, levels?: Partial<Record<SoulId, number>>): { winner: 0 | 1; time: number; left: number; hpLeft: number } {
+  const b = new Battle(players, enemies, seed, levels);
   while (b.winner < 0 && b.time < maxSeconds) b.step(1 / 30);
   const w = (b.winner < 0 ? 1 : b.winner) as 0 | 1;
   const mine = b.fighters.filter((f) => f.alive && f.team === w);

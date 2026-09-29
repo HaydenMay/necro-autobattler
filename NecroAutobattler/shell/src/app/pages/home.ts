@@ -4,12 +4,12 @@ import type { SoulId } from '../../../../core/data.ts';
 import { SOUL_NAME } from '../../../../core/balance.ts';
 import { PROTOTYPE_RULES } from '../../../../core/prototype.ts';
 import { DIFFICULTY_INFO, STAGES, stageById } from '../../../../core/waves.ts';
-import { describeUnlock } from '../../../../core/progress.ts';
+import { REWARDS, describeUnlock } from '../../../../core/progress.ts';
 import type { Difficulty } from '../../../../core/save.ts';
 import { GameLink } from '../game-link.service';
 import { SaveService } from '../save.service';
 import { MOOD, lookOf } from '../stage-look';
-import { hasArt, heartEmptyIcon, heartIcon, rarityColor, skullIcon, soulArt } from '../soul-ui';
+import { BG, artBg, hasArt, heartEmptyIcon, heartIcon, rarityColor, skullIcon, soulArt } from '../soul-ui';
 
 const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', hard: 'Hard', nightmare: 'Nightmare' };
 
@@ -43,6 +43,12 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     .ic { display:inline-flex; width:clamp(24px,4.6vmin,34px); height:clamp(24px,4.6vmin,34px); align-items:center; justify-content:center; border-radius:8px; background:#2b1c44; border:1px solid #6b46a3; font-size:1.3em; }
     .ic.art { overflow:hidden; border-width:2px; } .ic.art .di { width:100%; height:100%; object-fit:cover; object-position:50% 35%; }
     .deck a { color:#8fb0f0; }
+    .dk { display:flex; gap:clamp(4px,1vmin,8px); }
+    .dc { position:relative; width:clamp(38px,9vmin,62px); aspect-ratio:4/5; border-radius:8px; border:2px solid #6b46a3; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#2b1c44; font-size:1.1em; box-shadow:0 2px 6px #000a; }
+    .dc img { width:68%; height:68%; object-fit:contain; } .dc.art img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 35%; }
+    .dc b { position:absolute; left:0; right:0; bottom:0; background:rgba(16,8,32,.86); font-size:.68em; text-align:center; padding:1px 0; }
+    .dc.empty { border-style:dashed; opacity:.5; }
+    .rp { display:flex; align-items:center; gap:8px; font-size:.9em; } .rp .meter { flex:1; height:9px; border-radius:6px; background:#0e0918; border:1px solid #4a3470; overflow:hidden; } .rp .meter i { display:block; height:100%; background:var(--go); }
     .warn { color:#ff9a90; font-weight:700; }
     .acts { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     .big { padding:.7em 2.2em; font-size:1.5em; letter-spacing:.06em; box-shadow:0 0 18px rgba(47,217,166,.5); border-radius:12px; border:1px solid var(--go-hi); background:linear-gradient(var(--go),var(--go-lo)); color:var(--go-ink); font-weight:900; cursor:pointer; }
@@ -101,7 +107,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
         <div class="rec">Recommended Soul level: <b [class.ok]="deckAvg() >= rec()" [class.low]="deckAvg() < rec()">{{ rec() }}</b> <span class="muted">(your deck averages {{ deckAvg().toFixed(1) }})</span></div>
         <div class="deck">
           <span class="muted">Deck</span>
-          @for (s of deckSlots(); track $index) { <span class="ic" [class.empty]="!s" [class.art]="!!s && art(s)" [style.border-color]="s && art(s) ? rc(s) : null" [title]="s ? name(s) : 'empty slot'">@if (s) { <img class="di" [src]="icon(s)" alt=""> } @else { + }</span> }
+          <div class="dk">@for (s of deckSlots(); track $index) { <span class="dc" [class.empty]="!s" [class.art]="!!s && art(s)" [style.border-color]="s ? rc(s) : null" [style.background]="s ? bg(s) : null" [title]="s ? name(s) : 'empty slot'">@if (s) { <img [src]="icon(s)" alt=""><b>Lv {{ save.progress(s).level }}</b> } @else { + }</span> }</div>
           <a routerLink="/souls" style="margin-left:4px">change</a>
           @if (!deckOk()) { <span class="warn">Equip {{ save.deckSize }} Souls to start ({{ save.deck().length }}/{{ save.deckSize }})</span> }
         </div>
@@ -129,6 +135,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
             </span>
           </button>
         }
+        <div class="box rp"><span>Bonus pack</span><span class="meter"><i [style.width.%]="(100 * save.replayMeter()) / replayNeeded"></i></span><span>{{ save.replayMeter() }}/{{ replayNeeded }} clears</span></div>
         <div class="box" style="opacity:.55"><b>More stages</b> <span class="tag soon">coming</span><div style="font-size:.9em;margin-top:3px">New enemies, bosses and first-clear Soul Packs.</div></div>
       </div>
     </div>
@@ -178,6 +185,8 @@ export class Home implements OnDestroy {
   current = computed(() => this.run()?.wave ?? 1);
   deckSlots = computed(() => Array.from({ length: this.save.deckSize }, (_, i) => this.save.deck()[i] ?? null));
   deckOk = computed(() => this.save.deck().length === this.save.deckSize);
+  bg = (s: SoulId) => (hasArt(s) ? artBg(s) : BG[s]);
+  replayNeeded = REWARDS.replayClearsPerPack;
   icon = (s: SoulId) => soulArt(s); art = (s: SoulId) => hasArt(s); rc = (s: SoulId) => rarityColor(s); name = (s: SoulId) => SOUL_NAME[s];
   mood = MOOD; lookOf = lookOf;
   look = computed(() => this.lookOf(this.shownStage()));

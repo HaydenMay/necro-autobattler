@@ -20,6 +20,8 @@ export interface Save {
   souls: Record<SoulId, SoulProgress>;          // PLACEHOLDER progression until packs exist
   settings: Settings;                           // sound switches; both on by default
   difficulty: Difficulty;                       // chosen on Home; applies to the next run
+  stage: string;                                // the stage picked on Home (id from waves.ts STAGES)
+  seen: string[] | null;                        // unlock keys whose celebration was already shown (null: older save, seeded on first look)
   packs: PackItem[];                            // unopened Soul Packs
   nextPackId: number;
   clears: Record<string, number>;               // stage clears, keyed 'stage:difficulty'
@@ -30,7 +32,7 @@ export interface Store { getItem(k: string): string | null; setItem(k: string, v
 export function defaultSave(): Save {
   const souls = {} as Record<SoulId, SoulProgress>;
   for (const id of SOULS) souls[id] = { level: 1, copies: 0 };
-  return { v: VERSION, deck: SOULS.slice(0, DECK_SIZE), souls, settings: { music: true, sfx: true }, difficulty: 'normal', packs: [], nextPackId: 1, clears: {}, replayMeter: 0 };
+  return { v: VERSION, deck: SOULS.slice(0, DECK_SIZE), souls, settings: { music: true, sfx: true }, difficulty: 'normal', stage: 'crypt', seen: [], packs: [], nextPackId: 1, clears: {}, replayMeter: 0 };
 }
 
 export function browserStore(): Store | null { try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; } }
@@ -53,6 +55,9 @@ export function sanitize(raw: any): Save {
     if (typeof raw.settings.sfx === 'boolean') base.settings.sfx = raw.settings.sfx;
   }
   if (DIFFICULTIES.includes(raw.difficulty)) base.difficulty = raw.difficulty;
+  if (typeof raw.stage === 'string' && /^[a-z0-9_-]{1,24}$/.test(raw.stage)) base.stage = raw.stage;
+  if (Array.isArray(raw.seen)) base.seen = raw.seen.filter((k: any) => typeof k === 'string' && k.length < 40).slice(-80);
+  else if (raw.clears && typeof raw.clears === 'object' && Object.keys(raw.clears).length) base.seen = null;    // an existing player: do not replay old unlocks
   if (Array.isArray(raw.packs)) {
     const ids = new Set<number>();
     for (const p of raw.packs) {

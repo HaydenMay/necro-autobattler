@@ -4,7 +4,8 @@ import type { Difficulty, Save, SoulProgress } from '../../../core/save.ts';
 import { SOULS } from '../../../core/data.ts';
 import type { SoulId } from '../../../core/data.ts';
 import { makeRng } from '../../../core/rng.ts';
-import { canLevelUp, grantPack, levelUp, openOwnedPack } from '../../../core/progress.ts';
+import { canLevelUp, clearCount, newUnlocks, unlockedKeys, difficultyLockReason, difficultyUnlocked, grantPack, levelUp, openOwnedPack, playable, stageLockReason, stageUnlocked } from '../../../core/progress.ts';
+import { STAGES } from '../../../core/waves.ts';
 import type { PackResult } from '../../../core/packs.ts';
 
 /**
@@ -17,7 +18,15 @@ export class SaveService {
   readonly deck = computed(() => this.state().deck);
   readonly deckSize = DECK_SIZE;
   readonly settings = computed(() => this.state().settings);
-  readonly difficulty = computed(() => this.state().difficulty);
+  /** The stage and tier that the next run will really use (what is saved, clamped to what is unlocked). */
+  readonly pick = computed(() => playable(this.state()));
+  readonly stage = computed(() => this.pick().stage);
+  readonly difficulty = computed(() => this.pick().difficulty);
+  stageOpen(index: number): boolean { return stageUnlocked(this.state(), index); }
+  stageReason(index: number): string { return stageLockReason(this.state(), index); }
+  diffOpen(stage: string, d: Difficulty): boolean { return difficultyUnlocked(this.state(), stage, d); }
+  diffReason(stage: string, d: Difficulty): string { return difficultyLockReason(this.state(), stage, d); }
+  cleared(stage: string, d: Difficulty): boolean { return clearCount(this.state(), stage, d) > 0; }
   readonly packs = computed(() => this.state().packs);
   readonly replayMeter = computed(() => this.state().replayMeter);
   /** How many Souls have enough copies to level up right now (shown as a badge on the Souls tab). */
@@ -30,7 +39,25 @@ export class SaveService {
 
   private mutate<T>(fn: (s: Save) => T): T { const s = loadSave(); const r = fn(s); writeSave(s); this.state.set(s); return r; }
 
-  setDifficulty(d: Difficulty) { this.mutate((s) => { s.difficulty = d; }); }
+  /** Returns the reason when the tier is locked, otherwise null. */
+  setDifficulty(d: Difficulty): string | null {
+    const why = difficultyLockReason(this.state(), this.stage(), d); if (why) return why;
+    this.mutate((s) => { s.difficulty = d; s.stage = this.stage(); }); return null;
+  }
+  /** Returns the reason when the stage is locked, otherwise null. Keeps the tier if it is open there, otherwise falls back to Normal. */
+  setStage(id: string): string | null {
+    const idx = STAGES.findIndex((s) => s.id === id); if (idx < 0) return 'Unknown stage.';
+    const why = stageLockReason(this.state(), idx); if (why) return why;
+    this.mutate((s) => { s.stage = id; if (!difficultyUnlocked(s, id, s.difficulty)) s.difficulty = 'normal'; }); return null;
+  }
+  /** Unlocks the player has not yet been shown. An older save (seen === null) is seeded silently so old unlocks are not replayed. */
+  freshUnlocks(): string[] {
+    if (this.state().seen === null) { this.mutate((s) => { s.seen = unlockedKeys(s); }); return []; }
+    return newUnlocks(this.state());
+  }
+  markSeen(keys: string[]) { if (keys.length) this.mutate((s) => { s.seen = [...new Set([...(s.seen ?? []), ...keys])].slice(-80); }); }
+  /** Testing helper: pretend a stage tier was cleared (Settings > Testing helpers). */
+  grantTestClear(stage: string, d: Difficulty) { this.mutate((s) => { const k = stage + ':' + d; s.clears[k] = (s.clears[k] ?? 0) + 1; }); }
   /** Music / sound-effect switch. The game's audio engine picks the change up through the event. */
   setSound(which: 'music' | 'sfx', on: boolean) { this.mutate((s) => { s.settings = { ...s.settings, [which]: on }; }); window.dispatchEvent(new Event('necro-settings-changed')); }
 

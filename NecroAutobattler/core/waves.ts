@@ -1,19 +1,25 @@
-// Enemy waves. Same unit pool as the player. The build screen previews the COMPOSITION only, never positions.
+// Enemy waves and the campaign's stages. Same unit pool as the player. The build screen previews the COMPOSITION only, never positions.
+//
+// Each STAGE has four difficulty tiers (easy / normal / hard / nightmare). Later stages are harder: they reuse tougher wave lists and a hidden
+// ENEMY POWER multiplier (health and damage of enemy units) tuned per stage and tier with sim/calibrate_power.ts, so that the competent
+// stand-in player clears each tier about 60% of the time at that tier's RECOMMENDED SOUL LEVEL (every Soul at that level).
+// Unlock rules live in progress.ts: Easy and Normal are always open; clearing Normal opens Hard and the next stage; clearing Hard opens Nightmare.
 
 import { COST, CURVES, SOULS } from './data.ts';
 import type { SoulId } from './data.ts';
 import { makeRng } from './rng.ts';
 
 export interface EnemySpec { soul: SoulId; star: number }
+export type Diff = 'easy' | 'normal' | 'hard' | 'nightmare';
+export const DIFFS: Diff[] = ['easy', 'normal', 'hard', 'nightmare'];
 
 const LETTER: Record<string, SoulId> = { W: 'warrior', A: 'archer', G: 'goblin', K: 'knight', O: 'ogre', B: 'barbarian' };
 const parseWave = (s: string): EnemySpec[] => s.split(' ').map((t) => ({ soul: LETTER[t[0]], star: +t[1] }));
 
 /**
- * Difficulty presets for Stage 1 (10 waves) (W warrior, A archer, G goblin, K knight, O ogre; digit = stars).
- * Measured with sim/tune_waves.ts against stand-in players (competent / careless), stage-clear rate:
- *   easy   ~100% / ~90%      normal ~94% / ~51%      hard ~75% / ~26%
- * A real human on a phone is much less careful than the competent stand-in, so "normal" is the default.
+ * Wave lists (W warrior, A archer, G goblin, K knight, O ogre, B barbarian; digit = stars). These four were tuned for Stage 1; later stages
+ * reuse them one tier up and add enemy power. Hard and Nightmare are volume-driven (up to 12 enemies).
+ * Competent stand-in clear rate with EVERY Soul at level 1 / 4 / 6: easy 98/100/100, normal 82/98/100, hard 7/60/87, nightmare 0/33/74.
  */
 export const DIFFICULTY: Record<string, string[]> = {
   easy: ['W1', 'K1 W1', 'O1 W1 G1', 'K1 A1 W1', 'O1 A1 G1', 'K1 O1 A1', 'K1 O1 A1 G1', 'O1 K1 A1 G1', 'O1 K1 A1 B1', 'O2 K1 A1 G1'],
@@ -22,22 +28,53 @@ export const DIFFICULTY: Record<string, string[]> = {
   nightmare: ['W1 A1 G1', 'K1 G1 W1 A1 W1', 'O1 A1 G1 W1 B1 W1', 'K1 O1 A1 W1 G1 W1 W1', 'O1 K1 A2 G1 W1 B1 W1 W1 G1', 'A2 K1 O1 G1 W1 B1 W1 W1 G1 G1', 'K1 O1 A2 G1 W1 B1 W1 W1 G1 G1 B1', 'O1 K2 A2 B1 G1 W1 W1 W1 G1 G1 B1', 'O2 K1 A2 B1 G1 W1 W1 W1 G1 G1 B1 K1', 'O2 K2 A2 B1 G1 W1 W1 W1 G1 G1 B1 K1'],
 };
 
-/** Names and one-line promises for the difficulty picker. Difficulty depends on the player's Soul levels (levels make units tougher). Competent stand-in stage-clear rate with EVERY Soul at level 1 / 4 / 6: easy 98/100/100, normal 82/98/100, hard 7/60/87, nightmare 0/33/74. Hard and Nightmare are volume-driven (up to 12 enemies) and are meant to need levelled Souls. */
+export interface StageDef {
+  id: string; name: string; blurb: string;
+  lists: Record<Diff, string[]>;          // the 10 enemy waves for each tier
+  power: Record<Diff, number>;            // hidden enemy health/damage multiplier for each tier (1 = as written)
+  rec: Record<Diff, number>;              // recommended Soul level for each tier (a hint on Home, never a lock)
+}
+
+/** The campaign. Names are placeholders. Power numbers come from sim/calibrate_power.ts. */
+export const STAGES: StageDef[] = [
+  { id: 'crypt', name: 'The Restless Crypt', blurb: 'Raise your army. The dead here are only just stirring.',
+    lists: { easy: DIFFICULTY.easy, normal: DIFFICULTY.normal, hard: DIFFICULTY.hard, nightmare: DIFFICULTY.nightmare },
+    power: { easy: 1, normal: 1, hard: 1, nightmare: 1 }, rec: { easy: 1, normal: 1, hard: 4, nightmare: 6 } },
+  { id: 'graveyard', name: 'The Sunken Graveyard', blurb: 'Bigger crowds crawl out of the mud. Level your Souls before you come.',
+    lists: { easy: DIFFICULTY.normal, normal: DIFFICULTY.hard, hard: DIFFICULTY.nightmare, nightmare: DIFFICULTY.nightmare },
+    power: { easy: 1.05, normal: 1, hard: 1.05, nightmare: 1.15 }, rec: { easy: 2, normal: 4, hard: 6, nightmare: 8 } },
+  { id: 'bastion', name: 'The Bone Bastion', blurb: 'A fortress of the fallen. Only well-levelled armies hold the gate.',
+    lists: { easy: DIFFICULTY.hard, normal: DIFFICULTY.nightmare, hard: DIFFICULTY.nightmare, nightmare: DIFFICULTY.nightmare },
+    power: { easy: 0.9, normal: 1.05, hard: 1.15, nightmare: 1.3 }, rec: { easy: 4, normal: 6, hard: 8, nightmare: 10 } },
+];
+export const stageIndex = (id: string): number => Math.max(0, STAGES.findIndex((s) => s.id === id));
+export const stageById = (id: string): StageDef => STAGES[stageIndex(id)];
+
+/** Names and one-line promises for the difficulty picker. */
 export const DIFFICULTY_INFO = [
   { id: 'easy', label: 'Easy', blurb: 'Smaller enemy armies. Relax and learn how merging works.' },
-  { id: 'normal', label: 'Normal', blurb: 'A fair fight. Most players clear it within a run or two.' },
-  { id: 'hard', label: 'Hard', blurb: 'Bigger armies with more fodder. Expect to want a few Soul levels first.' },
+  { id: 'normal', label: 'Normal', blurb: 'The standard fight. Clearing it unlocks Hard and the next stage.' },
+  { id: 'hard', label: 'Hard', blurb: 'Bigger armies with more fodder. Better first-clear rewards. Clearing it unlocks Nightmare.' },
   { id: 'nightmare', label: 'Nightmare', blurb: 'A packed battlefield of stars and skills. Built for well-levelled Souls.' },
 ];
-export let difficultyName = 'normal';
 
-/** Hand-authored waves for Stage 1 (10 waves). Budgets ~ the player's cap at that wave. Edited in place by setDifficulty. */
+// ---- what the next battle uses (set when a run starts)
+export let difficultyName: string = 'normal';
+export let currentStageId: string = 'crypt';
+let power = 1;
+/** Enemy health/damage multiplier for the current stage and tier. */
+export const enemyPower = (): number => power;
+
+/** Hand-authored waves for the current stage and tier (10 waves). Edited in place by setStageDifficulty. */
 export const AUTHORED: EnemySpec[][] = DIFFICULTY.normal.map(parseWave);
 
-export function setDifficulty(name: string): void {
-  if (!DIFFICULTY[name]) return;
-  difficultyName = name; AUTHORED.length = 0; DIFFICULTY[name].forEach((w) => AUTHORED.push(parseWave(w)));
+export function setStageDifficulty(stage: string, name: string): void {
+  const st = stageById(stage); if (!DIFFS.includes(name as Diff)) return;
+  currentStageId = st.id; difficultyName = name; power = st.power[name as Diff];
+  AUTHORED.length = 0; st.lists[name as Diff].forEach((w) => AUTHORED.push(parseWave(w)));
 }
+/** Change the tier within the current stage. */
+export function setDifficulty(name: string): void { setStageDifficulty(currentStageId, name); }
 
 export const waveCost = (w: EnemySpec[]): number => w.reduce((n, e) => n + COST[e.soul][e.star - 1], 0);
 

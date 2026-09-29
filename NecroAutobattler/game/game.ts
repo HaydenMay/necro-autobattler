@@ -10,13 +10,13 @@ import {
 import type { State } from '../core/rules.ts';
 import { Battle, cellPos, FRONT_X, GRID_SP, simulate } from '../core/battle.ts';
 import type { BEvent } from '../core/battle.ts';
-import { difficultyName, enemyWave, setDifficulty } from '../core/waves.ts';
+import { currentStageId, difficultyName, enemyPower, enemyWave, setDifficulty, setStageDifficulty } from '../core/waves.ts';
 import { PROTOTYPE_RULES } from '../core/prototype.ts';
 import { loadSave } from '../core/save.ts';
 import { Necromancer } from './necromancer.ts';
 import { audio } from './audio.ts';
 import { clearRun, loadRun, saveRun, serializeState } from '../core/runsave.ts';
-import { recordClearAndSave } from '../core/progress.ts';
+import { playable, recordClearAndSave } from '../core/progress.ts';
 import type { ClearReward } from '../core/progress.ts';
 import type { RunSnapshot } from '../core/runsave.ts';
 import type { State } from '../core/rules.ts';
@@ -184,14 +184,14 @@ export class Game {
       const s = this.s; if (!s) return;
       if (s.status !== 'building') { clearRun(); return; }
       if (this.phase !== 'build' && this.phase !== 'draft') return;
-      const snap: RunSnapshot = { v: 1, seed: this.seed, attempt: this.attempt, difficulty: difficultyName, phase: this.phase, draft: this.phase === 'draft' ? this.draft : null, state: serializeState(s) };
+      const snap: RunSnapshot = { v: 1, seed: this.seed, attempt: this.attempt, stage: currentStageId, difficulty: difficultyName, phase: this.phase, draft: this.phase === 'draft' ? this.draft : null, state: serializeState(s) };
       saveRun(snap);
     } catch { /* never let saving break the game */ }
   }
   /** Rebuild the screen from a saved run (a reload, or Safari discarding the page). */
   private restore(r: { snap: RunSnapshot; state: State }) {
     const { snap, state } = r;
-    this.cine = false; this.flushTweens(); this.necro.revive(); setDifficulty(snap.difficulty);
+    this.cine = false; this.flushTweens(); this.necro.revive(); setStageDifficulty(snap.stage, snap.difficulty);
     this.seed = snap.seed; this.attempt = snap.attempt; this.s = state; this.seenMerges = state.stats.merges;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = snap.phase === 'draft' ? snap.draft : null; this.phase = this.draft ? 'draft' : 'build';
@@ -239,12 +239,12 @@ export class Game {
   }
 
   /** A run the player has really started (so Home can offer Continue). Null after a stage was won or lost, or before anything was done. */
-  runInfo() { const s = this.s; if (!s || s.status !== 'building') return null; return (s.wave > 1 || s.units.length > 0 || this.attempt > 0 || s.stats.failures > 0) ? { wave: s.wave, total: stageWaves(s), hearts: s.hearts, difficulty: difficultyName } : null; }
+  runInfo() { const s = this.s; if (!s || s.status !== 'building') return null; return (s.wave > 1 || s.units.length > 0 || this.attempt > 0 || s.stats.failures > 0) ? { wave: s.wave, total: stageWaves(s), hearts: s.hearts, difficulty: difficultyName, stage: currentStageId } : null; }
   /** Fresh run with the currently equipped Soul Deck (Home > Start Battle calls this). */
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
     this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
-    this.seed = seed; this.attempt = 0; const sv = loadSave(); setDifficulty(sv.difficulty); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
+    this.seed = seed; this.attempt = 0; const sv = loadSave(), pl = playable(sv); setStageDifficulty(pl.stage, pl.difficulty); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build';
     this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');
@@ -343,7 +343,7 @@ export class Game {
     this.sel = null; this.swapMode = false; this.attempt++; this.handled = false; this.resultAt = -1;
     const s = this.s, units = s.units.slice();
     const saved = loadSave().souls, levels: Record<string, number> = {}; for (const k of Object.keys(saved)) levels[k] = (saved as any)[k].level;   // permanent Soul levels
-    this.battle = new Battle(units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemyWave(s.wave, this.seed), this.seed * 131 + s.wave * 17 + this.attempt, levels);
+    this.battle = new Battle(units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemyWave(s.wave, this.seed), this.seed * 131 + s.wave * 17 + this.attempt, levels, enemyPower());
     this.fvis.clear(); this.fUnit.clear(); this.lastState.clear();
     this.battle.fighters.forEach((f) => {
       if (f.team === 0) { const u = units[f.id - 1]; const v = this.unitVis.get(u.id)!; this.fvis.set(f.id, v); this.fUnit.set(f.id, u.id); v.setHp(1); v.setMana(f.maxMana ? 0 : null); }
@@ -418,7 +418,7 @@ export class Game {
         this.cine = false;
         if (advanceWave(s)) {
           this.phase = 'won'; clearRun();
-          try { this.reward = recordClearAndSave('crypt', difficultyName as any); window.dispatchEvent(new Event('necro-save-changed')); } catch { this.reward = null; }
+          try { this.reward = recordClearAndSave(currentStageId, difficultyName as any); window.dispatchEvent(new Event('necro-save-changed')); } catch { this.reward = null; }
           this.ui.render(); return;
         }
         this.draft = draftOptions(s); this.phase = 'draft'; this.persistRun(); this.ui.render();
@@ -475,14 +475,15 @@ export class Game {
   applyBalanceChange() { this.unitVis.forEach((v, id) => { const u = this.s.units.find((x) => x.id === id); if (u) v.setStar(u.star); }); }
   testOdds(n = 200) {
     const slots = this.s.units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell })), enemies = enemyWave(this.s.wave, this.seed); let win = 0, t = 0;
-    for (let i = 0; i < n; i++) { const r = simulate(slots, enemies, 5000 + i); if (r.winner === 0) win++; t += r.time; }
+    const lv: Record<string, number> = {}, sv = loadSave().souls; for (const k of Object.keys(sv)) lv[k] = (sv as any)[k].level;
+    for (let i = 0; i < n; i++) { const r = simulate(slots, enemies, 5000 + i, 130, lv, enemyPower()); if (r.winner === 0) win++; t += r.time; }
     return { win: Math.round((win / n) * 100), avgTime: +(t / n).toFixed(1), n };
   }
   addCard(soul: SoulId) { this.s.hand.push(soul); this.s.stats.drawn++; this.ui.render(); }
   addDominion(n: number) { this.s.cap += n; this.ui.render(); }
   report(): string {
     const s = this.s, en = enemyWave(s.wave, this.seed);
-    return [`seed ${this.seed}  wave ${s.wave}/${stageWaves(s)}  hearts ${s.hearts}  dominion ${dominionUsed(s)}/${s.cap}  phase ${this.phase}  attempt ${this.attempt}`,
+    return [`stage ${currentStageId}/${difficultyName}  seed ${this.seed}  wave ${s.wave}/${stageWaves(s)}  hearts ${s.hearts}  dominion ${dominionUsed(s)}/${s.cap}  phase ${this.phase}  attempt ${this.attempt}`,
       `hand: ${s.hand.join(', ') || '(empty)'}`, `army: ${s.units.map((u) => `${u.soul}${u.star}@${u.cell}`).join(' ') || '(none)'}`, `enemy: ${en.map((e) => e.soul + e.star).join(' ')}`,
       `difficulty: ${difficultyName}  merge-from-hand: ${s.rules.merge === 'handIntoOneStar'}  swap used: ${s.discardUsed}`, `last tap: ${this.lastTapInfo}`, `screen: ${this.canvas.clientWidth}x${this.canvas.clientHeight} dpr ${window.devicePixelRatio}`, `last battle: ${this.lastBattle || '-'}`, `log tail:`, ...s.log.slice(-8), `balance: ${JSON.stringify({ star: BALANCE.star, stats: BALANCE.stats })}`].join('\n');
   }

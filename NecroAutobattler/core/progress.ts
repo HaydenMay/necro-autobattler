@@ -7,6 +7,7 @@ import { LEVEL_COST_MULT, PACK_TIERS, RARITY_OF, openPack } from './packs.ts';
 import type { PackItem, PackResult } from './packs.ts';
 import type { Rng } from './rng.ts';
 import { loadSave, writeSave } from './save.ts';
+import { STAGES, stageById, stageIndex } from './waves.ts';
 import type { Difficulty, Save, Store } from './save.ts';
 
 export const MAX_PACKS = 99;
@@ -48,9 +49,9 @@ export function openOwnedPack(save: Save, packId: number, rng: Rng): PackResult 
   return result;
 }
 
-export interface ClearReward { first: boolean; pack: PackItem | null; replayMeter: number; replayNeeded: number }
+export interface ClearReward { first: boolean; pack: PackItem | null; replayMeter: number; replayNeeded: number; unlocked: string[] }
 /** A stage was cleared on `difficulty`. The first clear on that difficulty grants a better pack; later clears fill the replay meter. */
-export function recordClear(save: Save, stageId: string, difficulty: Difficulty): ClearReward {
+function recordClearBase(save: Save, stageId: string, difficulty: Difficulty): Omit<ClearReward, 'unlocked'> {
   const key = stageId + ':' + difficulty, before = save.clears[key] ?? 0;
   save.clears[key] = before + 1;
   if (before === 0) return { first: true, pack: grantPack(save, REWARDS.firstClearTier[difficulty], 'First clear · ' + difficulty), replayMeter: save.replayMeter, replayNeeded: REWARDS.replayClearsPerPack };
@@ -63,4 +64,52 @@ export function recordClear(save: Save, stageId: string, difficulty: Difficulty)
 // ------------------------------------------------------------------------------------------------ persisted wrappers (used by the game bundle)
 export function recordClearAndSave(stageId: string, difficulty: Difficulty, store?: Store | null): ClearReward {
   const s = loadSave(store); const r = recordClear(s, stageId, difficulty); writeSave(s, store); return r;
+}
+
+// ------------------------------------------------------------------------------------------------ unlock rules
+// Easy and Normal are open on every unlocked stage. Clearing Normal opens Hard on that stage AND unlocks the next stage. Clearing Hard opens Nightmare.
+export const clearCount = (save: Save, stage: string, d: Difficulty): number => save.clears[stage + ':' + d] ?? 0;
+export function stageUnlocked(save: Save, index: number): boolean { return index <= 0 || (index < STAGES.length && clearCount(save, STAGES[index - 1].id, 'normal') > 0); }
+export function difficultyUnlocked(save: Save, stage: string, d: Difficulty): boolean {
+  const idx = STAGES.findIndex((s) => s.id === stage); if (idx < 0 || !stageUnlocked(save, idx)) return false;
+  if (d === 'easy' || d === 'normal') return true;
+  return d === 'hard' ? clearCount(save, stage, 'normal') > 0 : clearCount(save, stage, 'hard') > 0;
+}
+/** Why a stage is locked (empty when it is open). */
+export function stageLockReason(save: Save, index: number): string { return stageUnlocked(save, index) ? '' : 'Clear ' + STAGES[index - 1].name + ' on Normal to unlock.'; }
+/** Why a tier is locked (empty when it is open). */
+export function difficultyLockReason(save: Save, stage: string, d: Difficulty): string {
+  if (difficultyUnlocked(save, stage, d)) return '';
+  const idx = stageIndex(stage); if (!stageUnlocked(save, idx)) return stageLockReason(save, idx);
+  return d === 'hard' ? 'Clear ' + stageById(stage).name + ' on Normal to unlock Hard.' : 'Clear ' + stageById(stage).name + ' on Hard to unlock Nightmare.';
+}
+/** Whatever was saved, make it a stage and tier the player may actually play. */
+export function playable(save: Save): { stage: string; difficulty: Difficulty } {
+  let idx = stageIndex(save.stage); while (idx > 0 && !stageUnlocked(save, idx)) idx--;
+  const stage = STAGES[idx].id;
+  return { stage, difficulty: difficultyUnlocked(save, stage, save.difficulty) ? save.difficulty : 'normal' };
+}
+
+/** Every unlock the player may be celebrated for: later stages and the Hard / Nightmare tiers (Easy, Normal and Stage 1 are open from the start). */
+export function unlockedKeys(save: Save): string[] {
+  const keys: string[] = [];
+  STAGES.forEach((st, i) => {
+    if (i > 0 && stageUnlocked(save, i)) keys.push('stage:' + st.id);
+    for (const d of ['hard', 'nightmare'] as Difficulty[]) if (difficultyUnlocked(save, st.id, d)) keys.push('tier:' + st.id + ':' + d);
+  });
+  return keys;
+}
+/** Unlocks not yet celebrated. */
+export const newUnlocks = (save: Save): string[] => unlockedKeys(save).filter((k) => !(save.seen ?? []).includes(k));
+const TIER_NAME: Record<string, string> = { hard: 'Hard mode', nightmare: 'Nightmare mode' };
+/** Words for an unlock key, for banners. */
+export function describeUnlock(key: string): string {
+  const [kind, stage, tier] = key.split(':');
+  if (kind === 'stage') return stageById(stage).name + ' (new stage)';
+  return (TIER_NAME[tier] ?? tier) + ' on ' + stageById(stage).name;
+}
+/** Clearing a stage: rewards, and which unlocks this clear opened. */
+export function recordClear(save: Save, stageId: string, difficulty: Difficulty): ClearReward {
+  const before = unlockedKeys(save), r = recordClearBase(save, stageId, difficulty);
+  return { ...r, unlocked: unlockedKeys(save).filter((k) => !before.includes(k)) };
 }

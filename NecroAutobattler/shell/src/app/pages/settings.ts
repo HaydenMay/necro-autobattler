@@ -1,4 +1,5 @@
 import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { STAGES } from '../../../../core/waves.ts';
 import { SaveService } from '../save.service';
 
 @Component({
@@ -21,7 +22,7 @@ import { SaveService } from '../save.service';
     <div class="box row"><img class="ic" style="width:34px;height:34px" src="assets/icons/info.png" alt=""><div class="grow"><b>Sound check</b><span>{{ msg() }}</span></div>
       <button class="go" (click)="test()">Test sound</button></div>
     <div class="box row" style="flex-wrap:wrap"><img class="ic" style="width:34px;height:34px" src="assets/icons/settings.png" alt=""><div class="grow"><b>Testing helpers</b><span>Add packs to your Shop, or copies to every Soul, to try the opening and levelling without playing a whole stage.</span></div>
-      <button class="go" (click)="save.grantTestPack(1)">+ Tier 1 pack</button><button class="go" (click)="save.grantTestPack(2)">+ Tier 2 pack</button><button class="go" (click)="save.grantTestPack(3)">+ Tier 3 pack</button><button class="blue" (click)="save.grantTestCopies(20)">+20 copies each</button></div>
+      <button class="go" (click)="save.grantTestPack(1)">+ Tier 1 pack</button><button class="go" (click)="save.grantTestPack(2)">+ Tier 2 pack</button><button class="go" (click)="save.grantTestPack(3)">+ Tier 3 pack</button><button class="blue" (click)="save.grantTestCopies(20)">+20 copies each</button><button class="blue" (click)="unlockAll()">Unlock all stages</button></div>
     <p class="lead" style="margin-top:14px">The battle screen also has quick music and sound-effect buttons next to the gear.</p>`,
 })
 export class Settings implements OnDestroy {
@@ -36,5 +37,7 @@ export class Settings implements OnDestroy {
     const st = a.status();
     this.msg.set(st.unlocked ? 'Sound is running. If you still hear nothing, raise the volume and check the silent switch.' : st.state === 'not started' ? 'Not started yet: tap Test sound.' : 'The phone paused sound (' + st.state + '): tap Test sound to wake it.');
   }
+  /** Testing helper: mark every stage's Normal and Hard as cleared so all stages and tiers open. */
+  unlockAll() { for (const st of STAGES) { this.save.grantTestClear(st.id, 'normal'); this.save.grantTestClear(st.id, 'hard'); } }
   test() { const a = this.audio; if (a) { a.test(); setTimeout(() => this.refresh(), 300); } }
 }

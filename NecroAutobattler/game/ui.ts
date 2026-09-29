@@ -6,6 +6,7 @@ import { canMergeDeployed, canMergeFromHand, canSummon, cost, dominionFree, domi
 import { enemyWave, previewText } from '../core/waves.ts';
 import { audio } from './audio.ts';
 import { SOUL_ICON, heartsHtml, iconImg, iconUrl, skullImgs } from '../ui/icons.ts';
+import { describeUnlock } from '../core/progress.ts';
 
 const ICON = Object.fromEntries(SOULS.map((s) => [s, iconImg(SOUL_ICON[s], 'ic')])) as Record<SoulId, string>;
 const $ = (id: string) => document.getElementById(id)!;
@@ -71,7 +72,8 @@ export class Ui {
       ov.querySelectorAll<HTMLElement>('.card').forEach((c) => (c.onclick = () => g.pickDraft(+c.dataset.i!)));
     } else if (ph === 'won' || ph === 'lost') {
       const rw = ph === 'won' ? g.reward : null, sk = (n: number) => skullImgs(n);
-      const rewardHtml = rw ? `<div class="sub" style="color:#ffd24a;font-weight:700">${rw.pack ? (rw.first ? `${iconImg('shop')} First clear! You earned a ${sk(rw.pack.tier)} Soul Pack.` : `${iconImg('shop')} Replay reward: a ${sk(rw.pack.tier)} Soul Pack.`) : `Replay progress ${rw.replayMeter}/${rw.replayNeeded} toward a Soul Pack.`}</div>` : '';
+      const unlockHtml = rw && rw.unlocked && rw.unlocked.length ? `<div class="sub" style="color:#7ef2c8;font-weight:700">${iconImg('check')} Unlocked: ${rw.unlocked.map((k: string) => describeUnlock(k)).join(' \u00b7 ')}</div>` : '';
+      const rewardHtml = unlockHtml + (rw ? `<div class="sub" style="color:#ffd24a;font-weight:700">${rw.pack ? (rw.first ? `${iconImg('shop')} First clear! You earned a ${sk(rw.pack.tier)} Soul Pack.` : `${iconImg('shop')} Replay reward: a ${sk(rw.pack.tier)} Soul Pack.`) : `Replay progress ${rw.replayMeter}/${rw.replayNeeded} toward a Soul Pack.`}</div>` : '');
       ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>${ph === 'won' ? 'Stage cleared!' : 'Stage lost'}</h2><div class="sub">${g.lastBattle}</div>${rewardHtml}<div class="row">${rw && rw.pack ? '<button id="toShop" class="go">Open pack</button>' : ''}<button id="again" class="${rw && rw.pack ? 'blue' : 'go'}">${ph === 'won' ? 'Play again' : 'Try again'}</button><button id="toHome" class="blue">Home</button></div></div>`;
       $('again').onclick = () => g.newRun(); $('toHome').onclick = () => window.dispatchEvent(new Event('necro-go-home'));
       const ts = document.getElementById('toShop'); if (ts) ts.onclick = () => window.dispatchEvent(new Event('necro-go-shop'));

@@ -75,11 +75,13 @@ export class Battle {
   rng: Rng;
   private pending: { at: number; from: number; to: number; dmg: number }[] = [];
   private nextId = 1;
+  private enemyPower = 1;
   private flip = false;
 
   /** `levels`: the player's permanent Soul levels (health and damage grow a little per level). Enemies never use them. */
-  constructor(players: Slot[], enemies: Spec[], seed = 1, levels?: Partial<Record<SoulId, number>>) {
-    this.rng = makeRng(seed);
+  /** `enemyPower`: health and damage multiplier for the enemy team only (stage strength; 1 = as written). */
+  constructor(players: Slot[], enemies: Spec[], seed = 1, levels?: Partial<Record<SoulId, number>>, enemyPower = 1) {
+    this.rng = makeRng(seed); this.enemyPower = enemyPower;
     for (const p of players) this.add(0, p.soul, p.star, p.cell, levels?.[p.soul] ?? 1);
     const cells = enemyCells(enemies);
     enemies.forEach((e, i) => this.add(1, e.soul, e.star, cells[i]));
@@ -88,10 +90,11 @@ export class Battle {
   private add(team: 0 | 1, soul: SoulId, star: number, cell: number, level = 1): Fighter {
     const B = BALANCE, st = B.stats[soul], p = cellPos(team, cell);
     const lvHp = 1 + (Math.max(1, level) - 1) * B.level.hp, lvDmg = 1 + (Math.max(1, level) - 1) * B.level.dmg;
-    const hp = st.hp * B.star.hp[star - 1] * lvHp;
+    const pw = team === 1 ? this.enemyPower : 1;
+    const hp = st.hp * B.star.hp[star - 1] * lvHp * pw;
     const f: Fighter = {
       id: this.nextId++, team, soul, star, cell, x: p.x, z: p.z, yaw: team === 0 ? 0 : Math.PI,
-      hp, maxHp: hp, dmg: st.dmg * B.star.dmg[star - 1] * lvDmg, interval: st.interval, range: st.range, speed: st.speed, radius: st.size * B.star.scale[star - 1],
+      hp, maxHp: hp, dmg: st.dmg * B.star.dmg[star - 1] * lvDmg * pw, interval: st.interval, range: st.range, speed: st.speed, radius: st.size * B.star.scale[star - 1],
       alive: true, state: 'idle', target: -1, retargetAt: 0, forcedTarget: -1, forcedUntil: 0,
       nextAttack: this.rng.next() * 0.3, attackStart: -9, attackDur: 1, animSpeed: 1, hitFrac: 0, hitDone: true,
       mana: 0, maxMana: B.mana[soul]?.max ?? 0, casting: false, frenzy: 0, deadAt: 0,
@@ -251,8 +254,8 @@ export class Battle {
 }
 
 /** Run a whole fight without any graphics. Returns who won and how it went. */
-export function simulate(players: Slot[], enemies: Spec[], seed = 1, maxSeconds = 130, levels?: Partial<Record<SoulId, number>>): { winner: 0 | 1; time: number; left: number; hpLeft: number } {
-  const b = new Battle(players, enemies, seed, levels);
+export function simulate(players: Slot[], enemies: Spec[], seed = 1, maxSeconds = 130, levels?: Partial<Record<SoulId, number>>, enemyPower = 1): { winner: 0 | 1; time: number; left: number; hpLeft: number } {
+  const b = new Battle(players, enemies, seed, levels, enemyPower);
   while (b.winner < 0 && b.time < maxSeconds) b.step(1 / 30);
   const w = (b.winner < 0 ? 1 : b.winner) as 0 | 1;
   const mine = b.fighters.filter((f) => f.alive && f.team === w);

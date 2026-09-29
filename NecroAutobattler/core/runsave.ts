@@ -17,7 +17,7 @@ export interface SerializedState {
   wave: number; hearts: number; cap: number; hand: SoulId[]; units: Unit[]; nextId: number; discardUsed: boolean;
   status: 'building'; log: string[]; stats: State['stats'];
 }
-export interface RunSnapshot { v: number; seed: number; attempt: number; difficulty: string; phase: 'build' | 'draft'; draft: SoulId[] | null; state: SerializedState }
+export interface RunSnapshot { v: number; seed: number; attempt: number; stage: string; difficulty: string; phase: 'build' | 'draft'; draft: SoulId[] | null; state: SerializedState }
 
 export function serializeState(s: State): SerializedState {
   return {
@@ -72,7 +72,7 @@ export function loadRun(store: Store | null = browserStore()): { snap: RunSnapsh
     if (!x || x.v !== VERSION || (x.phase !== 'build' && x.phase !== 'draft') || !Number.isFinite(x.seed) || !Number.isFinite(x.attempt) || typeof x.difficulty !== 'string') return null;
     const state = deserializeState(x.state); if (!state) return null;
     const draft = x.phase === 'draft' && Array.isArray(x.draft) && x.draft.length === 3 && x.draft.every(isSoul) ? x.draft : null;
-    return { snap: { v: VERSION, seed: x.seed, attempt: x.attempt, difficulty: x.difficulty, phase: draft ? 'draft' : 'build', draft, state: x.state }, state };
+    return { snap: { v: VERSION, seed: x.seed, attempt: x.attempt, stage: typeof x.stage === 'string' ? x.stage : 'crypt', difficulty: x.difficulty, phase: draft ? 'draft' : 'build', draft, state: x.state }, state };
   } catch { return null; }
 }
 export const RUN_VERSION = VERSION;

@@ -4,7 +4,7 @@
 import { loadSave, updateSettings } from '../core/save.ts';
 
 export type Sfx = 'tap' | 'summon' | 'merge' | 'hit' | 'hitArrow' | 'smash' | 'arrow' | 'death' | 'cast' | 'taunt' | 'shockwave' | 'resurrect' | 'heartLost' | 'victory' | 'defeat' | 'start'
-  | 'packCharge' | 'packTierUp' | 'packTear' | 'packFan' | 'packFlip' | 'packRare' | 'packEpic' | 'packLegend' | 'packCollect';
+  | 'unlock' | 'packCharge' | 'packTierUp' | 'packTear' | 'packFan' | 'packFlip' | 'packRare' | 'packEpic' | 'packLegend' | 'packCollect';
 export type Mode = 'build' | 'battle';
 
 // Music: A minor, 80 bpm, four bars looping (Am, F, C, E). Root note first, then chord tones (Hz).
@@ -137,6 +137,7 @@ class AudioEngine {
       case 'heartLost': this.tone(110, 0.7, 'sawtooth', 0.28, 0, 50, 0.01, 450); this.hiss(0.18, 0.2, 'lowpass', 900); this.tone(233, 0.5, 'square', 0.05, 0.02, 220, 0.01, 500); break;
       case 'victory': [392, 494, 587, 784].forEach((f, i) => this.tone(f, 0.5, 'triangle', 0.16, i * 0.11)); this.tone(196, 0.9, 'sine', 0.2); break;
       case 'defeat': [330, 294, 247, 196].forEach((f, i) => this.tone(f, 0.7, 'triangle', 0.16, i * 0.28, f * 0.97)); this.tone(82, 1.6, 'sine', 0.3, 0.3); break;
+      case 'unlock': [0.35, 0.47, 0.59, 0.71].forEach((d, i) => { this.hiss(0.05, 0.22, 'bandpass', 900 + i * 120, d); this.tone(170 + i * 12, 0.07, 'square', 0.06, d, undefined, 0.002, 600); }); [784, 1046, 1318].forEach((f, i) => this.tone(f, 0.6, 'triangle', 0.16, 1.15 + i * 0.07)); this.hiss(0.5, 0.09, 'highpass', 5000, 1.2); this.tone(110, 0.3, 'sine', 0.25, 1.15, 60); break;
       case 'packCharge': this.tone(90, 1.05, 'sine', 0.25, 0, 260, 0.2); this.hiss(0.95, 0.12, 'lowpass', 300, 0, 2200); this.tone(180, 1.0, 'triangle', 0.06, 0.1, 520, 0.3); break;
       case 'packTierUp': [440, 554, 659, 880].forEach((f, i) => this.tone(f, 0.4, 'triangle', 0.2, i * 0.06)); this.tone(1760, 0.6, 'sine', 0.09, 0.2); this.hiss(0.4, 0.1, 'highpass', 5000, 0.1); break;
       case 'packTear': this.hiss(0.35, 0.3, 'bandpass', 1500, 0, 6000); this.tone(120, 0.45, 'sine', 0.4, 0.05, 40); [1046, 1318, 1568].forEach((f, i) => this.tone(f, 0.6, 'triangle', 0.1, 0.12 + i * 0.05)); break;

@@ -62,7 +62,6 @@ type Filter = 'all' | 'skill' | 'passive';
     .port.art img, .big.art img, .cport.art img, .fxcard.art img { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 35%; border-radius:inherit; filter:none; pointer-events:none; }
     .big.art { height:clamp(84px,27vmin,158px); } .fxcard.art { border-radius:18px; } .cport.art { width:clamp(58px,13vmin,80px); }
     .tile.art { box-shadow:0 2px 8px #000a, inset 0 0 0 1px rgba(255,255,255,.08); } .tile.art.eq { box-shadow:0 0 12px rgba(47,217,166,.6), inset 0 0 0 1px rgba(47,217,166,.5); }
-    .nplate { position:absolute; left:0; right:0; bottom:0; z-index:1; padding:8px 3px 2px; font-size:clamp(8px,1.5vmin,10.5px); font-weight:800; line-height:1.05; text-shadow:0 1px 2px #000; background:linear-gradient(transparent,#000d); }
     .tick img { width:80%; height:80%; } .x img { width:78%; height:78%; } .rarlab { display:flex; align-items:center; gap:4px; font-size:.9em; opacity:.9; margin-top:2px; } .rarlab img { width:1.3em; height:1.3em; }
     .sortlab { opacity:.6; margin-left:10px; align-self:center; font-size:.9em; } .arr { width:1em; height:1em; vertical-align:-.15em; margin-left:3px; } .arr.down { transform:rotate(180deg); }
     .upbtn { position:absolute; left:6px; right:6px; bottom:6px; height:clamp(16px,3vmin,22px); z-index:4; padding:0; border-radius:10px; font-size:.85em; font-weight:800; display:flex; align-items:center; justify-content:center; gap:3px;
@@ -122,7 +121,7 @@ type Filter = 'all' | 'skill' | 'passive';
         <div class="tw">
           <button class="tile" [class.art]="art(s)" [style.border-color]="rc(s)" [class.lift]="pop() === s" [class.eq]="save.isEquipped(s)" [class.flash]="flashId() === s" (click)="tapTile(s, $event)">
             <span class="gem">{{ cost(s) }}</span>@if (save.isEquipped(s)) { <span class="tick"><img [src]="checkIcon" alt=""></span> }@if (canLevel(s)) { <span class="uparrow"><img [src]="upgradeIcon" alt=""></span> }
-            <span class="port" [class.art]="art(s)" [style.background]="bg(s)"><img [src]="icon(s)" alt="">@if (art(s)) { <span class="nplate">{{ name(s) }}</span> }</span><span class="lv">Level {{ save.progress(s).level }}</span>
+            <span class="port" [class.art]="art(s)" [style.background]="bg(s)"><img [src]="icon(s)" alt=""></span><span class="lv">Level {{ save.progress(s).level }}</span>
             <span class="bar" [class.ready]="canLevel(s)" [class.max]="isMax(s)"><i [style.width.%]="pct(s)"></i><b>{{ isMax(s) ? 'Max' : save.progress(s).copies + '/' + need(s) }}</b></span>
           </button>
           @if (pop() === s) {

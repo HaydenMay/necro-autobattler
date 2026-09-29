@@ -21,8 +21,8 @@ for o in sc.objects:
     for c in ev.bound_box:
         w = o.matrix_world @ Vector(c); lo = Vector(map(min, lo, w)); hi = Vector(map(max, hi, w))
 ctr = (lo + hi) / 2; size = hi - lo
-if HEAD:                                              # head and shoulders: the top 58% of the figure
-    top = hi.z; size = Vector((size.x * 0.75, size.y * 0.75, size.z * 0.58)); ctr = Vector((ctr.x, ctr.y, top - size.z / 2 + size.z * 0.06))
+if HEAD:                                              # head and shoulders: same-size window centred on the skull, so every Soul's face lands in the same place
+    hp = arm.matrix_world @ arm.pose.bones['Head'].head; size = Vector((0.3, 0.3, 0.58)); ctr = Vector((hp.x, hp.y, hp.z + 0.075))
 # camera: long lens (almost flat), in front of the character, turned a little for a three-quarter look
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam
 cam.data.lens = 85; cam.data.sensor_fit = 'VERTICAL'; cam.data.sensor_height = 24

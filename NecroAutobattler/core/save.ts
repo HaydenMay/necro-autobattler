@@ -3,6 +3,8 @@
 
 import { SOULS } from './data.ts';
 import type { SoulId } from './data.ts';
+import { PACK_TIERS } from './packs.ts';
+import type { PackItem } from './packs.ts';
 
 export const DECK_SIZE = 6;                     // doc: six equipped Souls per stage
 const KEY = 'necro-save';
@@ -18,13 +20,17 @@ export interface Save {
   souls: Record<SoulId, SoulProgress>;          // PLACEHOLDER progression until packs exist
   settings: Settings;                           // sound switches; both on by default
   difficulty: Difficulty;                       // chosen on Home; applies to the next run
+  packs: PackItem[];                            // unopened Soul Packs
+  nextPackId: number;
+  clears: Record<string, number>;               // stage clears, keyed 'stage:difficulty'
+  replayMeter: number;                          // replay clears toward the next replay pack
 }
 export interface Store { getItem(k: string): string | null; setItem(k: string, v: string): void }
 
 export function defaultSave(): Save {
   const souls = {} as Record<SoulId, SoulProgress>;
   for (const id of SOULS) souls[id] = { level: 1, copies: 0 };
-  return { v: VERSION, deck: SOULS.slice(0, DECK_SIZE), souls, settings: { music: true, sfx: true }, difficulty: 'normal' };
+  return { v: VERSION, deck: SOULS.slice(0, DECK_SIZE), souls, settings: { music: true, sfx: true }, difficulty: 'normal', packs: [], nextPackId: 1, clears: {}, replayMeter: 0 };
 }
 
 export function browserStore(): Store | null { try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; } }
@@ -47,6 +53,17 @@ export function sanitize(raw: any): Save {
     if (typeof raw.settings.sfx === 'boolean') base.settings.sfx = raw.settings.sfx;
   }
   if (DIFFICULTIES.includes(raw.difficulty)) base.difficulty = raw.difficulty;
+  if (Array.isArray(raw.packs)) {
+    const ids = new Set<number>();
+    for (const p of raw.packs) {
+      if (base.packs.length >= 99 || !p || !Number.isInteger(p.id) || p.id < 1 || ids.has(p.id) || !Number.isInteger(p.tier) || p.tier < 1 || p.tier > PACK_TIERS) continue;
+      ids.add(p.id); base.packs.push({ id: p.id, tier: p.tier, source: typeof p.source === 'string' ? p.source.slice(0, 40) : '' });
+    }
+  }
+  const maxId = base.packs.reduce((n, p) => Math.max(n, p.id), 0);
+  base.nextPackId = Math.max(maxId + 1, Number.isInteger(raw.nextPackId) && raw.nextPackId > 0 ? raw.nextPackId : 1);
+  if (raw.clears && typeof raw.clears === 'object') for (const [k, v] of Object.entries(raw.clears)) if (typeof k === 'string' && k.length < 40 && Number.isInteger(v) && (v as number) > 0) base.clears[k] = v as number;
+  if (Number.isInteger(raw.replayMeter) && raw.replayMeter >= 0 && raw.replayMeter < 50) base.replayMeter = raw.replayMeter;
   return base;
 }
 

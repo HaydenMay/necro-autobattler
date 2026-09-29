@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { SOULS, COST } from '../../../../core/data.ts';
 import type { SoulId } from '../../../../core/data.ts';
 import { BALANCE, ROLE_TEXT, SOUL_NAME, abilityInfo } from '../../../../core/balance.ts';
+import { copiesNeeded, isMaxLevel } from '../../../../core/progress.ts';
 import { SaveService } from '../save.service';
 
 const ICON: Record<SoulId, string> = { warrior: '\u{1F480}', archer: '\u{1F3F9}', goblin: '\u{1F5E1}️', knight: '\u{1F6E1}️', ogre: '\u{1F528}', barbarian: '\u{1FA93}' };
@@ -148,8 +149,8 @@ export class Souls {
 
   icon = (s: SoulId) => ICON[s]; bg = (s: SoulId) => BG[s]; name = (s: SoulId) => SOUL_NAME[s]; role = (s: SoulId) => ROLE_TEXT[s];
   cost = (s: SoulId) => COST[s][0]; base = (s: SoulId) => BALANCE.stats[s]; ability = (s: SoulId) => abilityInfo(s);
-  need = (s: SoulId) => BALANCE.level.copiesToLevel[Math.min(this.save.progress(s).level, BALANCE.level.copiesToLevel.length) - 1] ?? 0;
-  isMax = (s: SoulId) => this.save.progress(s).level > BALANCE.level.copiesToLevel.length;
+  need = (s: SoulId) => copiesNeeded(this.save.progress(s).level, s);
+  isMax = (s: SoulId) => isMaxLevel(this.save.progress(s).level);
   canLevel = (s: SoulId) => !this.isMax(s) && this.save.progress(s).copies >= this.need(s);
   pct = (s: SoulId) => this.isMax(s) ? 100 : Math.min(100, (100 * this.save.progress(s).copies) / Math.max(1, this.need(s)));
   stat(s: SoulId, k: 'hp' | 'dmg') { const lv = this.save.progress(s).level; return Math.round(BALANCE.stats[s][k] * (1 + (lv - 1) * BALANCE.level[k])); }

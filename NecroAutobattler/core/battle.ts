@@ -77,19 +77,21 @@ export class Battle {
   private nextId = 1;
   private flip = false;
 
-  constructor(players: Slot[], enemies: Spec[], seed = 1) {
+  /** `levels`: the player's permanent Soul levels (health and damage grow a little per level). Enemies never use them. */
+  constructor(players: Slot[], enemies: Spec[], seed = 1, levels?: Partial<Record<SoulId, number>>) {
     this.rng = makeRng(seed);
-    for (const p of players) this.add(0, p.soul, p.star, p.cell);
+    for (const p of players) this.add(0, p.soul, p.star, p.cell, levels?.[p.soul] ?? 1);
     const cells = enemyCells(enemies);
     enemies.forEach((e, i) => this.add(1, e.soul, e.star, cells[i]));
   }
 
-  private add(team: 0 | 1, soul: SoulId, star: number, cell: number): Fighter {
+  private add(team: 0 | 1, soul: SoulId, star: number, cell: number, level = 1): Fighter {
     const B = BALANCE, st = B.stats[soul], p = cellPos(team, cell);
-    const hp = st.hp * B.star.hp[star - 1];
+    const lvHp = 1 + (Math.max(1, level) - 1) * B.level.hp, lvDmg = 1 + (Math.max(1, level) - 1) * B.level.dmg;
+    const hp = st.hp * B.star.hp[star - 1] * lvHp;
     const f: Fighter = {
       id: this.nextId++, team, soul, star, cell, x: p.x, z: p.z, yaw: team === 0 ? 0 : Math.PI,
-      hp, maxHp: hp, dmg: st.dmg * B.star.dmg[star - 1], interval: st.interval, range: st.range, speed: st.speed, radius: st.size * B.star.scale[star - 1],
+      hp, maxHp: hp, dmg: st.dmg * B.star.dmg[star - 1] * lvDmg, interval: st.interval, range: st.range, speed: st.speed, radius: st.size * B.star.scale[star - 1],
       alive: true, state: 'idle', target: -1, retargetAt: 0, forcedTarget: -1, forcedUntil: 0,
       nextAttack: this.rng.next() * 0.3, attackStart: -9, attackDur: 1, animSpeed: 1, hitFrac: 0, hitDone: true,
       mana: 0, maxMana: B.mana[soul]?.max ?? 0, casting: false, frenzy: 0, deadAt: 0,

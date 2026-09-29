@@ -19,12 +19,18 @@ type Filter = 'all' | 'skill' | 'passive';
   styles: [`
     :host { display:block; --gap:clamp(6px,1.4vmin,14px); font-size:clamp(10px,1.6vmin,12.5px); }
     .top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:var(--gap); } .top h1 { margin:0; }
-    .strip { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:var(--gap); padding:calc(var(--gap) + 4px) var(--gap) var(--gap); max-width:clamp(240px,min(46vw,78vh),440px); }
+    .strip { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:var(--gap); padding:calc(var(--gap) + 4px) var(--gap) var(--gap); }
     .slot { aspect-ratio:4/5; border-radius:10px; border:2px dashed #4a3470; background:#1a1128; color:#6b5a8a; font-size:clamp(18px,4vmin,28px); display:flex; align-items:center; justify-content:center; padding:0; }
     .small { padding:.35em .9em; font-size:.95em; }
     .meta { font-size:.9em; opacity:.85; } .meta b { color:#fff; }
-    .filters { display:flex; gap:6px; margin:var(--gap) 0; } .chip { padding:.3em 1em; border-radius:14px; font-size:.95em; } .chip.on { background:#3a2260; border-color:#a45bff; }
-    .grid2 { display:grid; grid-template-columns:repeat(auto-fill,minmax(clamp(66px,9.5vmin,92px),1fr)); gap:calc(var(--gap) + 6px) var(--gap); max-width:clamp(300px,64vw,600px); }
+    .filters { display:flex; gap:5px; margin:var(--gap) 0; flex-wrap:wrap; } .chip { padding:.28em .8em; border-radius:14px; font-size:.9em; } .chip.on { background:#3a2260; border-color:#a45bff; }
+    .cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.12fr); gap:clamp(10px,2.4vmin,24px); align-items:start; }
+    .lcol { min-width:0; }
+    .grid2 { display:grid; grid-template-columns:repeat(auto-fill,minmax(clamp(66px,10.5vmin,96px),1fr)); gap:calc(var(--gap) + 6px) var(--gap); }
+    /* the details panel: what the popup used to be, always visible next to the list */
+    .dpanel { position:sticky; top:0; display:grid; grid-template-columns:minmax(78px,25%) minmax(0,1fr); gap:var(--gap); padding:calc(var(--gap) + 4px); border-radius:16px; background:rgba(14,24,48,.9); border:2px solid #3d5aa0; box-shadow:0 0 24px rgba(90,127,208,.3); max-height:calc(100vh - 26px); overflow:auto; }
+    .dpanel .big { height:clamp(84px,25vmin,150px); }
+    .dpanel .tabs { margin:0 0 var(--gap) 0; }
     .tw { position:relative; }
     .tile { position:relative; display:flex; flex-direction:column; width:100%; padding:0; border-radius:10px; border:2px solid #6b46a3; background:#1b1230; overflow:visible; text-align:center; cursor:pointer; transition:transform .12s; color:inherit; }
     .tile.lift { transform:translateY(-4px); border-color:#fff; box-shadow:0 0 14px rgba(160,80,255,.8); z-index:3; }
@@ -100,6 +106,7 @@ type Filter = 'all' | 'skill' | 'passive';
     .note { font-size:.82em; opacity:.7; margin-top:6px; } .ptable { width:100%; font-size:.95em; border-collapse:collapse; } .ptable td, .ptable th { padding:4px 6px; text-align:left; } .ptable th { opacity:.7; font-size:.85em; }
   `],
   template: `
+  <div class="cols"><div class="lcol">
     <div class="top"><h1>Souls</h1><span class="meta">Deck <b>{{ deck().length }}/{{ save.deckSize }}</b> &middot; avg Dominion <b>{{ avg() }}</b> (1★)</span>
       <button class="go small" style="margin-left:auto" (click)="recommended($event)">Recommended</button></div>
     <div class="box strip">
@@ -110,7 +117,7 @@ type Filter = 'all' | 'skill' | 'passive';
         } @else { <div class="slot">+</div> }
       }
     </div>
-    <p class="note">A run only draws from your equipped Souls. Changes apply to your next run: press <b>Start Battle</b> on Home. You need all {{ save.deckSize }} slots filled to start.</p>
+    @if (deck().length < save.deckSize) { <p class="note">Only equipped Souls are drawn in a run. You need all {{ save.deckSize }} slots filled to start.</p> }
     <div class="filters">
       @for (f of filters; track f) { <button class="chip" [class.on]="filter() === f" (click)="setFilter(f, $event)">{{ f === 'all' ? 'All' : f === 'skill' ? 'Skill' : 'Passive' }}</button> }
       <span class="sortlab">Sort</span>
@@ -119,26 +126,17 @@ type Filter = 'all' | 'skill' | 'passive';
     <div class="grid2">
       @for (s of shown(); track s) {
         <div class="tw">
-          <button class="tile" [class.art]="art(s)" [style.border-color]="rc(s)" [class.lift]="pop() === s" [class.eq]="save.isEquipped(s)" [class.flash]="flashId() === s" (click)="tapTile(s, $event)">
+          <button class="tile" [class.art]="art(s)" [style.border-color]="rc(s)" [class.lift]="detail() === s" [class.eq]="save.isEquipped(s)" [class.flash]="flashId() === s" (click)="tapTile(s, $event)">
             <span class="gem">{{ cost(s) }}</span>@if (save.isEquipped(s)) { <span class="tick"><img [src]="checkIcon" alt=""></span> }@if (canLevel(s)) { <span class="uparrow"><img [src]="upgradeIcon" alt=""></span> }
             <span class="port" [class.art]="art(s)" [style.background]="bg(s)"><img [src]="icon(s)" alt=""></span><span class="lv">Level {{ save.progress(s).level }}</span>
             <span class="bar" [class.ready]="canLevel(s)" [class.max]="isMax(s)"><i [style.width.%]="pct(s)"></i><b>{{ isMax(s) ? 'Max' : save.progress(s).copies + '/' + need(s) }}</b></span>
           </button>
-          @if (pop() === s) {
-            <div class="pop" (click)="$event.stopPropagation()">
-              <button [class]="canLevel(s) ? 'go' : 'blue'" (click)="openDetail(s, $event)">{{ canLevel(s) ? 'Upgrade' : 'Details' }}</button>
-              <button [class]="canLevel(s) ? 'blue' : 'go'" (click)="toggle(s, $event)">{{ save.isEquipped(s) ? 'Unequip' : 'Equip' }}</button>
-            </div>
-          }
         </div>
       }
     </div>
-    @if (toastMsg()) { <div class="box" style="position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;border-color:#ffd24a">{{ toastMsg() }}</div> }
-
+  </div>
     @if (detail(); as d) {
-      <div class="scrim" (click)="detail.set(null)">
-        <div class="modal" (click)="$event.stopPropagation()">
-          <button class="x" (click)="detail.set(null)"><img [src]="closeIcon" alt="Close"></button>
+      <aside class="dpanel">
           <div><div class="big" [class.art]="art(d)" [style.background]="bg(d)" [style.border-color]="rc(d)"><img [src]="icon(d)" alt=""></div>
             <div class="nm">{{ name(d) }}</div><div class="sub">Level {{ save.progress(d).level }}</div><div class="rarlab"><img [src]="gem(rarityOf(d))" alt="">{{ rarityName(d) }}</div>
             <div class="note">{{ role(d) }}</div></div>
@@ -175,9 +173,10 @@ type Filter = 'all' | 'skill' | 'passive';
             <button [class]="canLevel(d) ? 'go' : 'grey'" (click)="upgradeClick(d, $event)">@if (canLevel(d)) { <img class="ic" [src]="upgradeIcon" alt=""> }Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
             <button [class]="save.isEquipped(d) ? 'blue' : 'go'" (click)="toggle(d, $event)">{{ save.isEquipped(d) ? 'Unequip' : 'Equip' }}</button>
           </div>
-        </div>
-      </div>
+      </aside>
     }
+  </div>
+    @if (toastMsg()) { <div class="box" style="position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;border-color:#ffd24a">{{ toastMsg() }}</div> }
 
     @if (confirming(); as c) {
       <div class="scrim cscrim" (click)="cancelUpgrade()">
@@ -220,7 +219,8 @@ export class Souls {
   filters: Filter[] = ['all', 'skill', 'passive'];
   filter = signal<Filter>('all');
   pop = signal<SoulId | null>(null);
-  detail = signal<SoulId | null>(null);
+  /** The Soul shown in the side panel (the first equipped one to begin with). */
+  detail = signal<SoulId | null>(this.save.deck()[0] ?? SOULS[0]);
   page = signal(0);
   toastMsg = signal('');
   deck = this.save.deck;
@@ -295,8 +295,9 @@ export class Souls {
   }
   closeFx() { cancelAnimationFrame(this.fxRaf); clearTimeout(this.fxTimer); this.fx.set(null); }
   setFilter(f: Filter, e: Event) { e.stopPropagation(); this.filter.set(f); this.pop.set(null); }
-  tapTile(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(this.pop() === s ? null : s); }
-  openDetail(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(null); this.page.set(0); this.detail.set(s); }
+  tapTile(s: SoulId, e: Event) { e.stopPropagation(); this.select(s); }
+  openDetail(s: SoulId, e: Event) { e.stopPropagation(); this.select(s); }
+  select(s: SoulId) { this.pop.set(null); if (this.detail() !== s) this.page.set(0); this.detail.set(s); }
   toggle(s: SoulId, e: Event) { e.stopPropagation(); this.pop.set(null); this.say(this.save.toggle(s)); }
   recommended(e: Event) { e.stopPropagation(); this.save.recommended(); this.say('Deck filled.'); }
   private t = 0;

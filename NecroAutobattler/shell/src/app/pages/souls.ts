@@ -15,19 +15,20 @@ type Filter = 'all' | 'skill' | 'passive';
   selector: 'app-souls',
   host: { '(click)': 'pop.set(null)' },
   styles: [`
-    :host { display:block; --gap:clamp(6px,1.4vmin,14px); font-size:clamp(11px,1.9vmin,14px); }
+    :host { display:block; --gap:clamp(6px,1.4vmin,14px); font-size:clamp(10px,1.6vmin,12.5px); }
     .top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:var(--gap); } .top h1 { margin:0; }
-    .strip { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:var(--gap); padding:calc(var(--gap) + 4px) var(--gap) var(--gap); max-width:clamp(300px,min(64vw,105vh),680px); }
+    .strip { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:var(--gap); padding:calc(var(--gap) + 4px) var(--gap) var(--gap); max-width:clamp(240px,min(46vw,78vh),440px); }
     .slot { aspect-ratio:4/5; border-radius:10px; border:2px dashed #4a3470; background:#1a1128; color:#6b5a8a; font-size:clamp(18px,4vmin,28px); display:flex; align-items:center; justify-content:center; padding:0; }
+    .small { padding:.35em .9em; font-size:.95em; }
     .meta { font-size:.9em; opacity:.85; } .meta b { color:#fff; }
     .filters { display:flex; gap:6px; margin:var(--gap) 0; } .chip { padding:.3em 1em; border-radius:14px; font-size:.95em; } .chip.on { background:#3a2260; border-color:#a45bff; }
-    .grid2 { display:grid; grid-template-columns:repeat(auto-fill,minmax(clamp(84px,13vmin,124px),1fr)); gap:calc(var(--gap) + 6px) var(--gap); max-width:clamp(360px,80vw,820px); }
+    .grid2 { display:grid; grid-template-columns:repeat(auto-fill,minmax(clamp(66px,9.5vmin,92px),1fr)); gap:calc(var(--gap) + 6px) var(--gap); max-width:clamp(300px,64vw,600px); }
     .tw { position:relative; }
     .tile { position:relative; display:flex; flex-direction:column; width:100%; padding:0; border-radius:10px; border:2px solid #6b46a3; background:#1b1230; overflow:visible; text-align:center; cursor:pointer; transition:transform .12s; color:inherit; }
     .tile.lift { transform:translateY(-4px); border-color:#fff; box-shadow:0 0 14px rgba(160,80,255,.8); z-index:3; }
     .tile.eq { border-color:#2fd9a6; }
     .slotfull { aspect-ratio:4/5; }
-    .port { display:flex; flex:1; align-items:center; justify-content:center; min-height:clamp(40px,10vmin,72px); font-size:clamp(24px,5.4vmin,42px); border-radius:7px 7px 0 0; }
+    .port { display:flex; flex:1; align-items:center; justify-content:center; min-height:clamp(30px,7.5vmin,54px); font-size:clamp(20px,4.4vmin,32px); border-radius:7px 7px 0 0; }
     .lv { display:block; background:#3a2260; font-size:.85em; font-weight:800; padding:1px 0; }
     .gem { position:absolute; top:-8px; left:-8px; z-index:2; width:clamp(20px,3.6vmin,28px); height:clamp(20px,3.6vmin,28px); border-radius:50%; background:#8b3cff; border:2px solid #d5b3ff; font-weight:800; font-size:.95em; display:flex; align-items:center; justify-content:center; }
     .tick { position:absolute; top:-6px; right:-6px; z-index:2; width:clamp(16px,3vmin,22px); height:clamp(16px,3vmin,22px); border-radius:50%; background:#2fd9a6; color:#062a20; font-weight:900; font-size:.85em; display:flex; align-items:center; justify-content:center; }
@@ -39,22 +40,22 @@ type Filter = 'all' | 'skill' | 'passive';
     .pop button { padding:.45em .2em; font-weight:800; font-size:.95em; }
     .blue { background:#3b78d8; border-color:#9cc0ff; }
     .scrim { position:fixed; inset:0; z-index:15; background:rgba(6,3,12,.72); display:flex; align-items:center; justify-content:center; padding:max(8px,var(--sat)) max(8px,var(--sar)) max(8px,var(--sab)) max(8px,var(--sal)); }
-    .modal { position:relative; width:min(780px,100%); max-height:100%; overflow:auto; display:grid; grid-template-columns:minmax(110px,27%) 1fr; gap:var(--gap); padding:calc(var(--gap) + 4px); border-radius:16px; background:#1c2a52; border:2px solid #5a7fd0; box-shadow:0 0 30px rgba(90,127,208,.4); }
+    .modal { position:relative; width:min(540px,100%); max-height:100%; overflow:auto; display:grid; grid-template-columns:minmax(90px,25%) 1fr; gap:var(--gap); padding:calc(var(--gap) + 4px); border-radius:16px; background:#1c2a52; border:2px solid #5a7fd0; box-shadow:0 0 30px rgba(90,127,208,.4); }
     .x { position:absolute; top:8px; right:8px; width:clamp(26px,5vmin,34px); height:clamp(26px,5vmin,34px); padding:0; background:#c93b3b; border-color:#ff9a9a; font-weight:900; }
-    .big { height:clamp(64px,26vmin,170px); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:clamp(36px,13vmin,84px); border:2px solid #8fb0f0; }
+    .big { height:clamp(50px,19vmin,110px); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:clamp(30px,10vmin,60px); border:2px solid #8fb0f0; }
     .nm { font-size:1.45em; font-weight:800; margin-top:6px; } .sub { color:#d5b3ff; font-weight:800; }
     .sgrid { display:grid; grid-template-columns:1fr 1fr; gap:calc(var(--gap) / 1.5); }
     .st { background:#dfe6f7; color:#15203c; border-radius:8px; padding:.35em .7em; } .st.up { background:#33c26b; color:#062a16; }
     .st span { display:block; opacity:.75; font-size:.82em; font-weight:700; } .st b { font-size:1.2em; } .st em { font-style:normal; font-weight:800; margin-left:4px; }
     .pane { margin-top:clamp(20px,5vmin,30px); }
     .dots { display:flex; gap:8px; justify-content:center; margin:var(--gap) 0 0; } .dots button { width:12px; height:12px; padding:0; border-radius:50%; background:#5a6a90; border:0; } .dots button.on { background:#ffd24a; }
-    .acts { display:flex; gap:var(--gap); grid-column:1 / -1; } .acts button { flex:1; padding:.7em .5em; font-size:1.05em; font-weight:800; }
+    .acts { display:flex; gap:var(--gap); grid-column:1 / -1; } .acts button { flex:1; padding:.5em .4em; font-size:1em; font-weight:800; }
     .grey { background:#7d8394; border-color:#b8bfd0; color:#e8ebf4; } .grey small { display:block; font-weight:600; opacity:.85; font-size:.75em; }
     .note { font-size:.82em; opacity:.7; margin-top:6px; } .ptable { width:100%; font-size:.95em; border-collapse:collapse; } .ptable td, .ptable th { padding:4px 6px; text-align:left; } .ptable th { opacity:.7; font-size:.85em; }
   `],
   template: `
     <div class="top"><h1>Souls</h1><span class="meta">Deck <b>{{ deck().length }}/{{ save.deckSize }}</b> &middot; avg Dominion <b>{{ avg() }}</b> (1★)</span>
-      <button class="go" style="margin-left:auto" (click)="recommended($event)">Recommended</button></div>
+      <button class="go small" style="margin-left:auto" (click)="recommended($event)">Recommended</button></div>
     <div class="box strip">
       @for (i of slots(); track $index) {
         @if (i) {

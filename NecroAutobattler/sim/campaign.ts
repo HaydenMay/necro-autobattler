@@ -12,8 +12,8 @@ export { PROTOTYPE_RULES };
 
 export function playStage(policyName: string, seed: number) {
   const policy = POLICIES[policyName]; const s = newStage(PROTOTYPE_RULES, seed);
-  const tries: number[] = [0, 0, 0, 0]; const firstTry: boolean[] = []; let guard = 0;
-  while (s.status === 'building' && guard++ < 40) {
+  const tries: number[] = new Array(12).fill(0); const firstTry: boolean[] = []; let guard = 0;
+  while (s.status === 'building' && guard++ < 80) {
     policy.build(s); checkInvariants(s);
     const slots = s.units.map((u) => ({ soul: u.soul, star: u.star, cell: u.cell }));
     const r = simulate(slots, enemyWave(s.wave, seed), seed * 97 + guard);
@@ -29,15 +29,17 @@ export function playStage(policyName: string, seed: number) {
 
 if (process.argv[1] && process.argv[1].endsWith('campaign.ts')) {
   const RUNS = +(process.argv[process.argv.indexOf('--runs') + 1] || 600);
-  console.log('Enemy waves: ' + [1, 2, 3].map((w) => `w${w} cost ${waveCost(enemyWave(w))} (${enemyWave(w).map((e) => e.soul[0].toUpperCase() + e.star).join(' ')})`).join(' | '));
+  const N = PROTOTYPE_RULES.stageWaves ?? 10;
+  console.log('Enemy waves: ' + Array.from({ length: N }, (_, i) => i + 1).map((w) => `w${w} cost ${waveCost(enemyWave(w))} (${enemyWave(w).map((e) => e.soul[0].toUpperCase() + e.star).join(' ')})`).join(' | '));
   for (const name of Object.keys(POLICIES)) {
-    let clear = 0, hearts = 0; const ft = [0, 0, 0, 0], att = [0, 0, 0, 0];
+    let clear = 0, hearts = 0; const ft = new Array(12).fill(0), att = new Array(12).fill(0);
     for (let i = 0; i < RUNS; i++) {
       const r = playStage(name, 1000 + i);
       if (r.state.status === 'won') clear++; hearts += r.state.hearts;
-      for (let w = 1; w <= 3; w++) { if (r.firstTry[w]) ft[w]++; att[w] += r.tries[w]; }
+      for (let w = 1; w <= N; w++) { if (r.firstTry[w]) ft[w]++; att[w] += r.tries[w]; }
     }
     const pc = (x: number) => Math.round((x / RUNS) * 100) + '%';
-    console.log(`${name.padEnd(6)}| stage cleared ${pc(clear)} | avg hearts left ${(hearts / RUNS).toFixed(2)} | first-try win  w1 ${pc(ft[1])}  w2 ${pc(ft[2])}  w3 ${pc(ft[3])} | avg attempts  w1 ${(att[1] / RUNS).toFixed(2)}  w2 ${(att[2] / RUNS).toFixed(2)}  w3 ${(att[3] / RUNS).toFixed(2)}`);
+    console.log(`${name.padEnd(6)}| stage cleared ${pc(clear)} | avg hearts left ${(hearts / RUNS).toFixed(2)}`);
+    console.log('       first-try win: ' + Array.from({ length: N }, (_, i) => 'w' + (i + 1) + ' ' + pc(ft[i + 1])).join('  ') + '\n       avg attempts:  ' + Array.from({ length: N }, (_, i) => 'w' + (i + 1) + ' ' + (att[i + 1] / RUNS).toFixed(2)).join('  '));
   }
 }

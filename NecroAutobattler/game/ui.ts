@@ -21,6 +21,8 @@ export class Ui {
     this.renderDebug();
   }
 
+  /** The Necromancer just lost a heart: make the hearts bump. */
+  pulseHearts() { const h = $('hearts'); h.classList.remove('hurt'); void h.offsetWidth; h.classList.add('hurt'); }
   toast(msg: string) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(this.toastT); this.toastT = window.setTimeout(() => t.classList.remove('show'), 3600); }
 
   render() {

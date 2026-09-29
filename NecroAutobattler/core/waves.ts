@@ -10,19 +10,19 @@ const LETTER: Record<string, SoulId> = { W: 'warrior', A: 'archer', G: 'goblin',
 const parseWave = (s: string): EnemySpec[] => s.split(' ').map((t) => ({ soul: LETTER[t[0]], star: +t[1] }));
 
 /**
- * Difficulty presets for the 3-wave prototype (W warrior, A archer, G goblin, K knight, O ogre; digit = stars).
+ * Difficulty presets for Stage 1 (10 waves) (W warrior, A archer, G goblin, K knight, O ogre; digit = stars).
  * Measured with sim/tune_waves.ts against stand-in players (competent / careless), stage-clear rate:
  *   easy   ~100% / ~90%      normal ~94% / ~51%      hard ~75% / ~26%
  * A real human on a phone is much less careful than the competent stand-in, so "normal" is the default.
  */
 export const DIFFICULTY: Record<string, string[]> = {
-  easy: ['W1', 'K1 W1', 'O1 W1 G1'],
-  normal: ['W1 A1', 'K1 G1 W1', 'O1 A1 G1 W1'],
-  hard: ['W1 A1', 'K1 G1 W1 A1', 'O1 A1 G1 W1'],
+  easy: ['W1', 'K1 W1', 'O1 W1 G1', 'K1 A1 W1', 'O1 A1 G1', 'K1 O1 A1', 'K1 O1 A1 G1', 'O1 K1 A1 G1', 'O1 K1 A1 B1', 'O2 K1 A1 G1'],
+  normal: ['W1 A1', 'K1 G1 W1', 'O1 A1 G1 W1', 'K1 O1 A1 W1', 'O1 K1 A1 G1 W1', 'A2 K1 O1 G1 W1', 'K1 O1 A1 G1 W1', 'O1 K1 A1 B1 G1', 'O1 K1 A2 B1 G1', 'O2 K1 A1 B1 G1 W1'],
+  hard: ['W1 A1', 'K1 G1 W1 A1', 'O1 A1 G1 W1', 'K1 O1 A1 W1 G1', 'O1 K1 A2 G1 W1', 'A2 K1 O1 G1 W1 B1', 'K1 O1 A1 G1 W2', 'O1 K1 A2 B1 G1', 'O2 K1 A2 B1 G1', 'O2 K2 A1 B1 G1 W1'],
 };
 export let difficultyName = 'normal';
 
-/** Hand-authored opening waves (prototype stage is 3 waves). Budgets ~ the player's cap at that wave. Edited in place by setDifficulty. */
+/** Hand-authored waves for Stage 1 (10 waves). Budgets ~ the player's cap at that wave. Edited in place by setDifficulty. */
 export const AUTHORED: EnemySpec[][] = DIFFICULTY.normal.map(parseWave);
 
 export function setDifficulty(name: string): void {

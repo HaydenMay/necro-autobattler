@@ -13,6 +13,7 @@ import type { BEvent } from '../core/battle.ts';
 import { difficultyName, enemyWave, setDifficulty } from '../core/waves.ts';
 import { PROTOTYPE_RULES } from '../core/prototype.ts';
 import { loadSave } from '../core/save.ts';
+import { Necromancer } from './necromancer.ts';
 import { createVisual, isTripo, loadAssets } from './visuals.ts';
 import type { Assets, UnitVisual } from './visuals.ts';
 import { Ui } from './ui.ts';
@@ -32,6 +33,10 @@ export class Game {
   private tiles: any[] = []; private tileMats: any[] = []; private ringFx: any[] = []; private arrows: any[] = []; private timers: { t: number; fn: () => void }[] = [];
   private acc = 0; private camFrom: any = null; private camTo: any = null; private camT = 1; private camDur = 2.0; private resultAt = -1; private handled = false; private startStepAt = 0;
   private arrowMats: any[] = []; private arrowMesh: any[] = [];
+  necro!: Necromancer;
+  private cine = false;                                   // a result cutscene is playing: the battle camera and fighter sync stand down
+  private tweens: { t: number; dur: number; fn: (u: number) => void; done?: () => void }[] = [];
+  private tween(dur: number, fn: (u: number) => void, done?: () => void) { this.tweens.push({ t: 0, dur, fn, done }); }
 
   async init(canvas: HTMLCanvasElement) {
     const qs = new URLSearchParams(location.search);
@@ -47,6 +52,8 @@ export class Game {
     for (const team of [0, 1] as const) for (let c = 0; c < GRID_CELLS; c++) { const t = this.makeTile(team, c); if (team === 0) this.tiles.push(t); else t.setEnabled(false); }
 
     this.A = await loadAssets(scene);
+    this.necro = new Necromancer(scene, this.A.soft);       // stands just behind his army's back column, facing the battlefield
+    this.necro.holder.position.set(-(FRONT_X + (GRID_COLS - 1) * GRID_SP) - 1.05, 0, 0); this.necro.holder.rotation.y = Math.PI / 2;
     this.arrowMats = [0, 1].map((t) => { const m = new BABYLON.StandardMaterial('am' + t, scene); m.diffuseColor = BABYLON.Color3.Black(); m.emissiveColor = t === 0 ? new BABYLON.Color3(0.75, 0.3, 1) : new BABYLON.Color3(1, 0.7, 0.25); m.disableLighting = true; return m; });
     this.ui = new Ui(this); this.seed = +(qs.get('seed') || 1);
 
@@ -63,10 +70,13 @@ export class Game {
     if (qs.get('gallery')) { this.gallery(); return; }
     this.startStage(this.seed);
     let last = performance.now();
-    this.engine.runRenderLoop(() => { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now; if (!this.active) return; this.frame(dt); scene.render(); });
+    this.engine.runRenderLoop(() => { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now; if (!this.active) return; if (!this.frozen) this.frame(dt); scene.render(); });
   }
   /** The navigation shell hides the battle screen while another tab is open: pause the game so it costs nothing. */
   private active = true;
+  /** Debug: keep drawing but stop advancing time, so a moment can be stepped through with frame(dt) and screenshotted. */
+  frozen = false;
+  step(dt: number) { this.frame(dt); }
   setActive(on: boolean) { this.active = on; }
 
   // -------------------------------------------------------------------------------------------- scene helpers
@@ -106,11 +116,12 @@ export class Game {
     const TOP = Math.min(0.32, topBar ? (topBar.bottom + 6) / H : 0.1);
     const BOTTOM = Math.min(0.5, (H - Math.min(hand ? hand.top : H, info ? info.top : H) + 6) / H);
     const band = Math.max(0.3, 1 - TOP - BOTTOM), centerFrac = TOP + band / 2;          // the grid's centre appears at this fraction from the top
-    const gw = GRID_COLS * GRID_SP + 0.5, gh = GRID_ROWS * GRID_SP + 0.5;
+    const gw = GRID_COLS * GRID_SP + 3.2, gh = GRID_ROWS * GRID_SP + 0.5;                // the width also leaves room for the Necromancer beside the grid
     const d2 = Math.max(gh / (2 * tanV * band), gw / (2 * tanV * asp * 0.88), 4.5);
-    const shift = (0.5 - centerFrac) * 2 * d2 * tanV;
-    const build = { pos: new BABYLON.Vector3(cx, d2, -shift - 0.1 * d2), tgt: new BABYLON.Vector3(cx, 0, -shift) };
-    return { battle, build };
+    const shift = (0.5 - centerFrac) * 2 * d2 * tanV, bx = cx - 0.6;
+    const build = { pos: new BABYLON.Vector3(bx, d2, -shift - 0.1 * d2), tgt: new BABYLON.Vector3(bx, 0, -shift) };
+    const necro = { pos: new BABYLON.Vector3(battle.pos.x - 1.4, battle.pos.y * 1.12, battle.pos.z * 1.12), tgt: new BABYLON.Vector3(-1.4, 0.35, 0) };   // result cutscenes: him and the field
+    return { battle, build, necro };
   }
   private canvas!: HTMLCanvasElement; private lastW = 0; private lastH = 0; lastTapInfo = '(no taps yet)';
   private handleResize() {
@@ -151,6 +162,7 @@ export class Game {
   /** Fresh run with the currently equipped Soul Deck (the shell's Campaign > Play button calls this). */
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
+    this.cine = false; this.tweens.length = 0; if (this.necro) this.necro.revive();
     this.seed = seed; this.attempt = 0; this.s = newStage({ ...PROTOTYPE_RULES, pool: loadSave().deck }, seed);
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build'; this.setCam(this.poses().build);
@@ -264,7 +276,9 @@ export class Game {
     for (let i = this.timers.length - 1; i >= 0; i--) { this.timers[i].t -= dt; if (this.timers[i].t <= 0) { const f = this.timers[i].fn; this.timers.splice(i, 1); f(); } }
     for (let i = this.ringFx.length - 1; i >= 0; i--) { const r = this.ringFx[i]; r.t += dt; const u = r.t / r.dur, s = r.r0 + (r.r1 - r.r0) * u; r.m.scaling.set(s, s, s); r.mm.alpha = 0.9 * (1 - u); if (u >= 1) { r.m.dispose(); r.mm.dispose(); this.ringFx.splice(i, 1); } }
     if (this.camT < 1) { this.camT = Math.min(1, this.camT + dt / this.camDur); const e = this.camT * this.camT * (3 - 2 * this.camT); this.camera.position = BABYLON.Vector3.Lerp(this.camFrom.pos, this.camTo.pos, e); this.camTgt = BABYLON.Vector3.Lerp(this.camFrom.tgt, this.camTo.tgt, e); this.camera.setTarget(this.camTgt.clone()); }
-    else if (this.phase === 'battle' && this.camMode === 'close') this.frameBattle(dt);
+    else if (this.phase === 'battle' && this.camMode === 'close' && !this.cine) this.frameBattle(dt);
+    this.necro.update(dt);
+    for (let i = this.tweens.length - 1; i >= 0; i--) { const w = this.tweens[i]; w.t += dt; const u = Math.min(1, w.t / w.dur); w.fn(u); if (u >= 1) { this.tweens.splice(i, 1); if (w.done) w.done(); } }
     for (const v of this.unitVis.values()) v.update(dt);
     this.fvis.forEach((v, id) => { if (!this.fUnit.has(id)) v.update(dt); });
 
@@ -277,7 +291,7 @@ export class Game {
       }
       for (const f of b.fighters) {
         const v = this.fvis.get(f.id); if (!v) continue;
-        if (this.phase === 'battle' || f.team === 1) { v.holder.position.x = f.x; v.holder.position.z = f.z; if (f.alive || true) v.holder.rotation.y = f.yaw; }
+        if (!this.cine && (this.phase === 'battle' || f.team === 1)) { v.holder.position.x = f.x; v.holder.position.z = f.z; if (f.alive || true) v.holder.rotation.y = f.yaw; }
         if (f.alive) { v.setHp(f.hp / f.maxHp); if (f.maxMana) v.setMana(f.mana / f.maxMana); }
         else v.setMana(null);
         if (f.state !== 'attack' && f.alive) { const want = f.state === 'run' ? 'run' : 'idle'; if (this.lastState.get(f.id) !== want || (v.state !== want && v.state !== 'spawn')) { if (v.state !== 'spawn') { v.play(want as any); this.lastState.set(f.id, want); } } }
@@ -299,16 +313,49 @@ export class Game {
     const b = this.battle!, s = this.s;
     this.lastBattle = `wave ${s.wave} attempt ${this.attempt}: ${b.winner === 0 ? 'WON' : 'LOST'} in ${b.time.toFixed(1)}s, ${b.count(0)} of yours and ${b.count(1)} enemies left`;
     if (b.winner === 0) {
-      if (advanceWave(s)) { this.phase = 'won'; this.ui.render(); return; }
-      this.draft = draftOptions(s); this.phase = 'draft'; this.ui.render();
+      this.playResult('win', () => {                        // the army is raised again, then the next wave / the draft
+        this.cine = false;
+        if (advanceWave(s)) { this.phase = 'won'; this.ui.render(); return; }
+        this.draft = draftOptions(s); this.phase = 'draft'; this.ui.render();
+      });
     } else {
-      failWave(s);
-      if (s.status === 'lost') { this.phase = 'lost'; this.ui.render(); return; }
-      this.toast('Your army fell. -1 heart, +1 card, same wave. Rebuild a different strategy.'); this.toBuild();
+      failWave(s); this.ui.render(); this.ui.pulseHearts();                   // the heart is lost the moment he is hit
+      if (s.status === 'lost') this.playResult('final', () => { this.cine = false; this.phase = 'lost'; this.ui.render(); });
+      else this.playResult('loss', () => { this.toast('Your army fell. -1 heart, +1 card, same wave. Rebuild a different strategy.'); this.toBuild(); });
     }
+  }
+
+  // ---- result cutscenes (plan sections 19-22): the Necromancer takes the hit, unleashes the repulsion shockwave, raises the fallen
+  private playResult(kind: 'win' | 'loss' | 'final', done: () => void) {
+    const b = this.battle!, n = this.necro; this.cine = true; this.tweenCam(this.poses().necro, 1.1);
+    const home = () => {                                    // every fallen ally is pulled back to its grid tile and stands up
+      n.cast(); const c = n.crystalPos(); this.burst(c.x, c.z, [0.85, 0.5, 1, 0.9], [0.5, 0.2, 1, 0.7], 30);
+      for (const f of b.fighters) {
+        if (f.team !== 0) continue; const uid = this.fUnit.get(f.id), u = this.s.units.find((x) => x.id === uid), v = this.fvis.get(f.id); if (!u || !v) continue;
+        const to = this.pos(u.cell), x0 = v.holder.position.x, z0 = v.holder.position.z; v.setHp(null); v.setMana(null);
+        if (!f.alive) { v.play('spawn'); this.burst(x0, z0, [0.75, 0.4, 1, 0.9], [0.4, 0.15, 0.9, 0.7], 18); this.fxRing(x0, z0, new BABYLON.Color3(0.7, 0.35, 1), 0.3, 1.6, 0.7); }
+        this.tween(1.0, (t) => { v.holder.position.set(x0 + (to.x - x0) * t, Math.sin(t * Math.PI) * 0.5, z0 + (to.z - z0) * t); v.holder.rotation.y += (Math.PI / 2 - v.holder.rotation.y) * Math.min(1, t * 0.5 + 0.1); },
+          () => { v.holder.position.y = 0; this.burst(to.x, to.z, [0.75, 0.4, 1, 0.9], [0.4, 0.15, 0.9, 0.7], 10); });
+      }
+    };
+    if (kind === 'win') { n.cast(); this.later(0.25, home); this.later(2.0, done); return; }
+    n.hurt(); this.later(0.15, () => { const c = n.crystalPos(); this.burst(c.x, c.z, [1, 0.3, 0.3, 0.9], [0.8, 0.1, 0.2, 0.6], 16); });
+    if (kind === 'final') { this.later(0.6, () => n.defeat()); this.later(2.6, done); return; }
+    this.later(1.0, () => {                                 // repulsion shockwave: survivors are flung back to where they started and heal to full
+      n.cast(); const c = n.crystalPos();
+      this.fxRing(c.x, 0, new BABYLON.Color3(0.85, 0.55, 1), 0.6, 30, 1.1); this.fxRing(c.x, 0, new BABYLON.Color3(1, 1, 1), 0.4, 22, 0.8);
+      this.burst(c.x, c.z, [1, 0.85, 1, 0.9], [0.7, 0.4, 1, 0.7], 40);
+      for (const f of b.fighters) {
+        if (f.team !== 1 || !f.alive) continue; const v = this.fvis.get(f.id); if (!v) continue;
+        const to = cellPos(1, f.cell), x0 = v.holder.position.x, z0 = v.holder.position.z; v.pulse();
+        this.tween(0.9, (t) => { v.holder.position.set(x0 + (to.x - x0) * t, Math.sin(t * Math.PI) * 0.9, z0 + (to.z - z0) * t); v.setHp(f.hp / f.maxHp + (1 - f.hp / f.maxHp) * t); }, () => { v.holder.position.y = 0; v.setHp(1); });
+      }
+    });
+    this.later(2.3, home); this.later(3.7, done);
   }
   pickDraft(idx: number) { if (!this.draft) return; takeDraft(this.s, this.draft, idx); this.draft = null; normalDraw(this.s); this.toBuild(); }
   private toBuild() {
+    this.cine = false; this.necro.revive(); this.tweens.length = 0;
     this.clearBattle();
     for (const u of this.s.units) {                       // resurrection: everyone rises again at full health
       const v = this.unitVis.get(u.id)!; const p = this.pos(u.cell); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.holder.setEnabled(true); v.setHp(null); v.setMana(null); v.play('spawn'); this.summonFx(p.x, p.z);
@@ -339,7 +386,7 @@ export class Game {
 
   // -------------------------------------------------------------------------------------------- gallery (star looks)
   gallery() {
-    document.body.classList.add('gallery'); const vis: UnitVisual[] = []; let team: 0 | 1 = 0;
+    document.body.classList.add('gallery'); this.necro.setEnabled(false); const vis: UnitVisual[] = []; let team: 0 | 1 = 0;
     const rebuild = () => { vis.forEach((v) => v.dispose()); vis.length = 0; SOULS.forEach((soul, i) => [1, 2, 3].forEach((st, j) => { const v = createVisual(this.A, soul, team, st); v.holder.position.set((i - 2.5) * 2.5, 0, (j - 1) * -2.4); v.holder.rotation.y = Math.PI * 0.85; v.play('idle'); vis.push(v); })); };
     rebuild(); this.camera.position.set(0, 5.6, -14.5); this.camera.setTarget(new BABYLON.Vector3(0, 0.5, -0.4)); this.camera.fov = 0.85;
     (window as any).__gallery = { setTeam: (t: 0 | 1) => { team = t; rebuild(); }, vis };

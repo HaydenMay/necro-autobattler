@@ -332,7 +332,7 @@ else:
     for i in range(nisl):
         m = ids == i; c = co[m]; ext = (c.max(0) - c.min(0)).max()
         if ext <= RIGID:
-            cen = c.mean(0, keepdims=True); d = seg_dist(cen, A, Bb)[0]; W[m, :] = 0; W[m, int(np.argmin(d))] = 1.0; rigid_count += 1
+            cen = c.mean(0, keepdims=True); d = seg_dist(cen, A, Bb)[0]; W[m, :] = 0; W[m, int(np.argmin(d / BIAS))] = 1.0; rigid_count += 1
     HZ = CFG.get('weights', {}).get('head_z')      # everything above this height is the head (a big helmet must not be dragged by the arms beside it)
     if HZ is not None and 'Head' in names: W[co[:, 2] > HZ, :] = 0; W[co[:, 2] > HZ, names.index('Head')] = 1.0
     log('islands', nisl, 'rigid', rigid_count, 'blended', nisl - rigid_count)

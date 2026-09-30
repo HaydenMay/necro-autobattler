@@ -68,7 +68,7 @@ type Filter = 'all' | 'skill' | 'passive';
     .port.art, .big.art, .cport.art, .fxcard.art { position:relative; overflow:hidden; }
     .port.art { min-height:clamp(70px,14.5vmin,108px); border-radius:7px 7px 0 0; overflow:hidden; }
     .port.art img, .big.art img, .cport.art img, .fxcard.art img { position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 35%; border-radius:inherit; filter:none; pointer-events:none; }
-    .big.art { height:clamp(84px,27vmin,158px); } .fxcard.art { border-radius:18px; } .cport.art { width:clamp(58px,13vmin,80px); }
+    .big.art { height:clamp(84px,27vmin,158px); } .fxcard.art { position:absolute; border-radius:18px; } .cport.art { width:clamp(58px,13vmin,80px); }
     .tile.art { box-shadow:0 2px 8px #000a, inset 0 0 0 1px rgba(255,255,255,.08); } .tile.art.eq { box-shadow:0 0 12px rgba(47,217,166,.6), inset 0 0 0 1px rgba(47,217,166,.5); }
     .tick img { width:80%; height:80%; } .x img { width:78%; height:78%; } .rarlab { display:flex; align-items:center; gap:4px; font-size:.9em; opacity:.9; margin-top:2px; } .rarlab img { width:1.3em; height:1.3em; }
     .sortlab { opacity:.6; margin-left:10px; align-self:center; font-size:.9em; } .arr { width:1em; height:1em; vertical-align:-.15em; margin-left:3px; } .arr.down { transform:rotate(180deg); }

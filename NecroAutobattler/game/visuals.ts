@@ -36,7 +36,7 @@ export interface Assets {
 /** Flavour a unit can have: a clip it plays now and then when it has stood idle for a while, a small emote, and an eye-glow mask (eyes dim when sleepy, flare when it fights). */
 interface Pose { clip: string; emote?: string }
 interface Flavor { clips: Pose[]; min: number; max: number }
-interface TripoCfg { container: any; enemyTex: any; clips: Record<VState, string>; matCache: Record<string, any>; baseMat?: any; top: number; scale: number; flavor?: Flavor; cheers?: Pose[]; spawnEmote?: string; eyes?: string; eyeTex?: any }
+interface TripoCfg { container: any; enemyTex: any; clips: Record<VState, string>; matCache: Record<string, any>; baseMat?: any; top: number; scale: number; flavor?: Flavor; cheers?: Pose[]; spawnEmote?: string; eyes?: string; eyeTex?: any; starScale?: number[] }
 
 function dyn(scene: any, w: number, h: number, draw: (c: CanvasRenderingContext2D) => void, alpha = true) {
   const t = new BABYLON.DynamicTexture('dt', { width: w, height: h }, scene, true); draw(t.getContext()); t.update(); t.hasAlpha = alpha; return t;
@@ -62,7 +62,7 @@ export async function loadAssets(scene: any): Promise<Assets> {
   const defs: [SoulId, string, string, Record<VState, string>, number, number, any?][] = [
     ['warrior', 'SkeletonWarrior.glb', 'SkeletonWarrior_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.05, 1.0, { flavor: { clips: [{ clip: 'Trip', emote: '!' }, { clip: 'Bonk', emote: '?' }, { clip: 'Wobble', emote: 'sweat' }, { clip: 'Wave', emote: 'sparkle' }], min: 8, max: 15 }, cheers: [{ clip: 'Cheer', emote: 'sparkle' }, { clip: 'Wave', emote: 'sparkle' }, { clip: 'Trip', emote: '!' }], eyes: 'SkeletonWarrior_eyes.png' }],
     ['archer', 'SkeletonArcher.glb', 'SkeletonArcher_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Shoot', death: 'Death', spawn: 'Spawn', cheer: 'Flex' }, 1.05, 1.0, { flavor: { clips: [{ clip: 'Flex', emote: 'sparkle' }, { clip: 'DoubleBiceps', emote: 'sparkle' }, { clip: 'BoneCrack' }, { clip: 'BowTwirl', emote: 'sparkle' }], min: 8, max: 15 }, cheers: [{ clip: 'Flex', emote: 'sparkle' }, { clip: 'DoubleBiceps', emote: 'sparkle' }, { clip: 'BowTwirl', emote: 'sparkle' }], eyes: 'SkeletonArcher_eyes.png' }],
-    ['ogre', 'Ogre.glb', 'Ogre_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.1, 1.12, { flavor: { clips: [{ clip: 'Yawn', emote: 'zzz' }], min: 9, max: 16 }, spawnEmote: 'zzz', eyes: 'Ogre_eyes.png' }],
+    ['ogre', 'Ogre.glb', 'Ogre_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.1, 1.12, { starScale: [1, 1.3, 1.65], flavor: { clips: [{ clip: 'Yawn', emote: 'zzz' }], min: 9, max: 16 }, spawnEmote: 'zzz', eyes: 'Ogre_eyes.png' }],
   ];
   await Promise.all(defs.map(async ([soul, glb, enemy, clips, top, scale, extra]) => {
     const container = await BABYLON.SceneLoader.LoadAssetContainerAsync('assets/', glb, scene);
@@ -148,7 +148,8 @@ class TripoVisual implements UnitVisual {
     this.body.material = c.matCache[key];
   }
   setTeam(t: 0 | 1) { this.team = t; this.applyMat(); this.deco.set(t, this.star); }
-  setStar(st: number) { this.star = st; this.applyMat(); this.holder.scaling.setAll(BALANCE.star.scale[st - 1] * this.base); this.deco.set(this.team, st); }
+  setStar(st: number) { this.star = st; this.applyMat(); this.holder.scaling.setAll(this.sc(st) * this.base); this.deco.set(this.team, st); }
+  private sc(st: number) { return (this.cfg.starScale || BALANCE.star.scale)[st - 1]; }
   setHp(f: number | null) { this.deco.setHp(f); }
   setMana(f: number | null) { this.deco.setMana(f); }
   pulse() { this.pulseT = 0.16; }
@@ -198,7 +199,7 @@ class TripoVisual implements UnitVisual {
       else if (this.state === 'run') target = 1.0; else if (this.state === 'attack') target = 1.7; else if (this.state === 'cheer') target = 1.4; else if (this.state === 'death') target = 0.05;
       this.eyeK += (target - this.eyeK) * Math.min(1, dt * 7); this.own.emissiveIntensity = this.eyeK;
     }
-    if (this.pulseT > 0) { this.pulseT -= dt; const k = 1 + 0.09 * Math.sin(Math.max(0, this.pulseT) / 0.16 * Math.PI); this.holder.scaling.setAll(BALANCE.star.scale[this.star - 1] * this.base * k); }
+    if (this.pulseT > 0) { this.pulseT -= dt; const k = 1 + 0.09 * Math.sin(Math.max(0, this.pulseT) / 0.16 * Math.PI); this.holder.scaling.setAll(this.sc(this.star) * this.base * k); }
   }
   dispose() { this.emotes.forEach((e) => e.m.dispose()); if (this.own) this.own.dispose(); this.deco.dispose(); this.ent.animationGroups.forEach((g: any) => g.dispose()); this.ent.skeletons.forEach((s: any) => s.dispose()); this.pick.dispose(); this.ent.rootNodes[0].dispose(false, false); this.holder.dispose(); }
 }

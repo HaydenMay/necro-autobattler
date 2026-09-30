@@ -1,0 +1,126 @@
+{
+  "name": "Barbarian",
+  "body_glb": "../input/barbarian/barb_body.glb",
+  "out": "../out",
+  "facing": "-Y",
+  "comment": "Chibi berserker, Tripo Smart Mesh. One huge two-handed axe in the right hand; the left hand tracks the haft (LH() in the clips).",
+  "landmarks": {
+    "pelvis": [
+      0,
+      -0.06,
+      0.28
+    ],
+    "spine": [
+      0,
+      -0.06,
+      0.35
+    ],
+    "chest": [
+      0,
+      -0.07,
+      0.42
+    ],
+    "neck": [
+      0,
+      -0.09,
+      0.53
+    ],
+    "head": [
+      0,
+      -0.1,
+      0.66
+    ],
+    "head_top": [
+      0,
+      -0.08,
+      0.9
+    ],
+    "shoulder": [
+      0.21,
+      -0.07,
+      0.46
+    ],
+    "elbow": [
+      0.34,
+      -0.07,
+      0.36
+    ],
+    "wrist": [
+      0.36,
+      -0.09,
+      0.27
+    ],
+    "hand_end": [
+      0.36,
+      -0.1,
+      0.18
+    ],
+    "hip": [
+      0.14,
+      -0.06,
+      0.24
+    ],
+    "knee": [
+      0.17,
+      -0.06,
+      0.15
+    ],
+    "ankle": [
+      0.19,
+      -0.05,
+      0.08
+    ],
+    "toe": [
+      0.19,
+      -0.2,
+      0.03
+    ]
+  },
+  "weights": {
+    "method": "auto",
+    "head_z": 0.6,
+    "head_blend": 0.06,
+    "back_y": 0.12,
+    "back_x": 0.5,
+    "arm_y": -0.07,
+    "arm_r": 0.13,
+    "spatial": true,
+    "spatial_power": 2.5,
+    "spatial_top": 3
+  },
+  "weapon": {
+    "glb": "../input/barbarian/axe.glb",
+    "hand": "R",
+    "rotate_deg": [
+      0,
+      0,
+      0
+    ],
+    "offset": [
+      0,
+      0,
+      0
+    ]
+  },
+  "clips": "barbarian",
+  "team_texture": {
+    "from_hue": [
+      0.7,
+      0.9
+    ],
+    "to_hue": 0.105,
+    "eye_box": {
+      "z": [
+        0.58,
+        0.78
+      ],
+      "x": 0.2,
+      "y_max": -0.15
+    }
+  },
+  "export": {
+    "glb": true,
+    "fbx": false,
+    "qa_sheets": true
+  }
+}

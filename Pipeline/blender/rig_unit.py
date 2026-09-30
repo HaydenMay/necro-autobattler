@@ -239,6 +239,17 @@ if AUTO:
     bpy.ops.object.mode_set(mode='OBJECT'); bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); arm.select_set(True); bpy.context.view_layer.objects.active = arm
     bpy.ops.object.parent_set(type='ARMATURE_AUTO')
     log('bone-heat weights on', len(body.vertex_groups), 'groups')
+    if CFG.get('weights', {}).get('spatial'):
+        # a mesh made of thousands of overlapping fragments (fur, hair) gets a different bone-heat answer on each fragment, so neighbours tear apart in motion:
+        # replace it with weights that depend only on POSITION (blend of the nearest bones), which every fragment agrees on
+        WS_ = CFG['weights']; nbS_ = [n_ for n_, d_ in B.items() if d_['deform'] and not n_.startswith('Socket_') and n_ in body.vertex_groups]
+        AS_ = np.array([B[n_]['head'][:] for n_ in nbS_]); BS_ = np.array([B[n_]['tail'][:] for n_ in nbS_]); cS_ = verts_np(body); DS_ = seg_dist(cS_, AS_, BS_)
+        rawS_ = 1.0 / (DS_ + WS_.get('spatial_eps', 0.02)) ** WS_.get('spatial_power', 2.0); topS_ = np.argsort(-rawS_, axis=1)[:, :WS_.get('spatial_top', 3)]
+        for g_ in body.vertex_groups: g_.remove(list(range(len(cS_))))
+        for vi_ in range(len(cS_)):
+            w_ = rawS_[vi_, topS_[vi_]]; w_ = w_ / w_.sum()
+            for k_, wv_ in zip(topS_[vi_], w_): body.vertex_groups[nbS_[int(k_)]].add([vi_], float(wv_), 'REPLACE')
+        log('spatial weights on', len(cS_), 'vertices')
     # bone heat also hands body vertices to the prop sockets sitting in the palms: give that weight back to the hand bone the socket hangs from
     for v in body.data.vertices:
         gs = {body.vertex_groups[g_.group].name: g_.weight for g_ in v.groups}; soc = [n_ for n_ in gs if n_.startswith('Socket_')]
@@ -276,6 +287,27 @@ if AUTO:
                 if w_ > 1e-3: body.vertex_groups[n_].add([v.index], w_, 'REPLACE')
             nh += 1
         log('head_z: reweighted', nh, 'vertices around the head / back cloak')
+    # bone heat leaves whole loose pieces (hair, fur tufts, tassels) with no weights at all, so they would stay behind when the body moves.
+    # Give each such piece to the bone nearest its centre if it is small (it moves rigidly), or blend its vertices between their two nearest bones if it is big.
+    vgn = {g_.index: g_.name for g_ in body.vertex_groups}; nb_ = [n_ for n_, d_ in B.items() if d_['deform'] and not n_.startswith('Socket_') and n_ in body.vertex_groups]
+    A_ = np.array([B[n_]['head'][:] for n_ in nb_]); Bb_ = np.array([B[n_]['tail'][:] for n_ in nb_]); co_ = verts_np(body); ids_, nisl_ = island_ids(body)
+    tot_ = np.zeros(len(co_))
+    for v in body.data.vertices: tot_[v.index] = sum(g_.weight for g_ in v.groups)
+    RG_ = CFG.get('weights', {}).get('rigid_island_max', 0.30); nz_ = 0
+    for i_ in range(nisl_):
+        m_ = ids_ == i_; bad_ = m_ & (tot_ < 1e-3)
+        if not bad_.any(): continue
+        c_ = co_[m_]; ext_ = (c_.max(0) - c_.min(0)).max()
+        if False:   # (a rigid piece next to its neighbours tears the surface apart when they follow different bones: always blend per vertex)
+            d_ = seg_dist(c_.mean(0, keepdims=True), A_, Bb_)[0]; tgt_ = [(vi_, {nb_[int(np.argmin(d_))]: 1.0}) for vi_ in np.nonzero(bad_)[0]]
+        else:
+            D_ = seg_dist(co_[bad_], A_, Bb_); raw_ = 1.0 / (D_ + 0.02) ** 2; top_ = np.argsort(-raw_, axis=1)[:, :3]; tgt_ = []
+            for k_, vi_ in enumerate(np.nonzero(bad_)[0]):
+                w_ = raw_[k_, top_[k_]]; tgt_.append((vi_, {nb_[int(top_[k_][q_])]: float(w_[q_] / w_.sum()) for q_ in range(3)}))
+        for vi_, ws_ in tgt_:
+            for n_, w_ in ws_.items(): body.vertex_groups[n_].add([int(vi_)], w_, 'REPLACE')
+            nz_ += 1
+    log('unweighted vertices given bones by piece:', nz_)
 else:
     names = BODY_BONES
     A = np.array([B[n]['head'][:] for n in names]); Bb = np.array([B[n]['tail'][:] for n in names])
@@ -685,12 +717,73 @@ def k_pose(f, n=70):   # hero pose: sword pointed at the sky, shield out, chest 
     p = f / n; up = seg(p, 0, .2) * (1 - seg(p, .86, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 2)) * up
     return dict(chest_rot=(-3 - 12 * up, 0, 0), head_rot=(-10 * up, 0, 0), hips_off=(0, 0, 0.02 * pump), hand_R=vl(KR, V(-0.20, KY - 0.06, 0.86 + 0.02 * pump), up), rot_R=(lerp(KR0, -5, up), 0, 0),
                 hand_L=vl(KL, V(0.30, KY - 0.14, 0.44), up), rot_L=(lerp(0, 10, up), 0, 0))
+# ---- Barbarian: a berserker with a huge two-handed axe. The axe is held by the right hand (rot_R: 0 = head straight up, + = head forward/down);
+# the left hand is put ON THE HAFT by LH(), so both hands follow every swing without a second weapon socket.
+BY = -0.07   # this model's body sits 7 cm behind the centre of its bounding box (the hair sticks out backwards)
+BR = V(-0.05, BY - 0.12, 0.30)
+BR0 = -35   # axe carried back over the shoulder
+def LH(hr, rot, s=0.17):
+    r = math.radians(rot); return (hr[0], hr[1] - s * math.sin(r), hr[2] + s * math.cos(r))
+def b_idle(f, n=72):
+    w = 2 * math.pi * f / n; br = math.sin(w); hr = va(BR, (0, 0, 0.006 * math.sin(w - 0.8))); rot = BR0 + 2 * br
+    return dict(hips_off=(0, 0, -0.02 + 0.006 * br), chest_rot=(6 + 2 * br, 0, 2 * math.sin(w * 0.5)), head_rot=(-4, 0, 3 * math.sin(w * 0.5)), hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot))
+def b_walk(f, n=32, stride=0.065, lift=0.04, bob=0.014, lean=5, run=False):
+    w = 2 * math.pi * f / n
+    foot = lambda ph: (0, -stride * math.sin(w + ph), lift * max(0, math.cos(w + ph)))
+    hr = va(BR, (0, 0.03 * math.sin(w), 0.012 * math.cos(2 * w))); rot = BR0 + 6 * math.sin(w) - (25 if run else 0)
+    return dict(hips_off=(0.01 * math.sin(w), -0.008 if run else 0, -0.02 + bob * math.cos(2 * w) - (0.02 if run else 0)), hips_rot=(lean, 0, 5 * math.sin(w)), chest_rot=(lean + 3, 0, -6 * math.sin(w)),
+                head_rot=(-4 - lean * 0.5, 0, 2 * math.sin(w)), foot_L=foot(0), foot_R=foot(math.pi), hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot))
+def b_run(f, n=20):
+    return b_walk(f, n, stride=0.115, lift=0.075, bob=0.02, lean=13, run=True)
+def b_attack(f, n=32):   # axe hauled back over the shoulder, then a furious overhead cleave
+    p = f / n; wind = seg(p, 0, .32); chop = seg(p, .42, .54); rec = seg(p, .72, 1.0)
+    hr = vl(BR, V(-0.12, BY - 0.01, 0.72), wind); hr = vl(hr, V(-0.10, BY - 0.31, 0.32), chop); hr = vl(hr, BR, rec)
+    rot = lerp(BR0, -40, wind); rot = lerp(rot, 140, chop); rot = lerp(rot, BR0, rec)
+    lean = lerp(lerp(-18 * wind, 34, chop), 6, rec)
+    return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot), chest_rot=(lean, 0, 5 * chop * (1 - rec)), head_rot=(lerp(-10 * wind, 14, chop) * (1 - rec) - 4, 0, 0),
+                hips_off=(0, -0.06 * chop * (1 - rec), -0.02 - 0.03 * chop * (1 - rec)), foot_R=(0, -0.06 * chop * (1 - rec), 0), foot_L=(0, 0.03 * chop * (1 - rec), 0))
+def b_hit(f, n=18):
+    k = math.sin(max(0, min(1, f / n)) * math.pi); hr = va(BR, (0.02, 0.05, 0.05 * k)); rot = BR0 - 18 * k
+    return dict(chest_rot=(6 - 22 * k, 0, 5 * k), head_rot=(-4 - 14 * k, 0, -7 * k), hips_off=(0, 0.05 * k, -0.02 - 0.02 * k), hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot))
+def b_death(f):
+    hr0 = va(BR, (0.02, 0.05, 0.05)); r0 = BR0 - 18
+    st = dict(chest_rot=(-16, 0, 5), head_rot=(-16, 0, -8), hips_off=(0, 0.05, -0.04), hand_R=hr0, rot_R=(r0, 0, 0), hand_L=LH(hr0, r0))
+    if f <= 5:
+        k = f / 5; return dict(chest_rot=vl((6, 0, 0), st['chest_rot'], k), head_rot=vl((-4, 0, 0), st['head_rot'], k), hips_off=vl((0, 0, -0.02), st['hips_off'], k),
+                               hand_R=vl(BR, hr0, k), rot_R=(lerp(BR0, r0, k), 0, 0), hand_L=vl(LH(BR, BR0), st['hand_L'], k))
+    t = min(1.0, (f - 5) / 22); e = t * t * (3 - 2 * t); d = dict(st)
+    d['root_rot'] = (-88 * e, 0, 0); d['root_off'] = (0, 0.03 * e, 0.17 * e); d['hips_off'] = vl(st['hips_off'], (0, 0.02, 0), e)
+    d['chest_rot'] = vl(st['chest_rot'], (0, 0, 0), e); d['head_rot'] = vl(st['head_rot'], (-8, 0, 12), e)
+    d['hand_R'] = vl(hr0, V(-0.38, BY + 0.06, 0.28), e); d['rot_R'] = (lerp(r0, 100, e), 0, 0); d['hand_L'] = vl(st['hand_L'], V(0.38, BY + 0.06, 0.28), e)
+    d['foot_L'] = vl((0, 0, 0), (0.03, 0.02, 0.03), e); d['foot_R'] = vl((0, 0, 0), (-0.03, 0.05, 0.02), e)
+    if f > 27: s_ = min(1.0, (f - 27) / 6); d['root_off'] = va(d['root_off'], (0, 0, 0.012 * math.sin(s_ * math.pi) * (1 - s_)))
+    return d
+def b_spawn(f): return b_death(DEATH_LEN - f)
+def b_roar(f, n=84):   # axe up, head thrown back, bellowing and shaking
+    p = f / n; up = seg(p, .10, .30) * (1 - seg(p, .82, 1.0)); sh = math.sin(p * 2 * math.pi * 9) * up
+    hr = vl(BR, V(-0.11, BY - 0.06, 0.84), up); rot = lerp(BR0, -5, up)
+    return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot), chest_rot=(6 - 28 * up + 2 * sh, 0, 0), head_rot=(-4 - 26 * up + 3 * sh, 0, 2 * sh), hips_off=(0, 0, -0.02 + 0.012 * abs(sh)))
+def b_chest(f, n=90):   # axe hangs from one hand while the free fist pounds his chest
+    p = f / n; up = seg(p, .06, .18) * (1 - seg(p, .86, 1.0)); beat = max(0, math.sin(p * 2 * math.pi * 3.5)) * up
+    hr = vl(BR, V(-0.24, BY - 0.04, 0.30), up); rot = lerp(BR0, 100, up); hl0 = LH(BR, BR0)
+    return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=vl(hl0, V(0.06, BY - 0.22 + 0.03 * beat, 0.42), up), chest_rot=(6 - 12 * up + 5 * beat, 0, 0), head_rot=(-4 - 12 * up, 0, 0), hips_off=(0, 0, -0.02 - 0.008 * beat))
+def b_stomp(f, n=72):   # tantrum: stamps each foot, shaking the axe
+    p = f / n; up = seg(p, .05, .15) * (1 - seg(p, .88, 1.0)); w = p * 2 * math.pi * 3; sl = max(0, math.sin(w)); sr = max(0, -math.sin(w))
+    hr = va(BR, (0.02 * math.sin(w * 2) * up, 0, 0.03 * (sl + sr) * up)); rot = BR0 + 14 * math.sin(w * 2) * up
+    return dict(foot_L=(0, 0, 0.09 * sl * up), foot_R=(0, 0, 0.09 * sr * up), hips_off=(0, 0, -0.02 - 0.02 * (1 - sl) * (1 - sr) * up), hips_rot=(0, 0, 5 * math.sin(w) * up), chest_rot=(6 + 5 * up, 0, -6 * math.sin(w) * up),
+                head_rot=(-4 + 6 * up, 0, 6 * math.sin(w * 2) * up), hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot))
+def b_cheer(f, n=64):   # axe overhead, victory hops
+    p = f / n; up = seg(p, 0, .18) * (1 - seg(p, .86, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 3)) * up
+    hr = vl(BR, V(-0.13, BY - 0.05, 0.90 + 0.03 * pump), up); rot = lerp(BR0, -8, up)
+    return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot), chest_rot=(6 - 20 * up, 0, 0), head_rot=(-4 - 16 * up, 0, 0), hips_off=(0, 0, -0.02 + 0.05 * pump), foot_L=(0, 0, 0.04 * pump), foot_R=(0, 0, 0.04 * pump))
 CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('Run', 24, o_run, True), ('Attack', 40, o_attack, False), ('Hit', 18, o_hit, False),
                      ('Death', DEATH_LEN, o_death, False), ('Spawn', 50, o_spawn, False), ('Yawn', 70, o_yawn, False), ('Cheer', 60, o_cheer, False)],
             'goblin': [('Idle', 64, g_idle, True), ('Walk', 28, g_walk, True), ('Run', 18, g_run, True), ('Attack', 30, g_attack, False), ('Hit', 18, g_hit, False), ('Death', DEATH_LEN, g_death, False),
                        ('Spawn', DEATH_LEN, g_spawn, False), ('Scheme', 80, g_scheme, False), ('Peek', 90, g_peek, False), ('Spin', 70, g_spin, False), ('Snicker', 60, g_snicker, False), ('Cheer', 60, g_cheer, False)],
             'knight': [('Idle', 72, k_idle, True), ('Walk', 36, k_walk, True), ('Run', 22, k_run, True), ('Attack', 40, k_attack, False), ('Hit', 18, k_hit, False), ('Death', DEATH_LEN, k_death, False),
                        ('Spawn', DEATH_LEN, k_spawn, False), ('Salute', 70, k_salute, False), ('Boast', 80, k_boast, False), ('Admire', 84, k_admire, False), ('Pose', 70, k_pose, False)],
+            'barbarian': [('Idle', 72, b_idle, True), ('Walk', 32, b_walk, True), ('Run', 20, b_run, True), ('Attack', 32, b_attack, False), ('Hit', 18, b_hit, False), ('Death', DEATH_LEN, b_death, False),
+                          ('Spawn', DEATH_LEN, b_spawn, False), ('Roar', 84, b_roar, False), ('ChestBeat', 90, b_chest, False), ('Stomp', 72, b_stomp, False), ('Cheer', 64, b_cheer, False)],
             'warrior': [('Idle', 60, w_idle, True), ('Walk', 32, w_walk, True), ('Run', 20, w_run, True), ('Attack', 36, w_attack, False), ('Hit', 18, w_hit, False), ('Death', DEATH_LEN, w_death, False),
                         ('Spawn', DEATH_LEN, w_spawn, False), ('Trip', 80, w_trip, False), ('Bonk', 75, w_bonk, False), ('Wobble', 90, w_wobble, False), ('Wave', 64, w_wave, False), ('Cheer', 60, w_cheer, False)],
             'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False), ('DoubleBiceps', 90, dbl, False), ('BoneCrack', 80, crack, False), ('BowTwirl', 70, twirl, False),

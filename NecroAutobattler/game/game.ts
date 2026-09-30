@@ -19,6 +19,7 @@ import { ENDLESS_RULES, PROTOTYPE_RULES } from '../core/prototype.ts';
 import { loadSave } from '../core/save.ts';
 import { endlessUnlocked } from '../core/progress.ts';
 import { Necromancer } from './necromancer.ts';
+import { Vfx } from './vfx.ts';
 import { audio } from './audio.ts';
 import { clearRun, loadRun, saveRun, serializeState } from '../core/runsave.ts';
 import { addGoldAndSave, endlessWaveGold, playable, recordClearAndSave, recordDailyWinAndSave, recordEndlessWaveAndSave, waveGold } from '../core/progress.ts';
@@ -54,6 +55,7 @@ export class Game {
   /** The endless run in progress: the best depth when it began (to spot a new record), the waves cleared so far, and the packs earned. */
   endless: { startBest: number; cleared: number; packs: number } | null = null;
   private cine = false;                                   // a result cutscene is playing: the battle camera and fighter sync stand down
+  private vfx!: Vfx;
   private tweens: { t: number; dur: number; fn: (u: number) => void; done?: () => void }[] = [];
   private tween(dur: number, fn: (u: number) => void, done?: () => void) { this.tweens.push({ t: 0, dur, fn, done }); }
   /** Finish every running animation at once (so nothing is left half-way or undisposed when the phase changes). */
@@ -74,6 +76,7 @@ export class Game {
     for (const team of [0, 1] as const) for (let c = 0; c < GRID_CELLS; c++) { const t = this.makeTile(team, c); if (team === 0) this.tiles.push(t); else t.setEnabled(false); }
 
     this.A = await loadAssets(scene);
+    this.vfx = new Vfx(scene, this.engine, this.camera, document.getElementById('battleHost') || document.body, this.A.soft);
     this.necro = new Necromancer(scene, this.A.soft, this.A.necro);       // stands just behind his army's back column, facing the battlefield
     this.necro.holder.position.set(-(FRONT_X + (GRID_COLS - 1) * GRID_SP) - 1.05, 0, 0); this.necro.holder.rotation.y = Math.PI / 2;
     this.arrowMats = [0, 1].map((t) => { const m = new BABYLON.StandardMaterial('am' + t, scene); m.diffuseColor = BABYLON.Color3.Black(); m.emissiveColor = t === 0 ? new BABYLON.Color3(0.75, 0.3, 1) : new BABYLON.Color3(1, 0.7, 0.25); m.disableLighting = true; return m; });
@@ -93,7 +96,7 @@ export class Game {
     const saved = qs.get('seed') ? null : loadRun();                // ?seed=N always starts fresh (debugging); otherwise pick up where the last visit left off
     if (saved) this.restore(saved); else this.startStage(this.seed);
     let last = performance.now();
-    this.engine.runRenderLoop(() => { const now = performance.now(), raw = now - last; const dt = Math.min(0.05, raw / 1000); last = now; if (!this.active) return; if (this.inspecting) this.frameInspect(dt); else if (!this.frozen) this.frame(dt); scene.render(); this.perfTick(raw); });
+    this.engine.runRenderLoop(() => { const now = performance.now(), raw = now - last; const dt = Math.min(0.05, raw / 1000); last = now; if (!this.active) return; if (this.inspecting) { this.frameInspect(dt); this.vfx.update(dt); } else if (!this.frozen) this.frame(dt); scene.render(); this.perfTick(raw); });
   }
   /** The navigation shell hides the battle screen while another tab is open: pause the game so it costs nothing. */
   private active = true;
@@ -377,12 +380,12 @@ export class Game {
   }
   /** The merge moment: a flash of rings and sparks, a punch in size, a rising chime. */
   private mergeFx(v: UnitVisual, x: number, z: number) {
-    audio.play('merge'); v.pulse(); const target = v.holder.scaling.x;
+    audio.play('merge'); v.pulse(); if (!this.inspecting) this.vfx.arrive(x, z, v.star); const target = v.holder.scaling.x;
     this.fxRing(x, z, new BABYLON.Color3(1, 0.85, 0.4), 0.2, 2.0, 0.65); this.later(0.12, () => this.fxRing(x, z, new BABYLON.Color3(1, 1, 1), 0.2, 3.0, 0.8));
     this.burst(x, z, [1, 0.85, 0.4, 0.9], [0.8, 0.4, 1, 0.8], 46); this.burst(x, z, [0.85, 0.6, 1, 0.9], [0.5, 0.3, 1, 0.7], 24);
     this.tween(0.55, (t) => v.holder.scaling.setAll(target * (1 + 0.45 * Math.sin(t * Math.PI) * (1 - t * 0.4))), () => v.holder.scaling.setAll(target));
   }
-  private summonFx(x: number, z: number) { this.burst(x, z, [0.7, 0.3, 1, 0.9], [0.35, 0.1, 0.7, 0.8], 30); this.fxRing(x, z, new BABYLON.Color3(0.7, 0.3, 1), 0.2, 1.2, 0.7); }
+  private summonFx(x: number, z: number) { this.vfx.arrive(x, z, 1); this.burst(x, z, [0.7, 0.3, 1, 0.9], [0.35, 0.1, 0.7, 0.8], 30); this.fxRing(x, z, new BABYLON.Color3(0.7, 0.3, 1), 0.2, 1.2, 0.7); }
 
   // ---- player actions (build phase)
   toast(msg: string) { this.ui.toast(msg); }
@@ -443,17 +446,18 @@ export class Game {
     });
     for (let c = 0; c < GRID_CELLS; c++) this.tint(c, 'normal');
     this.phase = 'transition'; this.startStepAt = 1.0; this.acc = 0; this.tweenCam(this.poses().battle, 2.2); this.syncBuild(); this.ui.render(); this.battleRoar();
+    for (const f of this.battle.fighters) if (f.boss) this.later(1.15, () => this.vfx.bossIntro(f.x, f.z));
   }
   private applyEvents(evs: BEvent[]) {
     const b = this.battle!;
     for (const e of evs) {
       if (e.t === 'swing') { const v = this.fvis.get(e.id); if (v) v.play('attack', e.speed); if (Math.random() < 0.08) { const f = b.byId(e.id); if (f) audio.bark(f.soul, 0, f.team === 0 ? 1 : 0.85); } }
-      else if (e.t === 'hit') { const v = this.fvis.get(e.to); if (v) v.pulse(); if (e.kind === 'arrow') audio.play('hitArrow'); else if (e.kind === 'melee') audio.play('hit'); }
+      else if (e.t === 'hit') { const v = this.fvis.get(e.to); if (v) { v.pulse(); const tf = b.byId(e.to), ff = b.byId(e.from); if (tf && ff) this.vfx.hit(e.to, tf.x, tf.z, v.top * v.holder.scaling.x, e.dmg, ff.team === 0, e.kind === 'smash' || !!tf.boss || e.dmg >= tf.maxHp * 0.12, e.kind); } if (e.kind === 'arrow') audio.play('hitArrow'); else if (e.kind === 'melee') audio.play('hit'); }
       else if (e.t === 'arrow') { const f = b.byId(e.from)!, to = b.byId(e.to)!; this.spawnArrow(f.team, f.x, f.z, to.x, to.z, e.dur); audio.play('arrow'); }
-      else if (e.t === 'death') { const v = this.fvis.get(e.id); if (v) { v.play('death'); v.setHp(null); v.setMana(null); const f = b.byId(e.id)!; audio.play('death'); this.burst(f.x, f.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 12); if (f.team === 1) this.later(5, () => { if (this.fvis.get(e.id) === v && this.phase !== 'build') { v.holder.setEnabled(false); } }); } }
+      else if (e.t === 'death') { const v = this.fvis.get(e.id); if (v) { v.play('death'); v.setHp(null); v.setMana(null); const f = b.byId(e.id)!; audio.play('death'); this.vfx.death(f.x, f.z, f.team === 1, v.top * v.holder.scaling.x); if (f.team === 1) this.later(5, () => { if (this.fvis.get(e.id) === v && this.phase !== 'build') { v.holder.setEnabled(false); } }); } }
       else if (e.t === 'cast') { const f = b.byId(e.id)!; audio.play('cast'); this.fxRing(f.x, f.z, new BABYLON.Color3(0.5, 0.8, 1), 0.15, 1.1, 0.35); }
       else if (e.t === 'taunt') { const f = b.byId(e.id)!; audio.play('taunt'); this.fxRing(f.x, f.z, new BABYLON.Color3(1, 0.85, 0.3), 0.3, BALANCE.taunt.radius, 0.6); }
-      else if (e.t === 'smash') { audio.play('smash'); this.fxRing(e.x, e.z, new BABYLON.Color3(1, 0.5, 0.2), 0.2, e.r * 1.6, 0.45); }
+      else if (e.t === 'smash') { audio.play('smash'); this.vfx.slam(e.x, e.z, e.r); this.fxRing(e.x, e.z, new BABYLON.Color3(1, 0.5, 0.2), 0.2, e.r * 1.6, 0.45); }
     }
   }
   private arrowBase: any[] = [];
@@ -476,7 +480,7 @@ export class Game {
     }
     mesh.setEnabled(true);
     if (this.A.arrow) { const tm = this.arrowTeamMat(team); mesh.getChildMeshes().forEach((m: any) => { if (tm) m.material = tm; }); }
-    this.arrows.push({ mesh, x0, z0, x1, z1, t: 0, dur });
+    this.arrows.push({ mesh, x0, z0, x1, z1, t: 0, dur, team });
   }
 
   /** Battle cry: up to three different Souls from your army bellow in turn, and one from the enemy answers, a little lower. */
@@ -488,6 +492,7 @@ export class Game {
 
   private frame(dt: number) {
     if (this.canvas.clientWidth !== this.lastW || this.canvas.clientHeight !== this.lastH) this.handleResize();   // e.g. the home-screen app resizing after launch
+    this.camera.position.subtractInPlace(this.vfx.off);
     for (let i = this.timers.length - 1; i >= 0; i--) { this.timers[i].t -= dt; if (this.timers[i].t <= 0) { const f = this.timers[i].fn; this.timers.splice(i, 1); f(); } }
     for (let i = this.ringFx.length - 1; i >= 0; i--) { const r = this.ringFx[i]; r.t += dt; const u = r.t / r.dur, s = r.r0 + (r.r1 - r.r0) * u; r.m.scaling.set(s, s, s); r.mm.alpha = 0.9 * (1 - u); if (u >= 1) { r.m.dispose(); r.mm.dispose(); this.ringFx.splice(i, 1); } }
     if (this.camT < 1) { this.camT = Math.min(1, this.camT + dt / this.camDur); const e = this.camT * this.camT * (3 - 2 * this.camT); this.camera.position = BABYLON.Vector3.Lerp(this.camFrom.pos, this.camTo.pos, e); this.camTgt = BABYLON.Vector3.Lerp(this.camFrom.tgt, this.camTo.tgt, e); this.camera.setTarget(this.camTgt.clone()); }
@@ -520,8 +525,10 @@ export class Game {
       const px = a.x0 + (a.x1 - a.x0) * u, pz = a.z0 + (a.z1 - a.z0) * u, py = 0.75 + Math.sin(u * Math.PI) * 0.9 - u * 0.25;
       const u2 = Math.min(1, u + 0.03), qx = a.x0 + (a.x1 - a.x0) * u2, qz = a.z0 + (a.z1 - a.z0) * u2, qy = 0.75 + Math.sin(u2 * Math.PI) * 0.9 - u2 * 0.25;
       a.mesh.position.set(px, py, pz); a.mesh.lookAt(new BABYLON.Vector3(qx, qy, qz));
+      this.vfx.trail(px, py, pz, a.team === 0);
       if (u >= 1) { a.mesh.setEnabled(false); this.arrowMesh.push(a.mesh); this.arrows.splice(i, 1); }
     }
+    this.vfx.update(dt); this.camera.position.addInPlace(this.vfx.off);
   }
 
   private handleResult() {
@@ -563,7 +570,7 @@ export class Game {
       for (const f of b.fighters) {
         if (f.team !== 0) continue; const uid = this.fUnit.get(f.id), u = this.s.units.find((x) => x.id === uid), v = this.fvis.get(f.id); if (!u || !v) continue;
         const to = this.pos(u.cell), x0 = v.holder.position.x, z0 = v.holder.position.z; v.setHp(null); v.setMana(null);
-        if (!f.alive) { v.play('spawn'); this.burst(x0, z0, [0.75, 0.4, 1, 0.9], [0.4, 0.15, 0.9, 0.7], 18); this.fxRing(x0, z0, new BABYLON.Color3(0.7, 0.35, 1), 0.3, 1.6, 0.7); }
+        if (!f.alive) { v.play('spawn'); this.vfx.arrive(x0, z0, 1); this.burst(x0, z0, [0.75, 0.4, 1, 0.9], [0.4, 0.15, 0.9, 0.7], 18); this.fxRing(x0, z0, new BABYLON.Color3(0.7, 0.35, 1), 0.3, 1.6, 0.7); }
         this.tween(1.0, (t) => { v.holder.position.set(x0 + (to.x - x0) * t, Math.sin(t * Math.PI) * 0.5, z0 + (to.z - z0) * t); v.holder.rotation.y += (Math.PI / 2 - v.holder.rotation.y) * Math.min(1, t * 0.5 + 0.1); },
           () => { v.holder.position.y = 0; this.burst(to.x, to.z, [0.75, 0.4, 1, 0.9], [0.4, 0.15, 0.9, 0.7], 10); });
       }
@@ -572,14 +579,14 @@ export class Game {
       // the survivors celebrate right where they stand (purely visual), THEN the camera swings to the Necromancer and the army is raised
       audio.play('victory');
       for (const f of b.fighters) if (f.team === 0 && f.alive) { const v = this.fvis.get(f.id); if (v) this.later(Math.random() * 0.35, () => { v.play('cheer'); audio.bark(f.soul); }); }
-      this.later(1.6, () => { this.tweenCam(this.poses().necro, 1.1); n.cast(); });
+      this.later(1.6, () => { this.tweenCam(this.poses().necro, 1.1); n.cast(); const c = n.crystalPos(); this.vfx.rune(c.x, c.z, 3.4, [0.7, 0.4, 1], 2.6, 1); this.vfx.pillar(c.x, c.z, [0.75, 0.45, 1], 7, 0.9, 1.4); });
       this.later(1.85, home); this.later(3.6, done); return;
     }
     n.hurt(); audio.play('heartLost'); this.later(0.15, () => { const c = n.crystalPos(); this.burst(c.x, c.z, [1, 0.3, 0.3, 0.9], [0.8, 0.1, 0.2, 0.6], 16); });
     if (kind === 'final') { this.later(0.6, () => { n.defeat(); audio.play('defeat'); }); this.later(2.6, done); return; }
     this.later(1.0, () => {                                 // repulsion shockwave: survivors are flung back to where they started and heal to full
       n.cast(); audio.play('shockwave'); const c = n.crystalPos();
-      this.fxRing(c.x, 0, new BABYLON.Color3(0.85, 0.55, 1), 0.6, 30, 1.1); this.fxRing(c.x, 0, new BABYLON.Color3(1, 1, 1), 0.4, 22, 0.8);
+      this.fxRing(c.x, 0, new BABYLON.Color3(0.85, 0.55, 1), 0.6, 30, 1.1); this.fxRing(c.x, 0, new BABYLON.Color3(1, 1, 1), 0.4, 22, 0.8); this.vfx.shock(c.x, c.z, 28);
       this.burst(c.x, c.z, [1, 0.85, 1, 0.9], [0.7, 0.4, 1, 0.7], 40);
       for (const f of b.fighters) {
         if (f.team !== 1 || !f.alive) continue; const v = this.fvis.get(f.id); if (!v) continue;

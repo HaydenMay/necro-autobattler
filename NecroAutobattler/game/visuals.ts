@@ -26,12 +26,12 @@ export interface UnitVisual {
 
 // ---------------------------------------------------------------------------------------------------- star looks
 // 1 star = the plain model. 2 stars = a little bigger, cool silver-blue tint, brighter aura. 3 stars = biggest, warm gold tint,
-// strong gold-violet aura and a floating gold halo. Everything here is free: no extra Tripo generations.
+// a big violet flame aura with a glow on the floor. Everything here is free: no extra Tripo generations.
 const TINT: number[][] = [[1, 1, 1], [0.86, 0.95, 1.18], [1.25, 1.1, 0.7]];
 const AURA = [
   { rate: 14, min: 0.06, max: 0.16, c1: [0.78, 0.35, 1, 0.7], c2: [0.45, 0.15, 0.9, 0.5] },
   { rate: 26, min: 0.08, max: 0.20, c1: [0.85, 0.65, 1, 0.8], c2: [0.55, 0.4, 1, 0.6] },
-  { rate: 44, min: 0.10, max: 0.26, c1: [1, 0.85, 0.4, 0.85], c2: [0.8, 0.3, 1, 0.7] },
+  { rate: 48, min: 0.12, max: 0.28, c1: [0.92, 0.45, 1, 0.95], c2: [0.5, 0.15, 1, 0.85] },
 ];
 
 export interface Assets {
@@ -85,7 +85,7 @@ export async function loadAssets(scene: any): Promise<Assets> {
 
 // ---------------------------------------------------------------------------------------------------- shared decoration
 class Deco {
-  private ps: any = null; private halo: any = null; private badge: any; private stars: any; private fill: any; private bar: any; private mbg: any; private mfill: any; private ring: any;
+  private ps: any = null; private glow: any = null; private badge: any; private stars: any; private fill: any; private bar: any; private mbg: any; private mfill: any; private ring: any;
   constructor(private A: Assets, private parent: any, private top: number, private radius: number) {
     const s = A.scene;
     this.ring = BABYLON.MeshBuilder.CreateDisc('ring', { radius: Math.max(0.3, radius * 1.15), tessellation: 26 }, s); this.ring.rotation.x = Math.PI / 2; this.ring.position.y = 0.02; this.ring.parent = parent; this.ring.isPickable = false;
@@ -122,7 +122,7 @@ class Deco {
     (this.lv.material as any).diffuseTexture = A.lvTex[n];
   }
   /** The bars keep the same size and the same small gap above the head however big the unit grows. */
-  fit(k: number) { this.badge.scaling.setAll(1 / k); this.badge.position.y = this.top + 0.3 / k; if (this.halo) this.halo.position.y = this.top + 0.08; }
+  fit(k: number) { this.badge.scaling.setAll(1 / k); this.badge.position.y = this.top + 0.3 / k; }
   set(team: 0 | 1, star: number) {
     const s = this.A.scene, cfg = AURA[star - 1];
     (this.stars as any)._sm.diffuseTexture = this.A.starTex[star - 1];
@@ -136,10 +136,17 @@ class Deco {
       const p = this.ps; p.emitRate = cfg.rate; p.minSize = cfg.min; p.maxSize = cfg.max; p.color1 = new BABYLON.Color4(...cfg.c1); p.color2 = new BABYLON.Color4(...cfg.c2); p.colorDead = new BABYLON.Color4(0.2, 0, 0.4, 0);
       if (!p.isStarted()) p.start();
     } else if (this.ps && this.ps.isStarted()) this.ps.stop();
-    if (star >= 3) {                                    // gold halo above the head
-      if (!this.halo) { this.halo = BABYLON.MeshBuilder.CreateTorus('halo', { diameter: 0.55, thickness: 0.04, tessellation: 24 }, s); this.halo.parent = this.parent; this.halo.position.y = this.top + 0.08; this.halo.material = this.A.haloMat; this.halo.isPickable = false; }
-      this.halo.setEnabled(true);
-    } else if (this.halo) this.halo.setEnabled(false);
+    if (star >= 3) {                                    // three stars: a wide violet flame round the unit and a glow pooled on the floor (no halo)
+      if (this.ps) { this.ps.minEmitBox = new BABYLON.Vector3(-0.42, 0, -0.42); this.ps.maxEmitBox = new BABYLON.Vector3(0.42, this.top * 0.7, 0.42); this.ps.minEmitPower = 0.5; this.ps.maxEmitPower = 1.3; this.ps.gravity = new BABYLON.Vector3(0, 0.9, 0); this.ps.maxLifeTime = 1.25; }
+      if (!this.glow) {
+        const g = BABYLON.MeshBuilder.CreateDisc('glow', { radius: 1.05, tessellation: 28 }, s); g.rotation.x = Math.PI / 2; g.position.y = 0.035; g.parent = this.parent; g.isPickable = false;
+        const gm = new BABYLON.StandardMaterial('glowm', s); gm.disableLighting = true; gm.emissiveColor = new BABYLON.Color3(0.75, 0.25, 1); gm.diffuseTexture = this.A.soft; gm.useAlphaFromDiffuseTexture = true; gm.alpha = 1; gm.alphaMode = BABYLON.Engine.ALPHA_ADD; gm.backFaceCulling = false; g.material = gm; this.glow = g;
+      }
+      this.glow.setEnabled(true);
+    } else {
+      if (this.ps) { this.ps.minEmitBox = new BABYLON.Vector3(-0.2, 0, -0.2); this.ps.maxEmitBox = new BABYLON.Vector3(0.2, this.top * 0.5, 0.2); this.ps.minEmitPower = 0.35; this.ps.maxEmitPower = 0.8; this.ps.gravity = new BABYLON.Vector3(0, 0.4, 0); this.ps.maxLifeTime = 1.1; }
+      if (this.glow) this.glow.setEnabled(false);
+    }
   }
   setHp(f: number | null) {
     const on = f !== null; this.bar.setEnabled(on); this.fill.setEnabled(on); this.barOn = on; if (this.lv) this.lv.setEnabled(on && this.lvN > 0);
@@ -150,8 +157,9 @@ class Deco {
     if (on) { const k = Math.max(0.001, f as number); this.mfill.scaling.x = k; this.mfill.position.x = -(0.56 * (1 - k)) / 2; }
   }
   setAura(on: boolean) { if (this.ps) { if (on && !this.ps.isStarted()) this.ps.start(); if (!on && this.ps.isStarted()) this.ps.stop(); } }
-  update(dt: number) { if (this.halo && this.halo.isEnabled()) this.halo.rotation.y += dt * 1.6; }
-  dispose() { if (this.ps) { this.ps.stop(); this.ps.dispose(); } [this.halo, this.ring, this.stars, this.bar, this.fill, this.mbg, this.mfill].forEach((m) => m && m.dispose()); this.badge.dispose(); }
+  update(dt: number) { if (this.glow && this.glow.isEnabled()) { this.glowT += dt; this.glow.scaling.setAll(1 + 0.08 * Math.sin(this.glowT * 3)); } }
+  private glowT = 0;
+  dispose() { if (this.ps) { this.ps.stop(); this.ps.dispose(); } [this.glow, this.ring, this.stars, this.bar, this.fill, this.mbg, this.mfill].forEach((m) => m && m.dispose()); this.badge.dispose(); }
 }
 
 // ---------------------------------------------------------------------------------------------------- real models

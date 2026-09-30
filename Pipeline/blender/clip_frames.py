@@ -9,7 +9,7 @@ sc.render.engine = 'BLENDER_WORKBENCH'; sc.display.shading.light = 'FLAT'; sc.di
 W = 520; sc.render.resolution_x = sc.render.resolution_y = W; sc.world = bpy.data.worlds.new('w2'); sc.world.color = (0.82, 0.82, 0.87)
 cam = bpy.data.objects.new('cq', bpy.data.cameras.new('cq')); sc.collection.objects.link(cam); sc.camera = cam
 cam.data.type = 'ORTHO'; import os
-cam.data.ortho_scale = float(os.environ.get('ORTHO', 1.5)); cam.location = (-2.2, -3.6, float(os.environ.get('CAMZ', 1.0)))
+cam.data.ortho_scale = float(os.environ.get('ORTHO', 1.5)); cam.location = (float(os.environ.get('CAMX', -2.2)), float(os.environ.get('CAMY', -3.6)), float(os.environ.get('CAMZ', 1.0)))
 tgt = bpy.data.objects.new('tq', None); tgt.location = (float(os.environ.get('TGX', 0)), 0, float(os.environ.get('TGZ', 0.5))); sc.collection.objects.link(tgt)
 tc = cam.constraints.new('TRACK_TO'); tc.target = tgt; tc.track_axis = 'TRACK_NEGATIVE_Z'; tc.up_axis = 'UP_Y'
 tiles = []

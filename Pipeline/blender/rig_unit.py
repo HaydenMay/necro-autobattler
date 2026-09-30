@@ -513,12 +513,12 @@ def o_run(f, n=24):
     d['hand_L'] = va(RL, (-0.02, -0.10 + 0.05 * math.sin(w), 0.04)); d['hand_R'] = va(RR, (0.03, -0.10, 0.05 + 0.02 * math.sin(w))); d['rot_R'] = (ROT0 - 45 + 10 * math.sin(w), 0, 0); return d
 def o_attack(f, n=40):
     p = f / n; wind = seg(p, 0, .34); slam = seg(p, .44, .56); rec = seg(p, .70, 1.0)
-    hr = vl(RR, V(-0.31, -0.02, 0.80), wind); hr = vl(hr, V(-0.31, -0.24, 0.47), slam); hr = vl(hr, RR, rec)
-    rot = lerp(ROT0, -50, wind); rot = lerp(rot, 150, slam); rot = lerp(rot, -10, rec)
+    hr = vl(RR, V(-0.31, -0.02, 0.80), wind); hr = vl(hr, V(-0.27, -0.36, 0.34), slam); hr = vl(hr, RR, rec)      # the slam lands IN FRONT of him, arm stretched out, the mace head on the floor
+    rot = lerp(ROT0, -50, wind); rot = lerp(rot, 138, slam); rot = lerp(rot, ROT0, rec)
     hl = vl(RL, V(0.28, -0.05, 0.74), wind); hl = vl(hl, V(0.29, -0.20, 0.50), slam); hl = vl(hl, RL, rec)
-    lean = lerp(lerp(-22 * wind, 32, slam), 0, rec)
+    lean = lerp(lerp(-22 * wind, 46, slam), 0, rec)
     return dict(hand_R=hr, hand_L=hl, rot_R=(rot, 0, 0), chest_rot=(lean, 0, 4 * slam), head_rot=(lerp(-8 * wind, 14, slam) * (1 - rec), 0, 0),
-                hips_off=(0, -0.06 * slam * (1 - rec), -0.03 * slam * (1 - rec)), foot_R=(0, -0.05 * slam * (1 - rec), 0))
+                hips_off=(0, -0.10 * slam * (1 - rec), -0.07 * slam * (1 - rec)), foot_R=(0, -0.07 * slam * (1 - rec), 0))
 def o_hit(f, n=18):
     k = math.sin(max(0, min(1, f / n)) * math.pi)
     return dict(chest_rot=(-20 * k, 0, 5 * k), head_rot=(-14 * k, 0, -6 * k), hips_off=(0, 0.05 * k, -0.02 * k),
@@ -629,16 +629,21 @@ def w_fumble(f, n=130):   # tosses his sword up to admire it, fumbles the catch,
         t = min(1.0, (p - 0.22) / 0.14); hop = 0.05 * math.sin(max(0.0, min(1.0, (p - 0.36) / 0.08)) * math.pi)
         d['weap'] = wmix(m0, m1, t, hop) if t < 1 else m1
     return d
-def w_shieldbonk(f, n=84):   # peeks over his shield, gets impatient and bonks the shield straight into his own helmet
-    p = f / n; up = seg(p, .06, .22) * (1 - seg(p, .70, .88)); hit = seg(p, .34, .40) * (1 - seg(p, .40, .50)); wob = math.sin(p * 2 * math.pi * 5) * seg(p, .40, .48) * (1 - seg(p, .74, .92))
-    return dict(hand_L=vl(WL, V(0.06, -0.20, 0.72), up), rot_L=(0, 0, 0), hand_R=WR, rot_R=(WR0, 0, 0), head_rot=(-4 * up + 20 * hit, 0, 8 * wob), chest_rot=(-3 * up + 5 * hit, 0, 3 * wob),
-                helm_off=(0, -0.01 * hit, -0.05 * hit + 0.012 * wob), helm_rot=(18 * hit + 6 * wob, 0, 10 * wob), hips_off=(0, 0, -0.02 * hit))
-def w_trip(f, n=80):   # catches a toe, pitches forward with flailing arms, wobbles, pops back up and pretends nothing happened
-    p = f / n; step = seg(p, .08, .22) * (1 - seg(p, .22, .34)); fall = seg(p, .20, .44) * (1 - seg(p, .56, .78)); fl = math.sin(p * 2 * math.pi * 5) * fall
-    hop = math.sin(seg(p, .74, .88) * math.pi) * 0.03
-    return dict(root_rot=(34 * fall, 0, 0), root_off=(0, -0.04 * fall, 0.02 * fall + hop), foot_R=(0, -0.10 * step, 0.09 * step), foot_L=(0, 0.03 * fall, 0.03 * fall),
-                hand_L=vl(WL, V(0.34, -0.30 + 0.06 * fl, 0.62 + 0.08 * fl), fall), hand_R=vl(WR, V(-0.34, -0.30 - 0.06 * fl, 0.62 - 0.08 * fl), fall), rot_R=(WR0 + 60 * fall * (1 + 0.4 * fl), 0, 0),
-                head_rot=(-30 * fall + 6 * seg(p, .84, .92) * (1 - seg(p, .94, 1.0)), 0, 8 * fl), chest_rot=(-14 * fall, 0, 6 * fl))
+def w_shieldbonk(f, n=96):   # hides behind his shield, peeks round each side, loses patience, winds up and bonks the shield into his own helmet, reels and shakes it off
+    p = f / n
+    hide = seg(p, .06, .18) * (1 - seg(p, .50, .58)); peek = math.sin(seg(p, .20, .46) * 2 * math.pi * 1.5) * seg(p, .20, .26) * (1 - seg(p, .42, .48))
+    wind = seg(p, .56, .66) * (1 - seg(p, .66, .68)); hit = seg(p, .66, .70) * (1 - seg(p, .70, .76)); reel = seg(p, .68, .74) * (1 - seg(p, .90, 1.0)); sway = math.sin(p * 2 * math.pi * 6) * reel
+    sh = vl(WL, V(0.02, -0.22, 0.64), hide); sh = va(sh, (0.07 * peek, 0, 0)); sh = vl(sh, V(0.34, -0.04, 0.80), wind); sh = vl(sh, V(0.12, -0.12, 0.80), hit)
+    sh = vl(sh, WL, seg(p, .76, .92))
+    return dict(hand_L=sh, rot_L=(0, 0, 0), hand_R=WR, rot_R=(WR0, 0, 0), hips_off=(0, 0, -0.03 * hide - 0.02 * wind - 0.02 * hit),
+                head_rot=(-2 * hide + 4 * wind + 18 * hit + 6 * reel, 0, -16 * peek + 8 * wind + 22 * hit * 0 + 12 * sway), chest_rot=(-3 * hide + 8 * hit - 4 * wind, 0, 4 * peek + 6 * sway),
+                hips_rot=(0, 0, 5 * sway), helm_off=(0, -0.01 * hit, -0.05 * hit + 0.012 * sway), helm_rot=(20 * hit + 8 * reel, 0, 12 * sway), foot_R=(0, 0.03 * reel, 0.02 * abs(sway)))
+def w_trip(f, n=80):   # the toe catches, he pitches forward, arms and sword windmilling, stumbles a step to catch himself, straightens up and pretends nothing happened
+    p = f / n; hook = seg(p, .06, .18) * (1 - seg(p, .44, .52)); fall = seg(p, .16, .38) * (1 - seg(p, .50, .72)); catch = seg(p, .36, .48) * (1 - seg(p, .62, .72))
+    flail = seg(p, .16, .30) * (1 - seg(p, .70, .86)); fl = math.sin(p * 2 * math.pi * 4) * flail; hop = math.sin(seg(p, .74, .86) * math.pi) * 0.025; prim = seg(p, .86, .92) * (1 - seg(p, .94, 1.0))
+    return dict(root_rot=(46 * fall, 0, 0), root_off=(0, -0.07 * fall, -0.03 * fall + hop), foot_R=(0, 0.07 * hook, 0.06 * hook), foot_L=(0, -0.13 * catch, 0.05 * catch),
+                hand_L=vl(WL, V(0.36, 0.0 + 0.06 * fl, 0.72 + 0.09 * fl), flail), hand_R=vl(WR, V(-0.36, 0.0 - 0.06 * fl, 0.72 - 0.09 * fl), flail), rot_R=(WR0 + 70 * flail * (1 + 0.4 * fl), 0, 0),
+                head_rot=(10 * fall - 4 * prim, 0, 7 * fl), chest_rot=(8 * fall, 0, 6 * fl), hips_rot=(0, 0, 5 * fl * fall))
 def w_bonk(f, n=75):   # swings the sword up to look at it, whacks his own helmet with the pommel, sees stars
     p = f / n; up = seg(p, .06, .26) * (1 - seg(p, .74, .92)); hit = seg(p, .28, .34) * (1 - seg(p, .34, .46)); wob = math.sin(p * 2 * math.pi * 4) * seg(p, .34, .42) * (1 - seg(p, .70, .92))
     return dict(hand_R=vl(WR, V(-0.12, -0.10, 0.70 - 0.05 * hit), up), rot_R=(lerp(WR0, 170, up), 0, 0), hand_L=vl(WL, V(0.13, -0.15, 0.30), up),
@@ -823,8 +828,8 @@ def b_roar(f, n=84):   # axe up, head thrown back, bellowing and shaking
     return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=vl(LH(BR, BR0), V(0.30, BY - 0.10, 0.62), up), chest_rot=(6 - 28 * up + 2 * sh, 0, 0), head_rot=(-4 - 26 * up + 3 * sh, 0, 2 * sh), hips_off=(0, 0, -0.02 + 0.012 * abs(sh)))
 def b_chest(f, n=90):   # axe hangs from one hand while the free fist pounds his chest
     p = f / n; up = seg(p, .06, .18) * (1 - seg(p, .86, 1.0)); beat = max(0, math.sin(p * 2 * math.pi * 3.5)) * up
-    hr = vl(BR, V(-0.24, BY - 0.04, 0.30), up); rot = lerp(BR0, 100, up); hl0 = LH(BR, BR0)
-    return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=vl(hl0, V(0.06, BY - 0.22 + 0.03 * beat, 0.42), up), chest_rot=(6 - 12 * up + 5 * beat, 0, 0), head_rot=(-4 - 12 * up, 0, 0), hips_off=(0, 0, -0.02 - 0.008 * beat))
+    hr = vl(BR, V(-0.28, BY - 0.10, 0.36), up); rot = lerp(BR0, 128, up); hl0 = LH(BR, BR0)      # the axe head rests on the floor in front of him; the fist lands ON the chest (it used to float half a metre away)
+    return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=vl(hl0, V(0.06, BY - 0.20 + 0.11 * beat, 0.44), up), chest_rot=(6 - 12 * up + 5 * beat, 0, 0), head_rot=(-4 - 12 * up, 0, 0), hips_off=(0, 0, -0.02 - 0.008 * beat))
 def b_stomp(f, n=72):   # tantrum: stamps each foot, shaking the axe
     p = f / n; up = seg(p, .05, .15) * (1 - seg(p, .88, 1.0)); w = p * 2 * math.pi * 3; sl = max(0, math.sin(w)); sr = max(0, -math.sin(w))
     hr = va(BR, (0.02 * math.sin(w * 2) * up, 0, 0.03 * (sl + sr) * up)); rot = BR0 + 14 * math.sin(w * 2) * up
@@ -834,16 +839,16 @@ def b_cheer(f, n=64):   # axe overhead, victory hops
     p = f / n; up = seg(p, 0, .18) * (1 - seg(p, .86, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 3)) * up
     hr = vl(BR, V(-0.38, BY - 0.08, 0.62 + 0.03 * pump), up); rot = lerp(BR0, -4, up)      # axe raised BESIDE the head (straight up in front of it, the haft sank into the face); the free fist pumps on the other side
     return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=vl(LH(BR, BR0), V(0.30, BY - 0.10, 0.60 + 0.03 * pump), up), chest_rot=(6 - 20 * up, 0, 0), head_rot=(-4 - 16 * up, 0, 0), hips_off=(0, 0, -0.02 + 0.05 * pump), foot_L=(0, 0, 0.04 * pump), foot_R=(0, 0, 0.04 * pump))
-def o_scratch(f, n=90):   # lazily scratches his belly, mace dangling, then gives it an approving pat
-    p = f / n; up = seg(p, .08, .22) * (1 - seg(p, .82, .95)); rub = math.sin(p * 2 * math.pi * 4) * up
-    return dict(hand_L=vl(va(RL, (0, -0.02, 0)), V(0.09 + 0.03 * rub, -0.22, 0.30 + 0.02 * rub), up), hand_R=va(RR, (0.02, -0.06, 0)), rot_R=(ROT0 + 6 * up, 0, 0), chest_rot=(6 * up, 0, 0), head_rot=(-12 * up, 0, 5 * math.sin(p * 2 * math.pi) * up), hips_off=(0, 0, 0.004 * rub))
+def o_shrug(f, n=90):   # a grumpy 'meh': shoulders up, free palm out, head tilts one way then the other, a heavy sigh
+    p = f / n; up = seg(p, .08, .24) * (1 - seg(p, .80, .95)); tilt = math.sin(p * 2 * math.pi * 2) * up; sigh = seg(p, .50, .64) * (1 - seg(p, .64, .80))
+    return dict(hand_L=vl(va(RL, (0, -0.02, 0)), V(0.42, -0.14, 0.40 + 0.03 * sigh), up), hand_R=va(RR, (0.02, -0.06, 0)), rot_R=(ROT0, 0, 0), chest_rot=(-4 * sigh, 0, 3 * tilt), head_rot=(-6 * up + 8 * sigh, 0, 8 * tilt), hips_off=(0, 0, -0.006 * sigh))
 def o_stomp(f, n=70):   # hulking tantrum: two heavy stomps that shake the whole body
     p = f / n; up = seg(p, .05, .16) * (1 - seg(p, .86, 1.0)); w = p * 2 * math.pi * 2; sl = max(0, math.sin(w)); sr = max(0, -math.sin(w))
     return dict(foot_L=(0, 0, 0.11 * sl * up), foot_R=(0, 0, 0.11 * sr * up), hips_off=(0, 0, -0.03 * (1 - sl) * (1 - sr) * up), hips_rot=(0, 0, 5 * math.sin(w) * up), chest_rot=(8 * up, 0, -5 * math.sin(w) * up),
                 head_rot=(-6 * up, 0, 3 * math.sin(w) * up), hand_L=va(RL, (0, -0.02, 0.04 * (sl + sr) * up)), hand_R=va(RR, (0.02, -0.06, 0.04 * (sl + sr) * up)), rot_R=(ROT0 - 12 * up * (sl + sr), 0, 0))
 def o_thump(f, n=80):   # pounds his chest with the free fist and bellows
     p = f / n; up = seg(p, .08, .20) * (1 - seg(p, .84, 1.0)); th = max(0, math.sin(p * 2 * math.pi * 3)) * up
-    return dict(hand_L=vl(va(RL, (0, -0.02, 0)), V(0.05, -0.25 + 0.03 * th, 0.46), up), hand_R=va(RR, (0.02, -0.06, 0)), rot_R=(ROT0, 0, 0), chest_rot=(-10 * up + 5 * th, 0, 0), head_rot=(-16 * up, 0, 0), hips_off=(0, 0, -0.01 * th))
+    return dict(hand_L=vl(va(RL, (0, -0.02, 0)), V(0.13, -0.17 + 0.05 * th, 0.47), up), hand_R=va(RR, (0.02, -0.06, 0)), rot_R=(ROT0, 0, 0), chest_rot=(-14 * up + 7 * th, 0, 0), head_rot=(-18 * up + 4 * th, 0, 0), hips_off=(0, 0, -0.012 * th))
 def k_pray(f, n=100):   # kneels, plants the sword point-down and bows his head over the pommel
     p = f / n; dn = seg(p, .08, .30) * (1 - seg(p, .76, .94)); glow = math.sin(p * 2 * math.pi * 2) * dn
     return dict(hips_off=(0, 0, -0.10 * dn), foot_L=(0, -0.05 * dn, 0), foot_R=(0, 0.10 * dn, 0.06 * dn), chest_rot=(-3 + 14 * dn, 0, 0), head_rot=(30 * dn, 0, 0),
@@ -902,7 +907,7 @@ def n_cheer(f, n=64):   # staff up high, a little triumphant lean back
     p = f / n; up = seg(p, 0, .22) * (1 - seg(p, .84, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 2)) * up
     return dict(hand_R=vl(NR, V(-0.22, NY - 0.08, 0.72 + 0.03 * pump), up), rot_R=(lerp(0, 4, up), 0, 0), hand_L=vl(NL, V(0.27, NY - 0.05, 0.62), up), chest_rot=(-8 * up, 0, 0), head_rot=(-8 * up, 0, 0), hips_off=(0, 0, 0.012 * pump))
 CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('Run', 24, o_run, True), ('Attack', 40, o_attack, False), ('Hit', 18, o_hit, False),
-                     ('Death', DEATH_LEN, o_death, False), ('Spawn', 50, o_spawn, False), ('Yawn', 70, o_yawn, False), ('Cheer', 60, o_cheer, False), ('Scratch', 90, o_scratch, False), ('Stomp', 70, o_stomp, False), ('Thump', 80, o_thump, False)],
+                     ('Death', DEATH_LEN, o_death, False), ('Spawn', 50, o_spawn, False), ('Yawn', 70, o_yawn, False), ('Cheer', 60, o_cheer, False), ('Shrug', 90, o_shrug, False), ('Stomp', 70, o_stomp, False), ('Thump', 80, o_thump, False)],
             'goblin': [('Idle', 64, g_idle, True), ('Walk', 28, g_walk, True), ('Run', 18, g_run, True), ('Attack', 30, g_attack, False), ('Hit', 18, g_hit, False), ('Death', DEATH_LEN, g_death, False),
                        ('Spawn', DEATH_LEN, g_spawn, False), ('Scheme', 80, g_scheme, False), ('Peek', 90, g_peek, False), ('Spin', 70, g_spin, False), ('Snicker', 60, g_snicker, False), ('Cheer', 60, g_cheer, False)],
             'knight': [('Idle', 72, k_idle, True), ('Walk', 36, k_walk, True), ('Run', 22, k_run, True), ('Attack', 40, k_swing, False), ('Hit', 18, k_hit, False), ('Death', DEATH_LEN, k_death, False),
@@ -911,7 +916,7 @@ CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('R
                           ('Spawn', DEATH_LEN, b_spawn, False), ('Roar', 84, b_roar, False), ('ChestBeat', 90, b_chest, False), ('Stomp', 72, b_stomp, False), ('Cheer', 64, b_cheer, False)],
             'necro': [('Idle', 72, n_idle, True), ('Cast', 34, n_cast, False), ('Hurt', 24, n_hurt, False), ('Down', 40, n_down, False), ('Revive', 40, n_revive, False), ('Tap', 66, n_tap, False), ('Cheer', 64, n_cheer, False)],
             'warrior': [('Idle', 60, w_idle, True), ('Walk', 32, w_walk, True), ('Run', 20, w_run, True), ('Attack', 36, w_slash, False), ('Hit', 18, w_hit, False), ('Death', DEATH_LEN, w_death, False),
-                        ('Spawn', 64, w_spawn, False), ('Fumble', 130, w_fumble, False), ('ShieldBonk', 84, w_shieldbonk, False), ('Trip', 80, w_trip, False), ('Bonk', 75, w_bonk, False), ('Wobble', 90, w_wobble, False), ('Wave', 64, w_wave, False), ('Cheer', 60, w_cheer, False)],
+                        ('Spawn', 64, w_spawn, False), ('Fumble', 130, w_fumble, False), ('ShieldBonk', 96, w_shieldbonk, False), ('Trip', 80, w_trip, False), ('Bonk', 75, w_bonk, False), ('Wobble', 90, w_wobble, False), ('Wave', 64, w_wave, False), ('Cheer', 60, w_cheer, False)],
             'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False), ('DoubleBiceps', 90, dbl, False), ('BoneCrack', 80, crack, False), ('BowTwirl', 70, twirl, False),
                        ('Hit', 18, hit, False), ('Death', DEATH_LEN, death, False), ('Spawn', 64, a_spawn, False)]}
 CLIPS = CLIPSETS[CFG.get('clips', 'archer')]

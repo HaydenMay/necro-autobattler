@@ -1,14 +1,18 @@
 import { Routes } from '@angular/router';
 import { Home } from './pages/home';
 import { Run } from './pages/run';
+import { Settings } from './pages/settings';
+import { Shop } from './pages/shop';
+import { Souls } from './pages/souls';
 
+// Every page is bundled into main.js on purpose: separately-named chunk files vanish on each deploy, and a phone holding an older main.js then cannot open them.
 // Home is the landing page. The full-screen run lives in App (always mounted, paused when hidden); the /run route only says "show it".
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'home' },
   { path: 'home', component: Home },
   { path: 'run', component: Run },
-  { path: 'souls', loadComponent: () => import('./pages/souls').then((m) => m.Souls) },
-  { path: 'shop', loadComponent: () => import('./pages/shop').then((m) => m.Shop) },
-  { path: 'settings', loadComponent: () => import('./pages/settings').then((m) => m.Settings) },
+  { path: 'souls', component: Souls },
+  { path: 'shop', component: Shop },
+  { path: 'settings', component: Settings },
   { path: '**', redirectTo: 'home' },
 ];

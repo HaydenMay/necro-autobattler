@@ -8,3 +8,13 @@ Set-Location "$PSScriptRoot\shell"
 if (-not (Test-Path node_modules)) { npm install }
 npx ng build 2>&1 | Select-String -Pattern 'ERROR|error|Initial total|complete' | ForEach-Object { $_.Line }
 Remove-Item "$PSScriptRoot\docs\prerendered-routes.json" -ErrorAction SilentlyContinue
+# Cache-busting: stamp every load of our own files with the build time, so a phone can never mix a new index.html with an old main.js / game.js / styles.css
+$stamp = Get-Date -Format 'yyyyMMddHHmmss'
+$enc = New-Object System.Text.UTF8Encoding($false)
+$idx = "$PSScriptRoot\docs\index.html"; $t = [IO.File]::ReadAllText($idx)
+$t = $t -replace 'src="main\.js"', "src=`"main.js?v=$stamp`"" -replace 'href="styles\.css"', "href=`"styles.css?v=$stamp`""
+[IO.File]::WriteAllText($idx, $t, $enc)
+$mj = "$PSScriptRoot\docs\main.js"; $t = [IO.File]::ReadAllText($mj)
+$t = $t.Replace('"game.js"', "`"game.js?v=$stamp`"").Replace("'game.js'", "'game.js?v=$stamp'")
+[IO.File]::WriteAllText($mj, $t, $enc)
+Write-Host "stamped docs with v=$stamp"

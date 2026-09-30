@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, NavigationError, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Backdrop } from './backdrop';
 import { GameLink } from './game-link.service';
 import { SaveService } from './save.service';
@@ -25,7 +25,15 @@ export class App {
   readonly onHome = computed(() => this.url().startsWith('/home'));
 
   constructor() {
-    this.router.events.subscribe((e) => { if (e instanceof NavigationEnd) this.url.set(e.urlAfterRedirects); });
+    this.router.events.subscribe((e) => {
+      if (e instanceof NavigationEnd) this.url.set(e.urlAfterRedirects);
+      // A page opened before an update asks for a part of the app (a chunk file) that the new version renamed: it is gone, so the link seems dead.
+      // Reload once to pick up the current version (at most once a minute, so a real outage cannot loop).
+      if (e instanceof NavigationError && /dynamically imported module|Loading chunk|Importing a module script failed/i.test(String(e.error?.message ?? e.error))) {
+        try { const last = +(sessionStorage.getItem('necro-chunk-reload') || 0); if (Date.now() - last < 60000) return; sessionStorage.setItem('necro-chunk-reload', String(Date.now())); } catch { /* storage blocked: reload anyway */ }
+        location.reload();
+      }
+    });
     // The game loads in the background as soon as the app starts, so Start Battle is instant.
     this.loadGame();
     effect(() => {

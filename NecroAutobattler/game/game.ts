@@ -103,7 +103,7 @@ export class Game {
   /** Debug: keep drawing but stop advancing time, so a moment can be stepped through with frame(dt) and screenshotted. */
   frozen = false;
   step(dt: number) { this.frame(dt); }
-  setActive(on: boolean) { this.active = on; }
+  setActive(on: boolean) { this.active = on; if (on && this.scene) this.scene.particleSystems.filter((p: any) => p.name === 'b').forEach((p: any) => { p.stop(); p.dispose(false); }); }   // bursts made while the game was asleep (a restored run) would hang frozen on screen
 
   // -------------------------------------------------------------------------------------------- inspect (the Souls page's 3D look at one Soul)
   private inspecting: { soul: SoulId; v: UnitVisual; star: number; team: 0 | 1; spin: boolean; hidden: any[]; grid: boolean } | null = null;
@@ -164,7 +164,7 @@ export class Game {
     const ps = new BABYLON.ParticleSystem('b', 60, this.scene); ps.particleTexture = this.A.soft; ps.emitter = new BABYLON.Vector3(x, 0.05, z); ps.minEmitBox = new BABYLON.Vector3(-0.2, 0, -0.2); ps.maxEmitBox = new BABYLON.Vector3(0.2, 0.05, 0.2);
     ps.color1 = new BABYLON.Color4(...(c1 as [number, number, number, number])); ps.color2 = new BABYLON.Color4(...(c2 as [number, number, number, number])); ps.colorDead = new BABYLON.Color4(0.1, 0, 0.2, 0);
     ps.minSize = 0.12; ps.maxSize = 0.34; ps.minLifeTime = 0.4; ps.maxLifeTime = 0.9; ps.emitRate = 0; ps.manualEmitCount = count; ps.direction1 = new BABYLON.Vector3(-1, 1.3, -1); ps.direction2 = new BABYLON.Vector3(1, 2.4, 1);
-    ps.minEmitPower = 0.8; ps.maxEmitPower = 2; ps.gravity = new BABYLON.Vector3(0, -2, 0); ps.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD; ps.targetStopDuration = 1.2; ps.disposeOnStop = true; ps.start();
+    ps.minEmitPower = 0.8; ps.maxEmitPower = 2; ps.gravity = new BABYLON.Vector3(0, -2, 0); ps.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD; ps.targetStopDuration = 1.2; ps.disposeOnStop = false; ps.onStoppedObservable.addOnce(() => ps.dispose(false)); ps.start();   // (dispose(false): the soft texture is shared by every effect)
   }
 
   // -------------------------------------------------------------------------------------------- camera
@@ -385,7 +385,7 @@ export class Game {
     this.burst(x, z, [1, 0.85, 0.4, 0.9], [0.8, 0.4, 1, 0.8], 46); this.burst(x, z, [0.85, 0.6, 1, 0.9], [0.5, 0.3, 1, 0.7], 24);
     this.tween(0.55, (t) => v.holder.scaling.setAll(target * (1 + 0.45 * Math.sin(t * Math.PI) * (1 - t * 0.4))), () => v.holder.scaling.setAll(target));
   }
-  private summonFx(x: number, z: number) { this.vfx.arrive(x, z, 1); this.burst(x, z, [0.7, 0.3, 1, 0.9], [0.35, 0.1, 0.7, 0.8], 30); this.fxRing(x, z, new BABYLON.Color3(0.7, 0.3, 1), 0.2, 1.2, 0.7); }
+  private summonFx(x: number, z: number) { if (!this.active) return; this.vfx.arrive(x, z, 1); this.burst(x, z, [0.7, 0.3, 1, 0.9], [0.35, 0.1, 0.7, 0.8], 30); this.fxRing(x, z, new BABYLON.Color3(0.7, 0.3, 1), 0.2, 1.2, 0.7); }
 
   // ---- player actions (build phase)
   toast(msg: string) { this.ui.toast(msg); }

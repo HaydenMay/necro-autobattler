@@ -26,12 +26,14 @@ export interface UnitVisual {
 
 // ---------------------------------------------------------------------------------------------------- star looks
 // 1 star = the plain model. 2 stars = a little bigger, cool silver-blue tint, brighter aura. 3 stars = biggest, warm gold tint,
-// a big violet flame aura with a glow on the floor. Everything here is free: no extra Tripo generations.
+// a tall violet flame aura streaming off the body, plus embers. Everything here is free: no extra Tripo generations.
 const TINT: number[][] = [[1, 1, 1], [0.86, 0.95, 1.18], [1.25, 1.1, 0.7]];
+// The Necromancer's influence, drawn as energy streaming up off the body: wisps of violet flame hugging the silhouette. Every star adds more of it,
+// brighter and taller; three stars also throw embers. rate x life must stay under the system's capacity (80).
 const AURA = [
-  { rate: 14, min: 0.06, max: 0.16, c1: [0.78, 0.35, 1, 0.7], c2: [0.45, 0.15, 0.9, 0.5] },
-  { rate: 26, min: 0.08, max: 0.20, c1: [0.85, 0.65, 1, 0.8], c2: [0.55, 0.4, 1, 0.6] },
-  { rate: 48, min: 0.12, max: 0.28, c1: [0.92, 0.45, 1, 0.95], c2: [0.5, 0.15, 1, 0.85] },
+  { rate: 14, min: 0.07, max: 0.13, sy: 2.0, life: [0.6, 0.9], power: [0.35, 0.7], w: 1.15, h: 0.8, c1: [0.78, 0.38, 1, 0.6], c2: [0.42, 0.14, 0.92, 0.45], embers: 0 },
+  { rate: 26, min: 0.09, max: 0.17, sy: 2.3, life: [0.65, 1.0], power: [0.45, 0.9], w: 1.22, h: 0.9, c1: [0.92, 0.5, 1, 0.8], c2: [0.55, 0.2, 1, 0.65], embers: 0 },
+  { rate: 40, min: 0.11, max: 0.2, sy: 2.6, life: [0.7, 1.1], power: [0.55, 1.1], w: 1.3, h: 1.0, c1: [1, 0.68, 1, 0.95], c2: [0.62, 0.22, 1, 0.8], embers: 12 },
 ];
 
 export interface Assets {
@@ -53,8 +55,13 @@ export async function loadAssets(scene: any): Promise<Assets> {
   const soft = dyn(scene, 64, 64, (c) => { const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.4, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); });
   const starTex = [1, 2, 3].map((n) => dyn(scene, 192, 48, (c) => { c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.lineWidth = 5; c.strokeStyle = '#1a1020'; c.fillStyle = n === 3 ? '#ffd24a' : n === 2 ? '#d7e6ff' : '#f0d9a0'; const s = '★'.repeat(n); c.strokeText(s, 96, 38); c.fillText(s, 96, 38); }));
   const emissive = (r: number, g: number, b: number, a = 1) => { const m = new BABYLON.StandardMaterial('em', scene); m.diffuseColor = BABYLON.Color3.Black(); m.emissiveColor = new BABYLON.Color3(r, g, b); m.disableLighting = true; m.alpha = a; return m; };
+  const ringTex = dyn(scene, 128, 128, (c) => {                       // thin bright rim, faint centre: a magic circle, not a spotlight
+    const g = c.createRadialGradient(64, 64, 0, 64, 64, 62); g.addColorStop(0, 'rgba(255,255,255,0.03)'); g.addColorStop(0.78, 'rgba(255,255,255,0.08)'); g.addColorStop(0.86, 'rgba(255,255,255,0.95)'); g.addColorStop(0.93, 'rgba(255,255,255,0.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = g; c.fillRect(0, 0, 128, 128);
+  });
+  const ringM = (r: number, g: number, b: number) => { const m = new BABYLON.StandardMaterial('ringm', scene); m.disableLighting = true; m.emissiveColor = new BABYLON.Color3(r, g, b); m.diffuseTexture = ringTex; m.useAlphaFromDiffuseTexture = true; m.backFaceCulling = false; return m; };
   const A: Assets = {
-    scene, soft, lvTex: {}, starTex, tripo: {}, emote: {}, ringMat: [emissive(0.55, 0.2, 0.95, 0.9), emissive(0.95, 0.25, 0.2, 0.9)], haloMat: emissive(1, 0.82, 0.3, 0.95),
+    scene, soft, lvTex: {}, starTex, tripo: {}, emote: {}, ringMat: [ringM(0.62, 0.28, 1), ringM(1, 0.3, 0.25)], haloMat: emissive(1, 0.82, 0.3, 0.95),
     barBg: emissive(0.05, 0.05, 0.08, 0.7), barFill: [emissive(0.55, 0.35, 1), emissive(1, 0.4, 0.3)], manaFill: emissive(0.25, 0.75, 1),
   };
   // "Zzz" that floats up over a sleepy unit
@@ -85,7 +92,7 @@ export async function loadAssets(scene: any): Promise<Assets> {
 
 // ---------------------------------------------------------------------------------------------------- shared decoration
 class Deco {
-  private ps: any = null; private glow: any = null; private badge: any; private stars: any; private fill: any; private bar: any; private mbg: any; private mfill: any; private ring: any;
+  private ps: any = null; private ps2: any = null; private anchor: any = null; private badge: any; private stars: any; private fill: any; private bar: any; private mbg: any; private mfill: any; private ring: any;
   constructor(private A: Assets, private parent: any, private top: number, private radius: number) {
     const s = A.scene;
     this.ring = BABYLON.MeshBuilder.CreateDisc('ring', { radius: Math.max(0.3, radius * 1.15), tessellation: 26 }, s); this.ring.rotation.x = Math.PI / 2; this.ring.position.y = 0.02; this.ring.parent = parent; this.ring.isPickable = false;
@@ -126,27 +133,32 @@ class Deco {
   set(team: 0 | 1, star: number) {
     const s = this.A.scene, cfg = AURA[star - 1];
     (this.stars as any)._sm.diffuseTexture = this.A.starTex[star - 1];
-    this.ring.material = this.A.ringMat[team]; this.fill.material = this.A.barFill[team];
-    if (team === 0) {                                   // raised by the Necromancer: purple aura that grows with stars
-      if (!this.ps) {
-        const ps = new BABYLON.ParticleSystem('aura', 70, s); ps.particleTexture = this.A.soft; ps.emitter = this.parent; ps.minEmitBox = new BABYLON.Vector3(-0.2, 0, -0.2); ps.maxEmitBox = new BABYLON.Vector3(0.2, this.top * 0.5, 0.2);
-        ps.minLifeTime = 0.5; ps.maxLifeTime = 1.1; ps.direction1 = new BABYLON.Vector3(-0.15, 0.8, -0.15); ps.direction2 = new BABYLON.Vector3(0.15, 1.5, 0.15);
-        ps.minEmitPower = 0.35; ps.maxEmitPower = 0.8; ps.gravity = new BABYLON.Vector3(0, 0.4, 0); ps.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD; this.ps = ps;
-      }
-      const p = this.ps; p.emitRate = cfg.rate; p.minSize = cfg.min; p.maxSize = cfg.max; p.color1 = new BABYLON.Color4(...cfg.c1); p.color2 = new BABYLON.Color4(...cfg.c2); p.colorDead = new BABYLON.Color4(0.2, 0, 0.4, 0);
-      if (!p.isStarted()) p.start();
-    } else if (this.ps && this.ps.isStarted()) this.ps.stop();
-    if (star >= 3) {                                    // three stars: a wide violet flame round the unit and a glow pooled on the floor (no halo)
-      if (this.ps) { this.ps.minEmitBox = new BABYLON.Vector3(-0.42, 0, -0.42); this.ps.maxEmitBox = new BABYLON.Vector3(0.42, this.top * 0.7, 0.42); this.ps.minEmitPower = 0.5; this.ps.maxEmitPower = 1.3; this.ps.gravity = new BABYLON.Vector3(0, 0.9, 0); this.ps.maxLifeTime = 1.25; }
-      if (!this.glow) {
-        const g = BABYLON.MeshBuilder.CreateDisc('glow', { radius: 1.05, tessellation: 28 }, s); g.rotation.x = Math.PI / 2; g.position.y = 0.035; g.parent = this.parent; g.isPickable = false;
-        const gm = new BABYLON.StandardMaterial('glowm', s); gm.disableLighting = true; gm.emissiveColor = new BABYLON.Color3(0.75, 0.25, 1); gm.diffuseTexture = this.A.soft; gm.useAlphaFromDiffuseTexture = true; gm.alpha = 1; gm.alphaMode = BABYLON.Engine.ALPHA_ADD; gm.backFaceCulling = false; g.material = gm; this.glow = g;
-      }
-      this.glow.setEnabled(true);
-    } else {
-      if (this.ps) { this.ps.minEmitBox = new BABYLON.Vector3(-0.2, 0, -0.2); this.ps.maxEmitBox = new BABYLON.Vector3(0.2, this.top * 0.5, 0.2); this.ps.minEmitPower = 0.35; this.ps.maxEmitPower = 0.8; this.ps.gravity = new BABYLON.Vector3(0, 0.4, 0); this.ps.maxLifeTime = 1.1; }
-      if (this.glow) this.glow.setEnabled(false);
+    this.ring.material = this.A.ringMat[team]; this.fill.material = this.A.barFill[team]; this.team0 = team === 0;
+    if (team === 0) this.aura(star); else { if (this.ps && this.ps.isStarted()) this.ps.stop(); if (this.ps2 && this.ps2.isStarted()) this.ps2.stop(); }
+  }
+  /** Flames hugging the body (tall soft wisps), plus embers at 3 stars. */
+  private aura(star: number) {
+    const s = this.A.scene, cfg = AURA[star - 1], R = Math.max(0.26, this.radius) * 0.95, H = this.top; const C4 = (c: number[]) => new BABYLON.Color4(c[0], c[1], c[2], c[3]);
+    if (!this.anchor) { this.anchor = new BABYLON.TransformNode('auraAnchor', s); this.anchor.parent = this.parent; }
+    this.anchor.position.y = H * 0.5;
+    if (!this.ps) {
+      const ps = new BABYLON.ParticleSystem('aura', 80, s); ps.particleTexture = this.A.soft; ps.emitter = this.anchor; ps.isLocal = true; ps.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+      this.ps = ps;      // (normal camera-facing sprites stretched taller than wide: the velocity-stretched mode drew one screen-sized sheet on some GPUs)
     }
+    const p = this.ps, sp = { r: R * cfg.w, h: H * cfg.h };
+    // start on the body's shell (a cylinder surface, feet to head) and radiate OUT from it, curling upward: energy pouring off the body, which also reads from the top-down build camera
+    p.particleEmitterType = new BABYLON.CylinderParticleEmitter(sp.r, sp.h, 0, 0.25); p.gravity = new BABYLON.Vector3(0, 0.55, 0);
+    p.emitRate = cfg.rate; p.minSize = cfg.min; p.maxSize = cfg.max; p.minScaleX = 0.7; p.maxScaleX = 1; p.minScaleY = cfg.sy * 0.85; p.maxScaleY = cfg.sy * 1.15; p.minLifeTime = cfg.life[0]; p.maxLifeTime = cfg.life[1];
+    p.minEmitPower = cfg.power[0]; p.maxEmitPower = cfg.power[1]; p.color1 = C4(cfg.c1); p.color2 = C4(cfg.c2); p.colorDead = new BABYLON.Color4(0.25, 0.04, 0.5, 0);
+    if (!p.isStarted()) p.start();
+    if (cfg.embers) {
+      if (!this.ps2) {
+        const e = new BABYLON.ParticleSystem('embers', 24, s); e.particleTexture = this.A.soft; e.emitter = this.anchor; e.isLocal = true; e.blendMode = BABYLON.ParticleSystem.BLENDMODE_ADD;
+        e.minSize = 0.04; e.maxSize = 0.09; e.minLifeTime = 1.2; e.maxLifeTime = 2.0; e.minEmitPower = 0.25; e.maxEmitPower = 0.6; e.direction1 = new BABYLON.Vector3(-0.3, 1, -0.3); e.direction2 = new BABYLON.Vector3(0.3, 1.4, 0.3);
+        e.gravity = new BABYLON.Vector3(0, 0.15, 0); e.color1 = new BABYLON.Color4(1, 0.85, 1, 1); e.color2 = new BABYLON.Color4(0.85, 0.5, 1, 0.9); e.colorDead = new BABYLON.Color4(0.4, 0.1, 0.8, 0); this.ps2 = e;
+      }
+      this.ps2.emitRate = cfg.embers; this.ps2.minEmitBox = new BABYLON.Vector3(-sp.r * 1.1, -sp.h * 0.5, -sp.r * 1.1); this.ps2.maxEmitBox = new BABYLON.Vector3(sp.r * 1.1, sp.h * 0.4, sp.r * 1.1); if (!this.ps2.isStarted()) this.ps2.start();
+    } else if (this.ps2 && this.ps2.isStarted()) this.ps2.stop();
   }
   setHp(f: number | null) {
     const on = f !== null; this.bar.setEnabled(on); this.fill.setEnabled(on); this.barOn = on; if (this.lv) this.lv.setEnabled(on && this.lvN > 0);
@@ -156,10 +168,10 @@ class Deco {
     const on = f !== null; this.mbg.setEnabled(on); this.mfill.setEnabled(on);
     if (on) { const k = Math.max(0.001, f as number); this.mfill.scaling.x = k; this.mfill.position.x = -(0.56 * (1 - k)) / 2; }
   }
-  setAura(on: boolean) { if (this.ps) { if (on && !this.ps.isStarted()) this.ps.start(); if (!on && this.ps.isStarted()) this.ps.stop(); } }
-  update(dt: number) { if (this.glow && this.glow.isEnabled()) { this.glowT += dt; this.glow.scaling.setAll(1 + 0.08 * Math.sin(this.glowT * 3)); } }
-  private glowT = 0;
-  dispose() { if (this.ps) { this.ps.stop(); this.ps.dispose(); } [this.glow, this.ring, this.stars, this.bar, this.fill, this.mbg, this.mfill].forEach((m) => m && m.dispose()); this.badge.dispose(); }
+  setAura(on: boolean) { for (const q of [this.ps, this.ps2]) if (q && (this.team0 || q === this.ps)) { if (on && !q.isStarted() && this.team0) q.start(); if (!on && q.isStarted()) q.stop(); } }
+  private team0 = false;
+  update(_dt: number) { /* the flames animate themselves */ }
+  dispose() { if (this.ps) { this.ps.stop(); this.ps.dispose(false); } if (this.ps2) { this.ps2.stop(); this.ps2.dispose(false); } if (this.anchor) this.anchor.dispose(); [this.ring, this.stars, this.bar, this.fill, this.mbg, this.mfill].forEach((m) => m && m.dispose()); this.badge.dispose(); }
 }
 
 // ---------------------------------------------------------------------------------------------------- real models

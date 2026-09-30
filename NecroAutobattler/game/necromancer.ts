@@ -54,5 +54,5 @@ export class Necromancer {
     this.ps.emitRate = this.downed ? 6 : (this.busy && this.cur === this.anims['Cast'] ? 110 : 30);
   }
 
-  dispose() { this.ps.stop(); this.ps.dispose(); this.ent.animationGroups.forEach((g: any) => g.dispose()); this.ent.skeletons.forEach((s: any) => s.dispose()); this.holder.getChildMeshes().forEach((m: any) => m.dispose()); this.holder.dispose(); }
+  dispose() { this.ps.stop(); this.ps.dispose(false); this.ent.animationGroups.forEach((g: any) => g.dispose()); this.ent.skeletons.forEach((s: any) => s.dispose()); this.holder.getChildMeshes().forEach((m: any) => m.dispose()); this.holder.dispose(); }
 }

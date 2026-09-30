@@ -107,5 +107,23 @@
       0,
       0
     ]
+  },
+  "helmet": {
+    "zmax_over": 0.78
+  },
+  "weapon2": {
+    "glb": "../input/warrior/shield.glb",
+    "hand": "L",
+    "mirror": false,
+    "rotate_deg": [
+      0,
+      0,
+      0
+    ],
+    "offset": [
+      0.03,
+      -0.07,
+      0.03
+    ]
   }
 }

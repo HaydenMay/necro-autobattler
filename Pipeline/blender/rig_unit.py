@@ -185,6 +185,7 @@ bone('Spine', LM['spine'], LM['chest'], 'Hips')
 bone('Chest', LM['chest'], LM['neck'], 'Spine')
 bone('Neck', LM['neck'], LM['head'], 'Chest')
 bone('Head', LM['head'], LM['head_top'], 'Neck')
+if CFG.get('helmet'): bone('Helmet', LM['head'], LM['head'] + Vector((0, 0, 0.1)), 'Head')      # a helmet that can slip: its pieces get their own bone
 for s, sx in (('L', 1), ('R', -1)):
     f = (lambda v: v) if sx == 1 else mir
     bone(f'UpperArm.{s}', f(LM['shoulder']), f(LM['elbow']), 'Chest')
@@ -315,7 +316,7 @@ if AUTO:
             nz_ += 1
     log('unweighted vertices given bones by piece:', nz_)
 else:
-    names = BODY_BONES
+    names = [n_ for n_ in BODY_BONES if n_ != 'Helmet']
     A = np.array([B[n]['head'][:] for n in names]); Bb = np.array([B[n]['tail'][:] for n in names])
     co = verts_np(body); D = seg_dist(co, A, Bb)
     ids, nisl = island_ids(body)
@@ -339,6 +340,15 @@ else:
         vg = body.vertex_groups.new(name=n)
         for vi in np.nonzero(W[:, j] > 1e-3)[0]: vg.add([int(vi)], float(W[vi, j]), 'REPLACE')
 
+
+HELM = CFG.get('helmet')
+if HELM:
+    # the helmet is every loose piece that reaches above zmax_over: bind those vertices 100% to the Helmet bone (and nothing else)
+    ids_h, n_h = island_ids(body); co_h = verts_np(body); zmax_h = np.array([co_h[ids_h == i_, 2].max() for i_ in range(n_h)])
+    hv = [int(v_) for v_ in np.nonzero(zmax_h[ids_h] > HELM['zmax_over'])[0]]
+    if 'Helmet' not in body.vertex_groups: body.vertex_groups.new(name='Helmet')
+    for g_ in body.vertex_groups: g_.remove(hv)
+    body.vertex_groups['Helmet'].add(hv, 1.0, 'REPLACE'); log('helmet: bound', len(hv), 'vertices to the Helmet bone')
 
 def rigid_group(o, bone_name):
     vg = o.vertex_groups.new(name=bone_name); vg.add(list(range(len(o.data.vertices))), 1.0, 'REPLACE')
@@ -411,17 +421,23 @@ def set_pose(name, off=(0, 0, 0), rot=(0, 0, 0)):
 WRIST_L, WRIST_R = LM['wrist'], mir(LM['wrist'])
 def apply(p):
     d = dict(root_off=(0, 0, 0), root_rot=(0, 0, 0), hips_off=(0, 0, 0), hips_rot=(0, 0, 0), spine_rot=(0, 0, 0), chest_rot=(0, 0, 0), neck_rot=(0, 0, 0), head_rot=(0, 0, 0),
-             hand_L=tuple(WRIST_L), hand_R=tuple(WRIST_R), rot_L=(0, 0, 0), rot_R=(0, 0, 0), foot_L=(0, 0, 0), foot_R=(0, 0, 0), pull=0.0, nock=0.0)
+             hand_L=tuple(WRIST_L), hand_R=tuple(WRIST_R), rot_L=(0, 0, 0), rot_R=(0, 0, 0), foot_L=(0, 0, 0), foot_R=(0, 0, 0), pull=0.0, nock=0.0, helm_off=(0, 0, 0), helm_rot=(0, 0, 0), weap=None)
     d.update(p)
     set_pose('Root', d['root_off'], d['root_rot']); set_pose('Hips', d['hips_off'], d['hips_rot'])
     set_pose('Spine', (0, 0, 0), d['spine_rot']); set_pose('Chest', (0, 0, 0), d['chest_rot']); set_pose('Neck', (0, 0, 0), d['neck_rot']); set_pose('Head', (0, 0, 0), d['head_rot'])
     set_pose('IK_Hand.L', Vector(d['hand_L']) - WRIST_L, d['rot_L']); set_pose('IK_Hand.R', Vector(d['hand_R']) - WRIST_R, d['rot_R'])
     set_pose('IK_Foot.L', d['foot_L']); set_pose('IK_Foot.R', d['foot_R'])
+    if 'Helmet' in PB: set_pose('Helmet', d['helm_off'], d['helm_rot'])
+    if 'Socket_Weapon' in PB:
+        pbw = PB['Socket_Weapon']; pbw.location = (0, 0, 0); pbw.rotation_quaternion = (1, 0, 0, 0); bpy.context.view_layer.update()
+        if d['weap'] is not None: pbw.matrix = d['weap']; bpy.context.view_layer.update()     # dropped: the sword follows its own world matrix, not the hand
     if 'Nock_Arrow' in PB:
         s = 1.0 if d['nock'] > 0.5 else 0.001; PB['Nock_Arrow'].scale = (s, s, s)
     if 'StringNock' in PB: PB['StringNock'].constraints['StringPull'].influence = d['pull']
 CTRL = ['IK_Hand.L', 'IK_Hand.R', 'IK_Foot.L', 'IK_Foot.R']; POLES = [f'Pole_{k}.{s}' for k in ('Elbow', 'Knee') for s in 'LR']
 ORDER = ['Root', 'Hips', 'Spine', 'Chest', 'Neck', 'Head'] + CTRL
+for n_ in ('Helmet', 'Socket_Weapon'):
+    if n_ in PB: ORDER.append(n_)
 EXPORT_BONES = [b.name for b in arm.data.bones if not b.name.startswith(('IK_', 'Pole_'))]
 def key(f):
     for n in ORDER:
@@ -584,7 +600,37 @@ def w_death(f):
     d['foot_L'] = vl((0, 0, 0), (0.03, 0.02, 0.03), e); d['foot_R'] = vl((0, 0, 0), (-0.03, 0.05, 0.02), e)
     if f > 27: s_ = min(1.0, (f - 27) / 6); d['root_off'] = va(d['root_off'], (0, 0, 0.012 * math.sin(s_ * math.pi) * (1 - s_)))
     return d
-def w_spawn(f): return w_death(DEATH_LEN - f)
+def wmat(pose):   # where the right-hand weapon is (world matrix) when the character holds this pose
+    apply(pose); return PB['Socket_Weapon'].matrix.copy()
+def wmix(m0, m1, t, hop=0.0):   # a world-space blend between two weapon matrices (falls with gravity feel; hop = a little bounce height)
+    l0, q0, _s0 = m0.decompose(); l1, q1, s1 = m1.decompose(); e = t * t
+    loc = l0.lerp(l1, e); loc.z += hop; q = q0.slerp(q1, min(1.0, t * 1.4)); return Matrix.Translation(loc) @ q.to_matrix().to_4x4() @ Matrix.Diagonal((*s1, 1.0))
+WGROUND = dict(hand_R=V(-0.30, -0.27, 0.05), rot_R=(92, 0, 0))     # where he holds the sword when it is lying on the ground
+def w_spawn(f, n=64):   # rises from the dead, and his helmet promptly slides over his eyes; he shoves it back up with the shield arm
+    d = dict(w_death(DEATH_LEN - f)) if f <= DEATH_LEN else dict(w_idle(0))
+    dn = seg(f, 33, 40) * (1 - seg(f, 53, 59)); blind = dn * (1 - seg(f, 46, 52)); push = seg(f, 46, 51) * (1 - seg(f, 58, 64))
+    d['helm_off'] = (0, -0.012 * dn, -0.085 * dn); d['helm_rot'] = (26 * dn, 0, 4 * math.sin(f * 0.9) * blind)
+    d['head_rot'] = va(d.get('head_rot', (0, 0, 0)), (8 * dn, 0, 12 * math.sin(f * 0.8) * blind))
+    if push > 0: d['hand_L'] = vl(d.get('hand_L', WL), V(0.06, -0.20, 0.70), push); d['rot_L'] = (0, 0, 0)
+    return d
+def w_fumble(f, n=130):   # tosses his sword up to admire it, fumbles the catch, it clatters to the floor, he shrugs and crouches to pick it up
+    p = f / n; raised = dict(hand_R=V(-0.20, -0.20, 0.64), rot_R=(0, 0, 0)); m0 = wmat(raised); m1 = wmat(WGROUND)
+    up = seg(p, .08, .20) * (1 - seg(p, .24, .30)); lost = seg(p, .22, .36)          # hand goes up; the sword leaves it at p .22
+    look = seg(p, .22, .34) * (1 - seg(p, .70, .82)); shrug = seg(p, .40, .50) * (1 - seg(p, .56, .64)); low = seg(p, .56, .70) * (1 - seg(p, .84, .94))
+    grab = seg(p, .68, .76); rise = seg(p, .80, .94)
+    hr = vl(WR, raised['hand_R'], up); hr = vl(hr, V(-0.25, -0.22, 0.60), seg(p, .24, .30) * (1 - seg(p, .34, .44)) * 0.6 + 0 * up)
+    hr = vl(hr, WGROUND['hand_R'], low * grab + low * 0.0) if p > .5 else hr
+    rot = lerp(WR0, 0, up); rot = lerp(rot, 92, low)
+    d = dict(hand_R=hr, rot_R=(rot, 0, 0), chest_rot=(-4 * up + 30 * low - 8 * shrug, 0, 0), hips_off=(0, 0, -0.10 * low), foot_L=(0, -0.03 * low, 0), foot_R=(0, 0.05 * low, 0),
+             head_rot=(-6 * up + 22 * look, 0, 10 * shrug * math.sin(p * 40)), hand_L=vl(WL, V(0.30, -0.10, 0.52), shrug))
+    if 0.22 <= p < 0.76:
+        t = min(1.0, (p - 0.22) / 0.14); hop = 0.05 * math.sin(max(0.0, min(1.0, (p - 0.36) / 0.08)) * math.pi)
+        d['weap'] = wmix(m0, m1, t, hop) if t < 1 else m1
+    return d
+def w_shieldbonk(f, n=84):   # peeks over his shield, gets impatient and bonks the shield straight into his own helmet
+    p = f / n; up = seg(p, .06, .22) * (1 - seg(p, .70, .88)); hit = seg(p, .34, .40) * (1 - seg(p, .40, .50)); wob = math.sin(p * 2 * math.pi * 5) * seg(p, .40, .48) * (1 - seg(p, .74, .92))
+    return dict(hand_L=vl(WL, V(0.06, -0.20, 0.72), up), rot_L=(0, 0, 0), hand_R=WR, rot_R=(WR0, 0, 0), head_rot=(-4 * up + 20 * hit, 0, 8 * wob), chest_rot=(-3 * up + 5 * hit, 0, 3 * wob),
+                helm_off=(0, -0.01 * hit, -0.05 * hit + 0.012 * wob), helm_rot=(18 * hit + 6 * wob, 0, 10 * wob), hips_off=(0, 0, -0.02 * hit))
 def w_trip(f, n=80):   # catches a toe, pitches forward with flailing arms, wobbles, pops back up and pretends nothing happened
     p = f / n; step = seg(p, .08, .22) * (1 - seg(p, .22, .34)); fall = seg(p, .20, .44) * (1 - seg(p, .56, .78)); fl = math.sin(p * 2 * math.pi * 5) * fall
     hop = math.sin(seg(p, .74, .88) * math.pi) * 0.03
@@ -857,7 +903,7 @@ CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('R
                           ('Spawn', DEATH_LEN, b_spawn, False), ('Roar', 84, b_roar, False), ('ChestBeat', 90, b_chest, False), ('Stomp', 72, b_stomp, False), ('Cheer', 64, b_cheer, False)],
             'necro': [('Idle', 72, n_idle, True), ('Cast', 34, n_cast, False), ('Hurt', 24, n_hurt, False), ('Down', 40, n_down, False), ('Revive', 40, n_revive, False), ('Tap', 66, n_tap, False), ('Cheer', 64, n_cheer, False)],
             'warrior': [('Idle', 60, w_idle, True), ('Walk', 32, w_walk, True), ('Run', 20, w_run, True), ('Attack', 36, w_slash, False), ('Hit', 18, w_hit, False), ('Death', DEATH_LEN, w_death, False),
-                        ('Spawn', DEATH_LEN, w_spawn, False), ('Trip', 80, w_trip, False), ('Bonk', 75, w_bonk, False), ('Wobble', 90, w_wobble, False), ('Wave', 64, w_wave, False), ('Cheer', 60, w_cheer, False)],
+                        ('Spawn', 64, w_spawn, False), ('Fumble', 130, w_fumble, False), ('ShieldBonk', 84, w_shieldbonk, False), ('Trip', 80, w_trip, False), ('Bonk', 75, w_bonk, False), ('Wobble', 90, w_wobble, False), ('Wave', 64, w_wave, False), ('Cheer', 60, w_cheer, False)],
             'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False), ('DoubleBiceps', 90, dbl, False), ('BoneCrack', 80, crack, False), ('BowTwirl', 70, twirl, False),
                        ('Hit', 18, hit, False), ('Death', DEATH_LEN, death, False), ('Spawn', DEATH_LEN, spawn, False)]}
 CLIPS = CLIPSETS[CFG.get('clips', 'archer')]

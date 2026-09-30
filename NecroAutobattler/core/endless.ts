@@ -18,7 +18,7 @@ export const ENDLESS_PACK_EVERY = 10;
 const MAX_UNITS = 12;
 
 /** The tuning knobs (sim/endless_curve.ts sweeps them). */
-export const TUNE = { start: 5, slope: 3.0, lateSlope: 0.8, maxBudget: 150, powerSlope: 0.03, champion: 1.0 };
+export const TUNE = { start: 5, slope: 3.0, lateSlope: 0.8, maxBudget: 150, powerSlope: 0.012, champion: 1.0 };
 /** Total Dominion cost of the enemy team at wave `n` (1-based): a gentle start (about the Normal campaign by wave 10), then it keeps rising. */
 export function endlessBudget(n: number): number {
   const w = Math.max(1, n), early = TUNE.start + TUNE.slope * (Math.min(w, 10) - 1);

@@ -5,6 +5,7 @@ import { SOUL_NAME } from '../../../../core/balance.ts';
 import { PROTOTYPE_RULES } from '../../../../core/prototype.ts';
 import { DIFFICULTY_INFO, STAGES, stageById } from '../../../../core/waves.ts';
 import { ENDLESS_ID } from '../../../../core/endless.ts';
+import { DAILY_ID, dayNumber, modifierFor } from '../../../../core/daily.ts';
 import { REWARDS, describeUnlock } from '../../../../core/progress.ts';
 import type { Difficulty } from '../../../../core/save.ts';
 import { GameLink } from '../game-link.service';
@@ -93,7 +94,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
         <div class="hero"><img class="necro" src="assets/portraits/necromancer_banner.png" alt="" draggable="false"><div class="heroimg" [style.background-image]="mood" [style.background-position]="look().pos" [style.filter]="'hue-rotate(' + look().hue + 'deg) saturate(1.2)'"></div>
           <div class="herotxt"><h2>{{ heroName() }}</h2><div class="sub">{{ heroBlurb() }}</div></div></div>
         <div class="in">
-        @if (endlessRun()) { <div class="blurb" style="margin:6px 0 2px">This run: Endless Depths. Finish or start over to change it. A Soul Pack for every 10 waves cleared.</div> } @else {
+        @if (endlessRun()) { <div class="blurb" style="margin:6px 0 2px">This run: Endless Depths. Finish or start over to change it. A Soul Pack for every 10 waves cleared.</div> } @else if (dailyRun()) { <div class="blurb" style="margin:6px 0 2px">This run: the Daily Challenge. Finish or start over to change it. Win it once a day for a Soul Pack and gold.</div> } @else {
         <div class="path">
           @for (w of waves; track w) {
             @if (w > 1) { <span class="link" [class.done]="w <= current()"></span> }
@@ -153,7 +154,13 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
           </span>
         </button>
         <div class="box rp"><span>Bonus pack</span><span class="meter"><i [style.width.%]="(100 * save.replayMeter()) / replayNeeded"></i></span><span>{{ save.replayMeter() }}/{{ replayNeeded }} clears</span></div>
-        <div class="box more" style="opacity:.55"><b>More stages</b> <span class="tag soon">coming</span><div style="font-size:.9em;margin-top:3px">New enemies, bosses and first-clear Soul Packs.</div></div>
+        <button class="sc endl" [style.--ac]="lookOf('crypt').accent" [class.sel]="dailyRun()" [disabled]="!!run() && !dailyRun()" [title]="todayMod.name + ': ' + todayMod.text" (click)="startDaily()">
+          <span class="th" [style.background-image]="mood" [style.background-position]="lookOf('graveyard').pos" [style.filter]="'hue-rotate(' + lookOf('graveyard').hue + 'deg) saturate(1.25) brightness(1.35)'"></span>
+          <span class="tx"><b>Daily Challenge</b>
+            <small>{{ todayMod.name }}: {{ todayMod.text }}</small>
+            <div class="marks"><span class="mark" [title]="todayMod.text">{{ todayMod.name }}</span><span class="mark">{{ dailyRun() ? 'Run in progress' : save.dailyDoneToday() ? 'Done today' : 'Reward: a pack + gold' }}</span>@if (save.dailyDoneToday() && !dailyRun()) { <span class="mark">Play again for fun</span> }</div>
+          </span>
+        </button>
       </div>
     </div>
     @if (fresh().length) {
@@ -191,14 +198,17 @@ export class Home implements OnDestroy {
   private tick = signal(0);
   run = computed(() => { this.tick(); return this.link.runInfo(); });
   /** While a run is going Home shows THAT run's stage and tier; otherwise what will start next. */
-  shownStage = computed(() => this.run()?.stage ?? this.save.stage());
-  shown = computed(() => (this.run()?.difficulty ?? this.save.difficulty()) as Difficulty);
+  shownStage = computed(() => (this.dailyRun() ? 'crypt' : this.run()?.stage ?? this.save.stage()));
+  shown = computed(() => (this.dailyRun() ? 'normal' : this.run()?.difficulty ?? this.save.difficulty()) as Difficulty);
+  /** True while the run in progress is today's (or an earlier day's) Daily Challenge. */
+  dailyRun = computed(() => this.run()?.stage === DAILY_ID);
+  todayMod = modifierFor(dayNumber());
   /** True while the run in progress is an Endless Depths run (Home then shows that instead of a stage and tier). */
   endlessRun = computed(() => this.run()?.stage === ENDLESS_ID);
   lastStageName = STAGES[STAGES.length - 1].name;
   stageDef = computed(() => stageById(this.shownStage()));
-  heroName = computed(() => (this.endlessRun() ? 'Endless Depths' : this.stageDef().name));
-  heroBlurb = computed(() => (this.endlessRun() ? 'No last wave. The enemy keeps growing: how deep can you go?' : this.stageDef().blurb));
+  heroName = computed(() => (this.endlessRun() ? 'Endless Depths' : this.dailyRun() ? 'Daily Challenge' : this.stageDef().name));
+  heroBlurb = computed(() => (this.endlessRun() ? 'No last wave. The enemy keeps growing: how deep can you go?' : this.dailyRun() ? this.todayMod.name + ': ' + this.todayMod.text : this.stageDef().blurb));
   rec = computed(() => this.stageDef().rec[this.shown()]);
   deckAvg = computed(() => { const d = this.save.deck(); return d.reduce((n, s) => n + this.save.progress(s).level, 0) / Math.max(1, d.length); });
   blurb = computed(() => DIFFICULTY_INFO.find((d) => d.id === this.shown())?.blurb ?? '');
@@ -226,12 +236,19 @@ export class Home implements OnDestroy {
     if (!this.deckOk() || !this.link.ready()) { this.say('Equip ' + this.save.deckSize + ' Souls to start.'); return; }
     this.link.newEndless(); this.router.navigateByUrl('/run');
   }
+  /** Daily Challenge: start today's run, or go back into the one in progress. Replays are fine; the reward comes once per day. */
+  startDaily() {
+    if (this.dailyRun()) { this.resume(); return; }
+    if (this.run()) return;
+    if (!this.deckOk() || !this.link.ready()) { this.say('Equip ' + this.save.deckSize + ' Souls to start.'); return; }
+    this.link.newDaily(); this.router.navigateByUrl('/run');
+  }
   start() { if (!this.deckOk() || !this.link.ready()) return; this.link.newRun(); this.router.navigateByUrl('/run'); }
   resume() { this.router.navigateByUrl('/run'); }
   confirmRestart() {
     if (!this.confirming()) { this.confirming.set(true); setTimeout(() => this.confirming.set(false), 3000); return; }
     if (!this.deckOk()) { this.confirming.set(false); return; }
-    if (this.endlessRun()) this.link.newEndless(); else this.link.newRun();
+    if (this.endlessRun()) this.link.newEndless(); else if (this.dailyRun()) this.link.newDaily(); else this.link.newRun();
     this.router.navigateByUrl('/run');
   }
 }

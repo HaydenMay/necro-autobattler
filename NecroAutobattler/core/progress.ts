@@ -57,7 +57,7 @@ export const levelMult = (level: number, stat: 'hp' | 'dmg'): number => 1 + (Mat
 // ------------------------------------------------------------------------------------------------ gold
 export const GOLD = { tierMult: { easy: 0.6, normal: 1, hard: 1.4, nightmare: 2 } as Record<Difficulty, number>, packPerTier: 15, dailyWin: 50 };
 /** Gold for clearing one campaign wave: more in later stages and on harder tiers. */
-export const waveGold = (stage: string, tier: Difficulty): number => Math.max(1, Math.round((6 + 2 * stageIndex(stage)) * GOLD.tierMult[tier]));
+export const waveGold = (stage: string, tier: Difficulty | string): number => Math.max(1, Math.round((6 + 2 * stageIndex(stage)) * (GOLD.tierMult[tier as Difficulty] ?? 1)));
 /** Gold for clearing one Endless wave. */
 export const endlessWaveGold = (wave: number): number => 8 + Math.floor(0.6 * Math.max(1, wave));
 /** Gold for opening a pack that finished at `tier`. */
@@ -98,6 +98,18 @@ function recordClearBase(save: Save, stageId: string, difficulty: Difficulty): O
 export function recordClearAndSave(stageId: string, difficulty: Difficulty, store?: Store | null): ClearReward {
   const s = loadSave(store); const r = recordClear(s, stageId, difficulty); writeSave(s, store); return r;
 }
+
+// ------------------------------------------------------------------------------------------------ Daily Challenge
+export interface DailyReward { first: boolean; pack: PackItem | null; gold: number }
+/** The day's challenge was won. Only the first win of a given day pays (a Tier 1 pack and some gold). */
+export function recordDailyWin(save: Save, day: number): DailyReward {
+  if (save.daily && save.daily.day === day && save.daily.won) return { first: false, pack: null, gold: 0 };
+  save.daily = { day, won: true };
+  return { first: true, pack: grantPack(save, 1, 'Daily challenge'), gold: addGold(save, GOLD.dailyWin) };
+}
+export function recordDailyWinAndSave(day: number, store?: Store | null): DailyReward { const s = loadSave(store); const r = recordDailyWin(s, day); writeSave(s, store); return r; }
+/** Has today's reward already been taken? */
+export const dailyDone = (save: Save, day: number): boolean => !!save.daily && save.daily.day === day && save.daily.won;
 
 // ------------------------------------------------------------------------------------------------ Endless Depths
 export interface EndlessReward { wave: number; pack: PackItem | null; newBest: boolean }

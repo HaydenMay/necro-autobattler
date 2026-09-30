@@ -78,6 +78,7 @@ export const DIFFICULTY_INFO = [
 export let difficultyName: string = 'normal';
 export let currentStageId: string = 'crypt';
 let power = 1, endlessMode = false;
+let dailyRewrite: ((w: EnemySpec[], wave: number) => EnemySpec[]) | null = null;   // set only during a Daily Challenge run
 /** Enemy health/damage multiplier for the current stage and tier (in endless mode it depends on the wave). */
 export const enemyPower = (wave = 1): number => (endlessMode ? endlessPower(wave) : power);
 export const isEndless = (): boolean => endlessMode;
@@ -87,11 +88,15 @@ export const AUTHORED: EnemySpec[][] = DIFFICULTY.normal.map(parseWave);
 
 export function setStageDifficulty(stage: string, name: string): void {
   const st = stageById(stage); if (!DIFFS.includes(name as Diff)) return;
-  endlessMode = false; currentStageId = st.id; difficultyName = name; power = st.power[name as Diff];
+  endlessMode = false; dailyRewrite = null; currentStageId = st.id; difficultyName = name; power = st.power[name as Diff];
   AUTHORED.length = 0; st.lists[name as Diff].forEach((w) => AUTHORED.push(parseWave(w)));
 }
+/** Switch to the Daily Challenge: Stage 1 Normal with the day's twist (see core/daily.ts). `day` is kept as the 'difficulty' so a saved run can rebuild the same day. */
+export function setDaily(mod: { power: number; enemy?: (w: EnemySpec[], wave: number) => EnemySpec[] }, day: number): void {
+  setStageDifficulty('crypt', 'normal'); dailyRewrite = mod.enemy ?? null; currentStageId = 'daily'; difficultyName = String(day); power = mod.power;
+}
 /** Switch to Endless Depths: waves come from core/endless.ts instead of a stage list. */
-export function setEndless(): void { endlessMode = true; currentStageId = ENDLESS_ID; difficultyName = 'endless'; power = 1; AUTHORED.length = 0; }
+export function setEndless(): void { endlessMode = true; dailyRewrite = null; currentStageId = ENDLESS_ID; difficultyName = 'endless'; power = 1; AUTHORED.length = 0; }
 /** Change the tier within the current stage. */
 export function setDifficulty(name: string): void { setStageDifficulty(currentStageId, name); }
 
@@ -100,7 +105,7 @@ export const waveCost = (w: EnemySpec[]): number => w.reduce((n, e) => n + COST[
 /** Enemy army for a wave (1-based). Waves past the authored ones are generated from a fixed seed so retries face the same army. */
 export function enemyWave(wave: number, stageSeed = 0): EnemySpec[] {
   if (endlessMode) return endlessWave(wave, stageSeed);
-  if (wave <= AUTHORED.length) return AUTHORED[wave - 1].map((e) => ({ ...e }));
+  if (wave <= AUTHORED.length) { const w = AUTHORED[wave - 1].map((e) => ({ ...e })); return dailyRewrite ? dailyRewrite(w, wave) : w; }
   const cap = CURVES.doc[Math.min(wave, CURVES.doc.length) - 1];
   const budget = Math.round(cap * 0.92);
   const rng = makeRng(stageSeed * 1009 + wave * 7919);

@@ -11,15 +11,18 @@ import type { State } from '../core/rules.ts';
 import { buildArena } from './arena.ts';
 import { Battle, cellPos, FRONT_X, GRID_SP, simulate } from '../core/battle.ts';
 import type { BEvent } from '../core/battle.ts';
-import { currentStageId, difficultyName, enemyPower, enemyWave, isEndless, setDifficulty, setEndless, setStageDifficulty } from '../core/waves.ts';
+import { currentStageId, difficultyName, enemyPower, enemyWave, isEndless, setDifficulty, setEndless, setStageDifficulty, setDaily } from '../core/waves.ts';
 import { ENDLESS_ID, ENDLESS_PACK_EVERY } from '../core/endless.ts';
+import { DAILY_ID, dailyRules, dayNumber, isValidDay, modifierFor } from '../core/daily.ts';
+import type { DailyMod } from '../core/daily.ts';
 import { ENDLESS_RULES, PROTOTYPE_RULES } from '../core/prototype.ts';
 import { loadSave } from '../core/save.ts';
 import { endlessUnlocked } from '../core/progress.ts';
 import { Necromancer } from './necromancer.ts';
 import { audio } from './audio.ts';
 import { clearRun, loadRun, saveRun, serializeState } from '../core/runsave.ts';
-import { addGoldAndSave, endlessWaveGold, playable, recordClearAndSave, recordEndlessWaveAndSave, waveGold } from '../core/progress.ts';
+import { addGoldAndSave, endlessWaveGold, playable, recordClearAndSave, recordDailyWinAndSave, recordEndlessWaveAndSave, waveGold } from '../core/progress.ts';
+import type { DailyReward } from '../core/progress.ts';
 import type { ClearReward } from '../core/progress.ts';
 import type { RunSnapshot } from '../core/runsave.ts';
 import type { State } from '../core/rules.ts';
@@ -32,6 +35,7 @@ type Sel = { type: 'card'; idx: number } | { type: 'unit'; id: number } | null;
 
 export class Game {
   engine: any; scene: any; camera: any; A!: Assets; ui!: Ui;
+  daily: { day: number; mod: DailyMod } | null = null; dailyReward: DailyReward | null = null;   // the Daily Challenge run in progress, and what its win paid
   lastGold = 0; runGold = 0;                                     // gold from the wave just cleared, and from this whole run
   s!: State; seed = 1; attempt = 0; phase: Phase = 'build'; battle: Battle | null = null; timeScale = 1;
   sel: Sel = null; swapMode = false; confirmRemove = false; draft: SoulId[] | null = null; lastBattle = '';
@@ -201,8 +205,10 @@ export class Game {
   private restore(r: { snap: RunSnapshot; state: State }) {
     const { snap, state } = r;
     this.cine = false; this.flushTweens(); this.necro.revive();
-    if (snap.stage === ENDLESS_ID) { setEndless(); const done = Math.max(0, state.wave - 1); this.endless = { startBest: snap.startBest ?? loadSave().endless.best, cleared: done, packs: Math.floor(done / ENDLESS_PACK_EVERY) }; } else { setStageDifficulty(snap.stage, snap.difficulty); this.endless = null; }
-    this.arena.setTheme(currentStageId);
+    this.daily = null;
+    if (snap.stage === DAILY_ID && isValidDay(+snap.difficulty)) { const day = +snap.difficulty, mod = modifierFor(day); setDaily(mod, day); this.daily = { day, mod }; this.endless = null; this.arena.setTheme('crypt'); }
+    else if (snap.stage === ENDLESS_ID) { setEndless(); const done = Math.max(0, state.wave - 1); this.endless = { startBest: snap.startBest ?? loadSave().endless.best, cleared: done, packs: Math.floor(done / ENDLESS_PACK_EVERY) }; } else { setStageDifficulty(snap.stage, snap.difficulty); this.endless = null; }
+    if (!this.daily) this.arena.setTheme(currentStageId);
     this.seed = snap.seed; this.attempt = snap.attempt; this.s = state; this.seenMerges = state.stats.merges;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
     this.sel = null; this.swapMode = false; this.draft = snap.phase === 'draft' ? snap.draft : null; this.phase = this.draft ? 'draft' : 'build'; this.showGrid(this.phase === 'build');
@@ -255,16 +261,27 @@ export class Game {
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
     this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
-    this.runGold = 0; this.lastGold = 0; this.seed = seed; this.attempt = 0; this.endless = null; const sv = loadSave(), pl = playable(sv); setStageDifficulty(pl.stage, pl.difficulty); this.arena.setTheme(currentStageId); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
+    this.runGold = 0; this.lastGold = 0; this.daily = null; this.dailyReward = null; this.seed = seed; this.attempt = 0; this.endless = null; const sv = loadSave(), pl = playable(sv); setStageDifficulty(pl.stage, pl.difficulty); this.arena.setTheme(currentStageId); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
     this.clearBattle(); this.showGrid(true); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();   // (a battle left half-way had hidden the grid)
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build';
     this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');
+  }
+  /** Today's Daily Challenge (Home > Daily Challenge): the same seed and twist for everyone on the same day. Retry as often as you like; the reward is paid once. */
+  newDaily() { this.startDaily(dayNumber()); }
+  startDaily(day: number) {
+    this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
+    const mod = modifierFor(day), sv = loadSave(); setDaily(mod, day); this.arena.setTheme('crypt');
+    this.runGold = 0; this.lastGold = 0; this.dailyReward = null; this.endless = null; this.daily = { day, mod }; this.seed = day; this.attempt = 0;
+    this.s = newStage(dailyRules(mod, sv.deck), this.seed); this.seenMerges = 0;
+    this.clearBattle(); this.showGrid(true); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
+    this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build';
+    this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast(`Daily Challenge: ${mod.name}. ${mod.text}`);
   }
   /** Fresh Endless Depths run (Home > Endless Depths calls this): same rules as a stage, but the waves never stop and the enemy keeps growing. */
   newEndless() { this.startEndless(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startEndless(seed: number) {
     this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
-    this.runGold = 0; this.lastGold = 0; this.seed = seed; this.attempt = 0; const sv = loadSave(); setEndless(); this.arena.setTheme(ENDLESS_ID);
+    this.runGold = 0; this.lastGold = 0; this.daily = null; this.dailyReward = null; this.seed = seed; this.attempt = 0; const sv = loadSave(); setEndless(); this.arena.setTheme(ENDLESS_ID);
     this.endless = { startBest: sv.endless.best, cleared: 0, packs: 0 };
     this.s = newStage({ ...ENDLESS_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
     this.clearBattle(); this.showGrid(true); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();   // (a battle left half-way had hidden the grid)
@@ -467,7 +484,7 @@ export class Game {
     if (b.winner === 0) {
       this.playResult('win', () => {                        // the army is raised again, then the next wave / the draft
         this.cine = false;
-        try { this.lastGold = addGoldAndSave(isEndless() ? endlessWaveGold(s.wave) : waveGold(currentStageId, difficultyName as any)); this.runGold += this.lastGold; window.dispatchEvent(new Event('necro-save-changed')); } catch { this.lastGold = 0; }
+        try { this.lastGold = this.daily ? 0 : addGoldAndSave(isEndless() ? endlessWaveGold(s.wave) : waveGold(currentStageId, difficultyName as any)); this.runGold += this.lastGold; window.dispatchEvent(new Event('necro-save-changed')); } catch { this.lastGold = 0; }
         if (isEndless() && this.endless) {
           try {
             const r = recordEndlessWaveAndSave(s.wave); this.endless.cleared = s.wave; window.dispatchEvent(new Event('necro-save-changed'));
@@ -476,7 +493,10 @@ export class Game {
         }
         if (advanceWave(s)) {
           this.phase = 'won'; clearRun();
-          try { this.reward = recordClearAndSave(currentStageId, difficultyName as any); window.dispatchEvent(new Event('necro-save-changed')); } catch { this.reward = null; }
+          try {
+            if (this.daily) { this.dailyReward = recordDailyWinAndSave(this.daily.day); this.reward = null; } else this.reward = recordClearAndSave(currentStageId, difficultyName as any);
+            window.dispatchEvent(new Event('necro-save-changed'));
+          } catch { this.reward = null; }
           this.ui.render(); return;
         }
         this.draft = draftOptions(s); this.phase = 'draft'; this.persistRun(); this.ui.render();

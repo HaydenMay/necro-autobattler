@@ -395,7 +395,7 @@ export class Game {
   private spawnArrow(team: number, x0: number, z0: number, x1: number, z1: number, dur: number) {
     let mesh = this.arrowMesh.pop();
     if (!mesh) {
-      const holder = new BABYLON.TransformNode('ar', this.scene);
+      const holder = new BABYLON.TransformNode('ar', this.scene); holder.scaling.setAll(0.65);   // 55 cm was long next to a chibi Goblin
       if (this.A.arrow) {                                 // the real arrow model (metal head, fletching): one instance per flying arrow
         const ent = this.A.arrow.instantiateModelsToScene((n: string) => n + '_' + Math.random().toString(36).slice(2, 6), false);
         ent.rootNodes[0].parent = holder; ent.rootNodes[0].getChildMeshes().forEach((m: any) => { m.isPickable = false; m.alwaysSelectAsActiveMesh = true; });

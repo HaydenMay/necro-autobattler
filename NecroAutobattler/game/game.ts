@@ -15,6 +15,7 @@ import { currentStageId, difficultyName, enemyPower, enemyWave, isEndless, setDi
 import { ENDLESS_ID, ENDLESS_PACK_EVERY } from '../core/endless.ts';
 import { ENDLESS_RULES, PROTOTYPE_RULES } from '../core/prototype.ts';
 import { loadSave } from '../core/save.ts';
+import { endlessUnlocked } from '../core/progress.ts';
 import { Necromancer } from './necromancer.ts';
 import { audio } from './audio.ts';
 import { clearRun, loadRun, saveRun, serializeState } from '../core/runsave.ts';
@@ -530,7 +531,12 @@ export class Game {
     this.phase = 'build'; this.sel = null; this.syncBuild(); this.ui.render();          // UI first: the camera must measure the hand and buttons while they are visible
     this.tweenCam(this.poses().build, 1.8);
   }
-  setSpeed(k: number) { this.timeScale = k; this.ui.render(); }
+  /** 2x and 4x battle speed open once the campaign is finished (the last stage cleared on Normal). ?debug or ?speed=1 opens them for testing. */
+  speedUnlocked(): boolean { const q = new URLSearchParams(location.search); return !!(q.get('debug') || q.get('speed')) || endlessUnlocked(loadSave()); }
+  setSpeed(k: number) {
+    if (k > 1 && !this.speedUnlocked()) { this.toast('Faster battle speeds unlock when you finish the campaign.'); return; }
+    this.timeScale = k; this.ui.render();
+  }
 
   // -------------------------------------------------------------------------------------------- debug helpers
   applyBalanceChange() { this.unitVis.forEach((v, id) => { const u = this.s.units.find((x) => x.id === id); if (u) v.setStar(u.star); }); }

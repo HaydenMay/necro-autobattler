@@ -29,6 +29,21 @@ export const DIFFICULTY: Record<string, string[]> = {
   nightmare: ['W1 A1 G1', 'K1 G1 W1 A1 W1', 'O1 A1 G1 W1 B1 W1', 'K1 O1 A1 W1 G1 W1 W1', 'O1 K1 A2 G1 W1 B1 W1 W1 G1', 'A2 K1 O1 G1 W1 B1 W1 W1 G1 G1', 'K1 O1 A2 G1 W1 B1 W1 W1 G1 G1 B1', 'O1 K2 A2 B1 G1 W1 W1 W1 G1 G1 B1', 'O2 K1 A2 B1 G1 W1 W1 W1 G1 G1 B1 K1', 'O2 K2 A2 B1 G1 W1 W1 W1 G1 G1 B1 K1'],
 };
 
+/** Stage 2, the Sunken Graveyard: crowds. Same Dominion cost per wave as the lists one tier up, but built from many Warriors, Goblins and Archers with a Knight or Ogre holding the front (sim/author_stages.ts). */
+const GRAVEYARD: Record<Diff, string[]> = {
+  easy: ['W1 A1', 'K1 G1 W1', 'O1 W1 W1 W1 G1', 'O1 G2 G1 A1', 'O1 W1 W1 W1 A1 A1', 'K1 W1 W1 W1 A1 A1 A1', 'O1 W1 W1 W1 W1 W1 A1', 'O1 W1 W1 W1 W1 G1 G1 G1', 'K1 W1 W1 W1 W1 W1 G2 G1 A1', 'K1 W1 W1 W1 W1 G1 G1 G1 G1 A1'],
+  normal: ['W1 A1', 'K1 G1 W1 A1 W1', 'K1 W1 W1 W1 G1 A1', 'O1 W1 W1 G1 G1 G1 G1', 'O1 W2 W1 W1 W1 W1 W1 G1 A1', 'K1 W1 W1 W1 W1 W1 G1 G1 G1 A1 A1', 'K1 W1 W1 W1 G1 A1 A1 A1', 'O1 W1 W1 G1 G1 A1 A1 A1 A1', 'K2 W1 W1 W1 W1 W1 W1 G1 G1 G1 A1 A1', 'O1 W2 W1 W1 W1 W1 W1 G1 G1 A1 A1 A1'],
+  hard: ['W1 A1 G1', 'K1 G1 W1 A1 W1', 'O1 W1 W1 W1 W1 G2 A1', 'O1 W1 W1 G1 G1 A1 A1', 'O1 W1 W1 W1 W1 W1 G1 G1 A1 A1 A1', 'K1 W3 W2 W2 W2 W1 W1 W1 W1 A1 A1 A1', 'O1 W3 W2 W2 W2 W2 W1 W1 W1 G3 G2 A1', 'O2 W2 W2 W1 W1 W1 G2 G1 G1 G1 A2 A1', 'K3 W3 W3 W3 W2 W2 W1 W1 G2 G1 G1 A3', 'K3 W3 W3 W2 W2 W1 G3 G2 G2 G1 A2 A1'],
+  nightmare: ['W1 A1 G1', 'K1 G1 W1 A1 W1', 'O1 W1 W1 W1 G1 G1 A1', 'O1 W1 W1 W1 W1 G1 G1 A1', 'K1 W1 W1 W1 W1 W1 W1 W1 W1 A2 A1 A1', 'O1 W3 W2 W1 W1 W1 W1 W1 G2 G1 G1 A1', 'O1 W2 W1 W1 W1 G2 G1 G1 G1 A2 A1 A1', 'O2 W2 W1 W1 W1 W1 G2 G1 G1 A2 A1 A1', 'K2 W3 W1 W1 W1 G2 G2 G1 A3 A2 A1 A1', 'O2 W1 W1 W1 G2 G2 G2 G1 G1 A3 A2 A1'],
+};
+/** Stage 3, the Bone Bastion: fewer, heavier armies of Knights, Ogres and Barbarians with Archers behind (sim/author_stages.ts). */
+const BASTION: Record<Diff, string[]> = {
+  easy: ['W1 A1', 'K1 G1 W1 A1 W1', 'K1 K1 A1 A1', 'K1 K1 K1 A1 A1', 'K1 O1 B1 B1 A1', 'K1 K1 O1 O1 A1 A1', 'K1 K1 O1 B1 A1', 'K1 K1 K1 O1 B1 B1', 'K2 K1 O1 O1 B1 B1', 'K1 K1 O1 O1 B1 B1 A1'],
+  normal: ['W1 A1 G1', 'K1 G1 W1 A1 W1', 'K1 K1 K1 A1 A1', 'O1 O1 B1 B1', 'K2 K1 K1 O1 B1 B1', 'K1 O1 O1 B1 B1 A1 A1', 'K2 K1 K1 K1 B2 B1 B1 A1', 'K2 K1 K1 O1 B1 B1 A2 A1', 'K2 K2 O2 B1 B1 A2 A2 A1', 'K2 K2 K2 K1 B2 B2 A3 A1'],
+  hard: ['W1 A1 G1', 'K1 G1 W1 A1 W1', 'K1 K1 B1 A1 A1', 'K1 K1 O1 A1 A1', 'K1 O1 B1 B1 B1 A1 A1', 'K1 K1 K1 O1 O1 B1 A1', 'K1 K1 K1 K1 O1 B1 B1 B1', 'K2 K1 K1 O1 O1 B1 B1 A1', 'K2 K1 O1 O1 B1 B1 B1 A3', 'K2 K2 K1 K1 O1 O1 B3 B1'],
+  nightmare: ['W1 A1 G1', 'K1 G1 W1 A1 W1', 'K1 K1 O1 B1', 'K2 K1 K1 O1', 'K2 K1 K1 K1 K1 O1', 'K1 K1 K1 O1 O1 B1 A1', 'K1 K1 K1 B2 B1 B1 A2 A1', 'K1 O1 O1 O1 B2 A1 A1 A1', 'K1 O2 O1 O1 O1 B1 B1 A1', 'K3 K2 K1 K1 K1 O2 B1 B1'],
+};
+
 export interface StageDef {
   id: string; name: string; blurb: string;
   lists: Record<Diff, string[]>;          // the 10 enemy waves for each tier
@@ -42,11 +57,11 @@ export const STAGES: StageDef[] = [
     lists: { easy: DIFFICULTY.easy, normal: DIFFICULTY.normal, hard: DIFFICULTY.hard, nightmare: DIFFICULTY.nightmare },
     power: { easy: 1, normal: 1, hard: 1, nightmare: 1 }, rec: { easy: 1, normal: 1, hard: 4, nightmare: 6 } },
   { id: 'graveyard', name: 'The Sunken Graveyard', blurb: 'Bigger crowds crawl out of the mud. Level your Souls before you come.',
-    lists: { easy: DIFFICULTY.normal, normal: DIFFICULTY.hard, hard: DIFFICULTY.nightmare, nightmare: DIFFICULTY.nightmare },
-    power: { easy: 1.05, normal: 1, hard: 1.05, nightmare: 1.15 }, rec: { easy: 2, normal: 4, hard: 6, nightmare: 8 } },
+    lists: GRAVEYARD,
+    power: { easy: 1, normal: 1.02, hard: 0.85, nightmare: 1.05 }, rec: { easy: 2, normal: 4, hard: 6, nightmare: 8 } },
   { id: 'bastion', name: 'The Bone Bastion', blurb: 'A fortress of the fallen. Only well-levelled armies hold the gate.',
-    lists: { easy: DIFFICULTY.hard, normal: DIFFICULTY.nightmare, hard: DIFFICULTY.nightmare, nightmare: DIFFICULTY.nightmare },
-    power: { easy: 0.9, normal: 1.05, hard: 1.15, nightmare: 1.3 }, rec: { easy: 4, normal: 6, hard: 8, nightmare: 10 } },
+    lists: BASTION,
+    power: { easy: 1, normal: 1.0, hard: 1.25, nightmare: 1.3 }, rec: { easy: 4, normal: 6, hard: 8, nightmare: 10 } },
 ];
 export const stageIndex = (id: string): number => Math.max(0, STAGES.findIndex((s) => s.id === id));
 export const stageById = (id: string): StageDef => STAGES[stageIndex(id)];

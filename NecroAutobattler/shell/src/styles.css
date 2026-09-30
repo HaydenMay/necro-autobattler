@@ -28,7 +28,7 @@
   button:disabled { opacity:.4; cursor:default; } button.on { background:#1d6b58; border-color:#39c6a3; }
   #btnBattle { font-size:19px; font-weight:800; letter-spacing:.06em; padding:12px; background:linear-gradient(#8a2fe0,#5a1aa0); border-color:#d5a8ff; box-shadow:0 0 16px rgba(160,80,255,.7); }
   #unitpanel { display:none; gap:6px; } #unitpanel button { flex:1; }
-  #speed { top:calc(var(--sat) + 46px); right:calc(var(--sar) + 6px); display:none; gap:5px; } #speed button.on { background:#3d6ea8; }
+  #speed { top:calc(var(--sat) + 46px); right:calc(var(--sar) + 6px); display:none; gap:5px; } #speed button.on { background:#3d6ea8; } #speed button.locked { opacity:.4; }
   body.inbattle #bottom, body.inbattle #side, body.inbattle #enemy { display:none; }
   body.inbattle #speed { display:flex; }
   #toast { top:calc(var(--sat) + 52px); left:50%; transform:translateX(-50%); font-size:13px; opacity:0; transition:opacity .25s; pointer-events:none; max-width:70vw; text-align:center; border-color:var(--gold); }

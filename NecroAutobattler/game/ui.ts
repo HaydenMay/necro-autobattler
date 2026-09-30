@@ -66,7 +66,8 @@ export class Ui {
       : g.sel && g.sel.type === 'card' ? `${SOUL_NAME[s.hand[g.sel.idx] as SoulId]}: ${ROLE_TEXT[s.hand[g.sel.idx] as SoulId]}  •  ` + (() => { const i = g.sel.idx, sm = canSummon(s, i), mg = s.units.some((u: any) => canMergeFromHand(s, i, u.id)); return sm && mg ? 'Tap a green tile to summon, or a glowing purple unit to merge it in.' : sm ? 'Tap a green tile to summon.' : mg ? 'Dominion is full: tap a glowing purple unit to merge it in.' : 'Not enough free Dominion to summon this.'; })() : 'Tap a card, then a tile. Tap a unit to merge, move or remove it.')
       : ph === 'battle' || ph === 'transition' ? 'Battle! Units fight on their own.' : '';
     $('speed').style.display = ph === 'battle' || ph === 'transition' ? 'flex' : 'none';
-    document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => b.classList.toggle('on', +b.dataset.speed! === g.timeScale));
+    const fast = g.speedUnlocked(); if (!fast && g.timeScale > 1) g.timeScale = 1;
+    document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => { const k = +b.dataset.speed!; b.classList.toggle('on', k === g.timeScale); b.classList.toggle('locked', k > 1 && !fast); b.title = k > 1 && !fast ? 'Unlocks when you finish the campaign' : ''; });
     document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === g.camMode));
     document.body.classList.toggle('inbattle', ph === 'battle' || ph === 'transition'); audio.setMode(ph === 'battle' || ph === 'transition' ? 'battle' : 'build');
     // overlay

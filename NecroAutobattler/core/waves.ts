@@ -58,7 +58,7 @@ export const STAGES: StageDef[] = [
     power: { easy: 1, normal: 1, hard: 1, nightmare: 1 }, rec: { easy: 1, normal: 1, hard: 4, nightmare: 6 } },
   { id: 'graveyard', name: 'The Sunken Graveyard', blurb: 'Bigger crowds crawl out of the mud. Level your Souls before you come.',
     lists: GRAVEYARD,
-    power: { easy: 1, normal: 1.1, hard: 0.98, nightmare: 1.25 }, rec: { easy: 2, normal: 4, hard: 6, nightmare: 8 } },
+    power: { easy: 1, normal: 1.1, hard: 0.98, nightmare: 1.28 }, rec: { easy: 2, normal: 4, hard: 6, nightmare: 8 } },
   { id: 'bastion', name: 'The Bone Bastion', blurb: 'A fortress of the fallen. Only well-levelled armies hold the gate.',
     lists: BASTION,
     power: { easy: 1, normal: 0.97, hard: 1.25, nightmare: 1.45 }, rec: { easy: 4, normal: 6, hard: 8, nightmare: 10 } },

@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { BOSS, Battle } from '../core/battle.ts';
 import { recordClear } from '../core/progress.ts';
 import { defaultSave } from '../core/save.ts';
-import { DIFFS, STAGES, enemyWave, previewText, setStageDifficulty } from '../core/waves.ts';
+import { COST } from '../core/data.ts';
+import type { SoulId } from '../core/data.ts';
+import { DIFFS, STAGES, bossStrength, enemyWave, previewText, setStageDifficulty } from '../core/waves.ts';
 
 test('the last wave of every stage and tier has exactly one boss; earlier waves have none', () => {
   for (const st of STAGES) for (const d of DIFFS) {
@@ -26,4 +28,15 @@ test("the last stage's first clear gives a pack one tier better than the same ti
   const a = defaultSave(), b = defaultSave();
   const early = recordClear(a, STAGES[0].id, 'easy'), last = recordClear(b, STAGES[STAGES.length - 1].id, 'easy');
   assert.equal(last.pack!.tier, early.pack!.tier + 1);
+});
+
+test('a boss pays for itself: the boss wave is about as strong as the plain wave it replaces, and keeps some escort', () => {
+  for (const st of STAGES) for (const d of DIFFS) {
+    setStageDifficulty(st.id, d); const withBoss = enemyWave(10, 1), plain = (STAGES.find((s) => s.id === st.id)!.lists[d][9] as string).split(' ');
+    const cost = (w: { soul: string; star: number }[]) => w.reduce((n, e) => n + COST[e.soul as SoulId][e.star - 1], 0);
+    const plainCost = plain.reduce((n, t) => n + COST[({ W: 'warrior', A: 'archer', G: 'goblin', K: 'knight', O: 'ogre', B: 'barbarian' } as any)[t[0]] as SoulId][+t[1] - 1], 0);
+    const boss = withBoss.find((e) => e.boss)!, bossCost = COST[boss.soul][boss.star - 1], power = cost(withBoss) - bossCost + bossCost * (1 + 0.6 * bossStrength()) * (1 + 0.2 * bossStrength());
+    assert.ok(power <= plainCost * 1.12 + 1, `${st.id}/${d}: boss wave power ${power.toFixed(1)} vs plain ${plainCost}`);
+    assert.ok(withBoss.length >= 2, `${st.id}/${d}: the boss keeps at least one escort`);
+  }
 });

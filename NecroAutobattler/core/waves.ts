@@ -109,9 +109,18 @@ export const waveCost = (w: EnemySpec[]): number => w.reduce((n, e) => n + COST[
 export function markBoss(w: EnemySpec[]): EnemySpec[] {
   let best = -1, bs = -1;
   w.forEach((e, i) => { const brute = e.soul === 'ogre' || e.soul === 'knight' || e.soul === 'barbarian' ? 100 : 0, sc = brute + COST[e.soul][e.star - 1]; if (sc > bs) { bs = sc; best = i; } });
-  if (best >= 0) w[best] = { ...w[best], boss: true };
+  if (best >= 0) {
+    w[best] = { ...w[best], boss: true };
+    // The boss pays for itself: its extra health and damage are taken out of the escort, so the whole wave is about as strong as the plain wave it replaces.
+    const extra = Math.round(bossExtraCost(COST[w[best].soul][w[best].star - 1])); let removed = 0;
+    const order = w.map((e, i) => i).filter((i) => i !== best).sort((a, b) => COST[w[a].soul][w[a].star - 1] - COST[w[b].soul][w[b].star - 1]);
+    const drop = new Set<number>(); for (const i of order) { const c = COST[w[i].soul][w[i].star - 1]; if (removed + c <= extra + 1 && drop.size < order.length - 1) { drop.add(i); removed += c; } }
+    return w.filter((_, i) => !drop.has(i));
+  }
   return w;
 }
+/** How much Dominion-worth of extra strength a boss of this cost has (its health and damage bonuses at the current boss strength). */
+export const bossExtraCost = (cost: number): number => cost * ((1 + 0.6 * bossStr) * (1 + 0.2 * bossStr) - 1);
 /** Enemy army for a wave (1-based). Waves past the authored ones are generated from a fixed seed so retries face the same army. */
 export function enemyWave(wave: number, stageSeed = 0): EnemySpec[] {
   if (endlessMode) return endlessWave(wave, stageSeed);

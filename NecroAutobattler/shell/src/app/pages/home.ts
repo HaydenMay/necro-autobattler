@@ -8,9 +8,11 @@ import { ENDLESS_ID } from '../../../../core/endless.ts';
 import { DAILY_ID, dayNumber, modifierFor } from '../../../../core/daily.ts';
 import { REWARDS, describeUnlock } from '../../../../core/progress.ts';
 import type { Difficulty } from '../../../../core/save.ts';
+import { MILESTONES, isClaimed, milestoneProgress, milestoneReady } from '../../../../core/milestones.ts';
 import { GameLink } from '../game-link.service';
 import { SaveService } from '../save.service';
 import { MOOD, lookOf } from '../stage-look';
+import { fmt, goldIcon, range } from '../soul-ui';
 import { BG, artBg, hasArt, heartEmptyIcon, heartIcon, rarityColor, skullIcon, soulArt } from '../soul-ui';
 
 const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', hard: 'Hard', nightmare: 'Nightmare' };
@@ -70,6 +72,12 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     /* unlock celebration: the padlock shakes, the shackle swings open, a ring bursts out, then the words appear */
     .newb { font-weight:800; }
     .cscrim { position:fixed; inset:0; z-index:36; background:rgba(6,3,12,.78); display:flex; align-items:center; justify-content:center; animation:fadeIn .2s ease-out both; }
+    .mbox { width:min(520px,94%); max-height:92%; display:flex; flex-direction:column; padding:clamp(10px,2.2vmin,18px); border-radius:16px; background:#1c1632; border:2px solid #7a5cc0; box-shadow:0 0 30px rgba(122,92,192,.45); }
+    .mbox .ct { font-size:1.3em; color:var(--gold); margin-bottom:6px; display:flex; align-items:center; gap:10px; } .mbox .ct button { margin-left:auto; padding:.3em .8em; }
+    .mlist { overflow-y:auto; min-height:0; }
+    .ms { display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px solid #35244f; } .ms:first-child { border-top:0; } .ms .nm { flex:1; min-width:0; } .ms small { display:block; opacity:.75; } .ms.done { opacity:.5; }
+    .ms .rw { min-width:5.2em; text-align:right; color:#dcbcff; font-size:.9em; } .ms .rw img { width:1.1em; height:1.1em; vertical-align:middle; } .ms .mt { width:64px; height:9px; border-radius:6px; background:#0e0918; border:1px solid #4a3470; overflow:hidden; } .ms .mt i { display:block; height:100%; background:var(--go); }
+    .claim { padding:.35em .9em; border-radius:10px; background:var(--go); color:#06221b; font-weight:800; border:0; }
     .cbox2 { width:min(380px,90%); display:flex; flex-direction:column; gap:10px; padding:clamp(12px,2.6vmin,20px); border-radius:16px; background:#1c1632; border:2px solid #7a5cc0; box-shadow:0 0 30px rgba(122,92,192,.45); line-height:1.35; }
     .cbox2 .ct { font-size:1.3em; color:var(--gold); } .crow2 { display:flex; gap:8px; margin-top:4px; } .crow2 button { flex:1; padding:.55em .4em; }
     .red { background:linear-gradient(#d65a5a,#a83030); border:2px solid #f0a0a0; color:#fff; font-weight:800; border-radius:12px; }
@@ -165,8 +173,32 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
             <div class="marks"><span class="mark" [title]="todayMod.text">{{ todayMod.name }}</span><span class="mark">{{ dailyRun() ? 'Run in progress' : save.dailyDoneToday() ? 'Done today' : 'Reward: a pack + gold' }}</span>@if (save.dailyStreak() > 0) { <span class="mark">{{ save.dailyStreak() }}-day streak</span> }@if (save.dailyDoneToday() && !dailyRun()) { <span class="mark">Play again for fun</span> }</div>
           </span>
         </button>
+        <button class="sc endl" [style.--ac]="lookOf('graveyard').accent" (click)="showMs.set(true)">
+          <span class="th" [style.background-image]="mood" [style.background-position]="lookOf('bastion').pos" [style.filter]="'hue-rotate(' + lookOf('bastion').hue + 'deg) saturate(1.25) brightness(1.35)'"></span>
+          <span class="tx"><b>Milestones</b>
+            <small>Long-term goals with one-time rewards.</small>
+            <div class="marks"><span class="mark">{{ claimedCount() }}/{{ milestoneCount }} claimed</span>@if (save.milestonesReady()) { <span class="mark">{{ save.milestonesReady() }} ready</span> }</div>
+          </span>
+        </button>
       </div>
     </div>
+    @if (showMs()) {
+      <div class="cscrim" (click)="showMs.set(false)">
+        <div class="mbox" (click)="$event.stopPropagation()">
+          <b class="ct">Milestones<button class="go" (click)="showMs.set(false)">Close</button></b>
+          <div class="mlist">
+            @for (m of milestones; track m.id) {
+              <div class="ms" [class.done]="claimed(m.id)">
+                <div class="nm"><b>{{ m.name }}</b><small>{{ m.text }}</small></div>
+                <span class="mt"><i [style.width.%]="(100 * prog(m)) / m.need"></i></span><span style="min-width:3.2em;text-align:right">{{ prog(m) }}/{{ m.need }}</span>
+                <span class="rw">@for (i of range(m.tier); track i) { <img [src]="skullIcon" alt=""> }<br><img [src]="goldIcon" alt="">{{ fmt(m.gold) }}</span>
+                @if (claimed(m.id)) { <span style="min-width:4.6em;text-align:center">Claimed</span> } @else if (ready(m)) { <button class="claim" (click)="claim(m.id)">Claim</button> } @else { <span style="min-width:4.6em"></span> }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
     @if (askNew(); as _a) {
       <div class="cscrim" (click)="askNew.set(false)">
         <div class="cbox2" (click)="$event.stopPropagation()">
@@ -205,6 +237,14 @@ export class Home implements OnDestroy {
   waves = Array.from({ length: this.total }, (_, i) => i + 1);
   confirming = signal(false);
   askNew = signal(false);
+  showMs = signal(false);
+  milestones = MILESTONES; goldIcon = goldIcon; fmt = fmt; range = range;
+  claimed = (id: string) => isClaimed(this.save.snapshot(), id);
+  ready = (m: (typeof MILESTONES)[number]) => milestoneReady(this.save.snapshot(), m);
+  prog = (m: (typeof MILESTONES)[number]) => milestoneProgress(this.save.snapshot(), m);
+  claim(id: string) { this.save.claim(id); }
+  claimedCount = computed(() => MILESTONES.filter((m) => isClaimed(this.save.snapshot(), m.id)).length);
+  milestoneCount = MILESTONES.length;
   hint = signal('');
   private hintTimer = 0;
   diffs = DIFFICULTY_INFO;

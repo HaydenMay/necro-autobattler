@@ -1,8 +1,8 @@
 @if (!onRun()) { <app-backdrop [calm]="!onHome()" /> }
 <nav class="rail" [class.hide]="onRun()">
-  <a routerLink="/home" routerLinkActive="active"><img class="ri" src="assets/icons/home.png" alt="">Home</a>
+  <a routerLink="/home" routerLinkActive="active"><img class="ri" src="assets/icons/home.png" alt="">Home@if (save.milestonesReady()) { <i class="rbadge">{{ save.milestonesReady() }}</i> }</a>
   <a routerLink="/souls" routerLinkActive="active"><img class="ri" src="assets/icons/souls.png" alt="">Souls@if (save.readyCount()) { <i class="rbadge ok">{{ save.readyCount() }}</i> }</a>
-  <a routerLink="/shop" routerLinkActive="active"><img class="ri" src="assets/icons/shop.png" alt="">Shop@if (save.packs().length + save.milestonesReady()) { <i class="rbadge">{{ save.packs().length + save.milestonesReady() }}</i> }</a>
+  <a routerLink="/shop" routerLinkActive="active"><img class="ri" src="assets/icons/shop.png" alt="">Shop@if (save.packs().length) { <i class="rbadge">{{ save.packs().length }}</i> }</a>
   <a routerLink="/settings" routerLinkActive="active"><img class="ri" src="assets/icons/settings.png" alt="">Settings</a>
 </nav>
 

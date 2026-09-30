@@ -5,7 +5,6 @@ import type { Difficulty } from '../../../../core/save.ts';
 import { SaveService } from '../save.service';
 import { PackOpen } from '../pack-open';
 import type { OpenData } from '../pack-open';
-import { MILESTONES, isClaimed, milestoneProgress, milestoneReady } from '../../../../core/milestones.ts';
 import { fmt, goldIcon, range, skullIcon } from '../soul-ui';
 
 @Component({
@@ -29,9 +28,6 @@ import { fmt, goldIcon, range, skullIcon } from '../soul-ui';
     .src { font-size:.85em; opacity:.75; margin-top:5px; }
     .badge2 { display:inline-block; min-width:1.6em; padding:0 .4em; border-radius:1em; background:#e03a5a; color:#fff; font-weight:800; font-size:.85em; text-align:center; margin-left:6px; }
     .row3 { display:flex; align-items:center; gap:10px; padding:5px 0; border-top:1px solid #35244f; } .row3:first-of-type { border-top:0; } .row3 .sk { min-width:4.2em; color:#dcbcff; letter-spacing:.06em; }
-    .ms { display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px solid #35244f; } .ms:first-child { border-top:0; } .ms .nm { flex:1; min-width:0; } .ms small { display:block; opacity:.75; } .ms.done { opacity:.5; }
-    .ms .rw { min-width:5.2em; text-align:right; color:#dcbcff; } .ms .rw img { width:1.1em; height:1.1em; vertical-align:middle; } .ms .meter { width:70px; }
-    .claim { padding:.35em .9em; border-radius:10px; background:var(--go); color:#06221b; font-weight:800; border:0; }
     .meter { display:inline-block; width:110px; height:10px; border-radius:6px; background:#0e0918; border:1px solid #4a3470; vertical-align:middle; overflow:hidden; } .meter i { display:block; height:100%; background:var(--go); }
   `],
   template: `
@@ -53,20 +49,6 @@ import { fmt, goldIcon, range, skullIcon } from '../soul-ui';
       <div class="box" style="max-width:460px;margin:8px 0 16px"><b>No packs waiting.</b><div class="lead" style="margin:4px 0 0">Clear a stage to earn one. Your first clear on each difficulty gives a better pack.</div></div>
     }
 
-    <button class="acc" (click)="msOpen.set(!msOpen())" [attr.aria-expanded]="msOpen()">Milestones @if (save.milestonesReady()) { <span class="badge2">{{ save.milestonesReady() }}</span> }<span class="sp"></span><span class="chev" [class.open]="msOpen()"></span></button>
-    @if (msOpen()) {
-    <div class="box accbody">
-      @for (m of milestones; track m.id) {
-        <div class="ms" [class.done]="claimed(m.id)">
-          <div class="nm"><b>{{ m.name }}</b><small>{{ m.text }}</small></div>
-          <span class="meter"><i [style.width.%]="(100 * prog(m)) / m.need"></i></span><span style="min-width:3.4em;text-align:right">{{ prog(m) }}/{{ m.need }}</span>
-          <span class="rw">@for (i of range(m.tier); track i) { <img [src]="skullIcon" alt=""> }<br><img [src]="goldIcon" alt="">{{ fmt(m.gold) }}</span>
-          @if (claimed(m.id)) { <span style="min-width:4.6em;text-align:center">Claimed</span> } @else if (ready(m)) { <button class="claim" (click)="claim(m.id)">Claim</button> } @else { <span style="min-width:4.6em"></span> }
-        </div>
-      }
-    </div>
-    }
-
     <button class="acc" (click)="toggleInfo()" [attr.aria-expanded]="info()">How packs are earned <span class="tag soon">placeholder numbers</span><span class="sp"></span><span class="chev" [class.open]="info()"></span></button>
     @if (info()) {
     <div class="box accbody">
@@ -84,13 +66,7 @@ export class Shop {
   save = inject(SaveService);
   opening = signal<OpenData | null>(null);
   toggleInfo() { this.info.set(!this.info()); if (this.info()) setTimeout(() => document.querySelector('.accbody')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60); }
-  info = signal(false);
-  msOpen = signal(false);
-  milestones = MILESTONES;
-  claimed = (id: string) => isClaimed(this.save.snapshot(), id);
-  ready = (m: (typeof MILESTONES)[number]) => milestoneReady(this.save.snapshot(), m);
-  prog = (m: (typeof MILESTONES)[number]) => milestoneProgress(this.save.snapshot(), m);
-  claim(id: string) { this.save.claim(id); }                       // the "how packs are earned" section starts folded away
+  info = signal(false);                       // the "how packs are earned" section starts folded away
   diffs = DIFFICULTY_INFO;
   replayNeeded = REWARDS.replayClearsPerPack;
   replayTier = REWARDS.replayTier;

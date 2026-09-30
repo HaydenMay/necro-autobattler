@@ -11,8 +11,11 @@ import { fmt, goldIcon, range, skullIcon } from '../soul-ui';
   selector: 'app-shop',
   imports: [PackOpen],
   styles: [`
-    :host { display:block; font-size:clamp(11px,1.9vmin,14px); --ph:clamp(100px,calc(100vh - 262px),250px); }
-    .cols { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:clamp(10px,2.4vmin,24px); align-items:start; } .col { min-width:0; }
+    :host { display:block; font-size:clamp(11px,1.9vmin,14px); --ph:clamp(90px,calc(100vh - 292px),250px); }
+    .cols { display:block; } .col { min-width:0; }
+    .acc { display:flex; align-items:center; gap:10px; width:100%; max-width:560px; margin-top:6px; padding:.55em .9em; text-align:left; border-radius:12px; background:rgba(28,20,44,.9); border:2px solid #4a2f74; color:#fff; font-weight:800; font-size:1.02em; }
+    .acc .sp { flex:1; } .chev { width:.55em; height:.55em; border-right:3px solid #cbb8f5; border-bottom:3px solid #cbb8f5; transform:rotate(45deg) translate(-2px,-2px); transition:transform .15s; } .chev.open { transform:rotate(225deg) translate(-2px,-2px); }
+    .accbody { max-width:560px; margin-top:6px; }
     .shelf { display:block; width:min(100%,calc(var(--ph) * 1.8)); margin:calc(var(--ph) * -.2) auto 0; pointer-events:none; position:relative; z-index:0; } .packs { position:relative; z-index:1; justify-content:center; }
     .packs { display:flex; flex-wrap:wrap; gap:clamp(14px,3vmin,28px); margin:8px 0 16px; }
     .pk { position:relative; width:calc(var(--ph) * .47); padding:0 0 6px; padding:0; background:none; border:0; text-align:center; cursor:pointer; color:inherit; }
@@ -46,23 +49,25 @@ import { fmt, goldIcon, range, skullIcon } from '../soul-ui';
       <div class="box" style="max-width:460px;margin:8px 0 16px"><b>No packs waiting.</b><div class="lead" style="margin:4px 0 0">Clear a stage to earn one. Your first clear on each difficulty gives a better pack.</div></div>
     }
 
-    </div><div class="col">
-    <div class="box">
-      <b>How packs are earned</b> <span class="tag soon" style="margin-left:10px">placeholder numbers</span>
-      <div style="margin-top:6px">
+    <button class="acc" (click)="toggleInfo()" [attr.aria-expanded]="info()">How packs are earned <span class="tag soon">placeholder numbers</span><span class="sp"></span><span class="chev" [class.open]="info()"></span></button>
+    @if (info()) {
+    <div class="box accbody">
+      <div>
         @for (d of diffs; track d.id) { <div class="row3"><span style="flex:1">First clear on {{ d.label }}</span><span class="sk">@for (i of range(firstTier(d.id)); track i) { <img [src]="skullIcon" alt=""> }</span></div> }
         <div class="row3"><span style="flex:1">Replay clears: a pack every {{ replayNeeded }} clears</span><span class="sk">@for (i of range(replayTier); track i) { <img [src]="skullIcon" alt=""> }</span></div>
         <div class="row3"><span style="flex:1">Progress to the next replay pack</span><span class="meter"><i [style.width.%]="(100 * save.replayMeter()) / replayNeeded"></i></span> <span>{{ save.replayMeter() }}/{{ replayNeeded }}</span></div>
       </div>
       <div class="lead" style="margin:8px 0 0">A pack can also jump up a tier while it is being opened.</div>
     </div>
-
+    }
     </div></div>
     @if (opening(); as o) { <app-pack-open [data]="o" (closed)="opening.set(null)" /> }`,
 })
 export class Shop {
   save = inject(SaveService);
   opening = signal<OpenData | null>(null);
+  toggleInfo() { this.info.set(!this.info()); if (this.info()) setTimeout(() => document.querySelector('.accbody')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60); }
+  info = signal(false);                       // the "how packs are earned" section starts folded away
   diffs = DIFFICULTY_INFO;
   replayNeeded = REWARDS.replayClearsPerPack;
   replayTier = REWARDS.replayTier;

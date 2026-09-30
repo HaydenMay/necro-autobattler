@@ -780,8 +780,8 @@ BY = -0.07   # this model's body sits 7 cm behind the centre of its bounding box
 BR = V(-0.05, BY - 0.12, 0.30)
 BR0 = -35   # axe carried back over the shoulder
 def LH(hr, rot, s=0.28, yaw=0):   # a point s metres up the haft; yaw = how far the haft is swung sideways about the vertical (degrees, + = towards the character's left)
-    r = math.radians(rot); t = math.radians(yaw); k = max(0.0, 1 - abs(s) / 0.14)      # near s = 0 the left hand would sit on the right one: step it in towards the body and down
-    return (hr[0] + s * math.sin(r) * math.sin(t) + 0.09 * k, hr[1] - s * math.sin(r) * math.cos(t), hr[2] + s * math.cos(r) - 0.05 * k)
+    r = math.radians(rot); t = math.radians(yaw); k = max(0.0, 1 - abs(s) / 0.24)      # near s = 0 the left hand would sit on the right one: step it in towards the body and down
+    return (hr[0] + s * math.sin(r) * math.sin(t) + 0.16 * k, hr[1] - s * math.sin(r) * math.cos(t), hr[2] + s * math.cos(r) - 0.06 * k)
 def b_idle(f, n=72):
     w = 2 * math.pi * f / n; br = math.sin(w); hr = va(BR, (0, 0, 0.006 * math.sin(w - 0.8))); rot = BR0 + 2 * br
     return dict(hips_off=(0, 0, -0.02 + 0.006 * br), chest_rot=(6 + 2 * br, 0, 2 * math.sin(w * 0.5)), head_rot=(-4, 0, 3 * math.sin(w * 0.5)), hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot))

@@ -6,6 +6,7 @@ import {
   canSummon, checkInvariants, clearWave, discardRedraw, dominionUsed, failWave, mergeDeployed,
   mergeFromHand, newStage, summon,
 } from '../core/rules.ts';
+import { PROTOTYPE_RULES } from '../core/prototype.ts';
 import { playPerfectRun } from '../sim/engine.ts';
 import { POLICIES } from '../sim/policies.ts';
 
@@ -101,4 +102,8 @@ test('same seed -> identical run (reproducible bug reports)', () => {
   const a = playPerfectRun(doc, POLICIES.smart, 99).state.log.join('\n');
   const b = playPerfectRun(doc, POLICIES.smart, 99).state.log.join('\n');
   assert.equal(a, b);
+});
+
+test('the opening hand always holds at least one matching pair, so a merge is possible from the start', () => {
+  for (let seed = 1; seed <= 400; seed++) { const s = newStage(PROTOTYPE_RULES, seed); assert.ok(new Set(s.hand).size < s.hand.length, `seed ${seed}: ${s.hand.join(',')}`); }
 });

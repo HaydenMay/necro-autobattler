@@ -321,11 +321,13 @@ export class Game {
           () => { this.burst(to.x, to.z, [0.85, 0.6, 1, 0.9], [0.5, 0.3, 1, 0.7], 14); v.dispose(); });
       } else { this.burst(p.x, p.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 16); v.dispose(); }
     }
+    const lvls = loadSave().souls;
     for (const u of this.s.units) {
       let v = this.unitVis.get(u.id); const p = this.pos(u.cell);
       if (!v) { v = createVisual(this.A, u.soul, 0, u.star); this.unitVis.set(u.id, v); this.visToUnit.set(v, u.id); v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; v.play('spawn'); this.summonFx(p.x, p.z); audio.play('summon'); const vv = v; this.later(1.1, () => { if (this.phase === 'build') vv.play('idle'); }); }
       else { v.holder.position.set(p.x, 0, p.z); v.holder.rotation.y = Math.PI / 2; if (v.star !== u.star) { const fv = v; v.setStar(u.star); this.later(grown && grown.id === u.id ? 0.33 : 0, () => this.mergeFx(fv, p.x, p.z)); } }
     }
+    for (const u of this.s.units) { const vv = this.unitVis.get(u.id); if (vv && vv.setLevel) vv.setLevel((lvls as any)[u.soul]?.level ?? 1); }
     for (let c = 0; c < GRID_CELLS; c++) this.tint(c, 'normal');
     const sel = this.sel;
     if (sel && sel.type === 'card' && this.phase === 'build') {

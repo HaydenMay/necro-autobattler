@@ -53,6 +53,8 @@ export function newStage(rules: Rules, seed: number): State {
     stats: { drawn: 0, discarded: 0, dismissed: 0, merges: 0, failures: 0 },
   };
   for (let i = 0; i < (rules.startHand ?? START_HAND); i++) draw(s, 'starting hand');
+  // Opening-hand safeguard: merging is the heart of the game, so the first hand always holds at least one matching pair (with six Souls, about 28% of random hands would not).
+  if (s.hand.length >= 2 && new Set(s.hand).size === s.hand.length) { const k = Math.floor(s.rng.next() * (s.hand.length - 1)); s.hand[s.hand.length - 1] = s.hand[k]; log(s, `starting hand: last card became a copy of ${s.hand[k]} so a merge is possible`); }
   return s;
 }
 

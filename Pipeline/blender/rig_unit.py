@@ -629,10 +629,68 @@ def g_cheer(f, n=60):   # "mine!": both daggers up, gleeful hop
     p = f / n; up = seg(p, 0, .18) * (1 - seg(p, .85, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 3)) * up
     return dict(chest_rot=(9 - 22 * up, 0, 0), head_rot=(-6 - 6 * up, 0, 0), hips_off=(0, 0, -0.035 + 0.05 * pump - 0.01 * up), hand_L=vl(GBL, V(0.24, -0.06, 0.78 + 0.03 * pump), up), hand_R=vl(GBR, V(-0.24, -0.06, 0.78 + 0.03 * pump), up),
                 rot_L=(lerp(GR0, -10, up), 0, 0), rot_R=(lerp(GR0, -10, up), 0, 0), foot_L=(0, 0, 0.04 * pump), foot_R=(0, 0, 0.04 * pump))
+# ---- Knight: proud, disciplined, a little vain. Sword in the right hand (rot_R: 0 = blade up, + = tip forward/down); shield rides the left hand.
+KY = -0.15   # this model's body sits 15 cm behind the centre of its bounding box (the plume sticks out backwards)
+KL, KR = V(0.25, KY - 0.15, 0.32), V(-0.19, KY - 0.16, 0.34)
+KR0 = 28
+def k_idle(f, n=72):
+    w = 2 * math.pi * f / n; br = math.sin(w)
+    return dict(hips_off=(0, 0, 0.005 * br), chest_rot=(-3 + 1.2 * br, 0, 1.0 * math.sin(w * 0.5)), head_rot=(-1.0 * math.sin(w - 1.0), 0, 2.0 * math.sin(w * 0.5)),
+                hand_L=va(KL, (0, 0, 0.005 * math.sin(w - 0.4))), hand_R=va(KR, (0, 0, 0.005 * math.sin(w - 0.8))), rot_R=(KR0 + 2 * br, 0, 0))
+def k_walk(f, n=36, stride=0.055, lift=0.03, bob=0.010, lean=2, arm=0.02, run=False):
+    w = 2 * math.pi * f / n
+    foot = lambda ph: (0, -stride * math.sin(w + ph), lift * max(0, math.cos(w + ph)))
+    return dict(hips_off=(0.008 * math.sin(w), -0.006 if run else 0, bob * math.cos(2 * w) - (0.015 if run else 0)), hips_rot=(lean, 0, 4 * math.sin(w)), chest_rot=(lean * 0.5 - 3, 0, -5 * math.sin(w)),
+                head_rot=(-lean * 0.6, 0, 1.5 * math.sin(w)), foot_L=foot(0), foot_R=foot(math.pi),
+                hand_L=va(KL, (0, arm * math.sin(w), 0.01 * math.cos(2 * w))), hand_R=va(KR, (0, -arm * math.sin(w), 0.01 * math.cos(2 * w))), rot_R=(KR0 + 5 * math.sin(w), 0, 0))
+def k_run(f, n=22):
+    d = k_walk(f, n, stride=0.09, lift=0.05, bob=0.015, lean=8, arm=0.05, run=True); w = 2 * math.pi * f / n
+    d['hand_L'] = V(0.24, KY - 0.18, 0.36 + 0.02 * math.sin(w)); d['hand_R'] = V(-0.19, KY - 0.14 - 0.05 * math.sin(w), 0.36); d['rot_R'] = (KR0 + 20, 0, 0); return d
+def k_attack(f, n=40):   # sword raised high, a heavy overhead chop, shield thrust forward
+    p = f / n; wind = seg(p, 0, .34); chop = seg(p, .44, .56); rec = seg(p, .70, 1.0)
+    hr = vl(KR, V(-0.17, KY - 0.02, 0.80), wind); hr = vl(hr, V(-0.15, KY - 0.30, 0.34), chop); hr = vl(hr, KR, rec)
+    rot = lerp(KR0, -25, wind); rot = lerp(rot, 135, chop); rot = lerp(rot, KR0, rec)
+    hl = vl(KL, V(0.26, KY - 0.10, 0.36), wind); hl = vl(hl, V(0.22, KY - 0.24, 0.36), chop); hl = vl(hl, KL, rec)
+    lean = lerp(lerp(-16 * wind, 26, chop), -3, rec)
+    return dict(hand_R=hr, hand_L=hl, rot_R=(rot, 0, 0), chest_rot=(lean, 0, 4 * chop), head_rot=(lerp(-8 * wind, 12, chop) * (1 - rec), 0, 0),
+                hips_off=(0, -0.05 * chop * (1 - rec), -0.02 * chop * (1 - rec)), foot_R=(0, -0.05 * chop * (1 - rec), 0))
+def k_hit(f, n=18):
+    k = math.sin(max(0, min(1, f / n)) * math.pi)
+    return dict(chest_rot=(-3 - 16 * k, 0, 4 * k), head_rot=(-10 * k, 0, -6 * k), hips_off=(0, 0.04 * k, -0.015 * k), hand_L=va(KL, (0.04, 0.05, 0.06 * k)), hand_R=va(KR, (-0.02, 0.04, 0.06 * k)), rot_R=(KR0 - 15 * k, 0, 0))
+def k_death(f):
+    st = dict(hand_L=va(KL, (0.04, 0.05, 0.06)), hand_R=va(KR, (-0.02, 0.04, 0.06)), chest_rot=(-19, 0, 4), head_rot=(-10, 0, -6), hips_off=(0, 0.04, -0.015), rot_R=(KR0 - 15, 0, 0))
+    if f <= 5:
+        k = f / 5; return dict(hand_L=vl(KL, st['hand_L'], k), hand_R=vl(KR, st['hand_R'], k), chest_rot=vl((-3, 0, 0), st['chest_rot'], k), head_rot=vl((0, 0, 0), st['head_rot'], k),
+                               hips_off=vl((0, 0, 0), st['hips_off'], k), rot_R=(lerp(KR0, KR0 - 15, k), 0, 0))
+    t = min(1.0, (f - 5) / 22); e = t * t * (3 - 2 * t); d = dict(st)
+    d['root_rot'] = (-88 * e, 0, 0); d['root_off'] = (0, 0.03 * e, 0.16 * e); d['hips_off'] = vl(st['hips_off'], (0, 0.02, 0), e)
+    d['chest_rot'] = vl(st['chest_rot'], (0, 0, 0), e); d['head_rot'] = vl(st['head_rot'], (-8, 0, 12), e)
+    d['hand_L'] = vl(st['hand_L'], V(0.34, KY + 0.06, 0.26), e); d['hand_R'] = vl(st['hand_R'], V(-0.34, KY + 0.06, 0.26), e); d['rot_R'] = (lerp(KR0 - 15, 100, e), 0, 0)
+    d['foot_L'] = vl((0, 0, 0), (0.03, 0.02, 0.03), e); d['foot_R'] = vl((0, 0, 0), (-0.03, 0.05, 0.02), e)
+    if f > 27: s_ = min(1.0, (f - 27) / 6); d['root_off'] = va(d['root_off'], (0, 0, 0.012 * math.sin(s_ * math.pi) * (1 - s_)))
+    return d
+def k_spawn(f): return k_death(DEATH_LEN - f)
+def k_salute(f, n=70):   # snaps the sword up in front of his visor, holds, lowers
+    p = f / n; up = seg(p, .08, .26) * (1 - seg(p, .72, .92))
+    return dict(hand_R=vl(KR, V(-0.07, KY - 0.24, 0.66), up), rot_R=(lerp(KR0, -8, up), 0, 0), hand_L=va(KL, (0, 0, 0)), chest_rot=(-3 - 8 * up, 0, 0), head_rot=(-5 * up, 0, 0), hips_off=(0, 0, 0.004 * up))
+def k_boast(f, n=80):   # thumps his chest plate with the shield fist twice, sword held out
+    p = f / n; up = seg(p, .06, .18) * (1 - seg(p, .86, 1.0)); th = max(0, math.sin(p * 2 * math.pi * 2.5)) * up
+    return dict(hand_L=vl(KL, V(0.05, KY - 0.20 - 0.03 * th, 0.40), up), hand_R=vl(KR, V(-0.22, KY - 0.24, 0.42), up), rot_R=(lerp(KR0, 60, up), 0, 0),
+                chest_rot=(-3 - 10 * up + 4 * th, 0, 0), head_rot=(-8 * up, 0, 0), hips_off=(0, 0, -0.006 * th))
+def k_admire(f, n=84):   # lifts the shield like a mirror and admires his reflection
+    p = f / n; up = seg(p, .06, .24) * (1 - seg(p, .80, .96)); tilt = math.sin(p * 2 * math.pi * 2) * up
+    return dict(hand_L=vl(KL, V(0.10, KY - 0.30, 0.56), up), rot_L=(lerp(0, -20, up), 0, 0), hand_R=va(KR, (0, 0, 0)), rot_R=(KR0, 0, 0),
+                chest_rot=(-3 - 4 * up, 0, 0), head_rot=(-8 * up, 0, 8 * tilt), hips_off=(0, 0, 0.004 * up))
+def k_pose(f, n=70):   # hero pose: sword pointed at the sky, shield out, chest proud
+    p = f / n; up = seg(p, 0, .2) * (1 - seg(p, .86, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 2)) * up
+    return dict(chest_rot=(-3 - 12 * up, 0, 0), head_rot=(-10 * up, 0, 0), hips_off=(0, 0, 0.02 * pump), hand_R=vl(KR, V(-0.20, KY - 0.06, 0.86 + 0.02 * pump), up), rot_R=(lerp(KR0, -5, up), 0, 0),
+                hand_L=vl(KL, V(0.30, KY - 0.14, 0.44), up), rot_L=(lerp(0, 10, up), 0, 0))
 CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('Run', 24, o_run, True), ('Attack', 40, o_attack, False), ('Hit', 18, o_hit, False),
                      ('Death', DEATH_LEN, o_death, False), ('Spawn', 50, o_spawn, False), ('Yawn', 70, o_yawn, False), ('Cheer', 60, o_cheer, False)],
             'goblin': [('Idle', 64, g_idle, True), ('Walk', 28, g_walk, True), ('Run', 18, g_run, True), ('Attack', 30, g_attack, False), ('Hit', 18, g_hit, False), ('Death', DEATH_LEN, g_death, False),
                        ('Spawn', DEATH_LEN, g_spawn, False), ('Scheme', 80, g_scheme, False), ('Peek', 90, g_peek, False), ('Spin', 70, g_spin, False), ('Snicker', 60, g_snicker, False), ('Cheer', 60, g_cheer, False)],
+            'knight': [('Idle', 72, k_idle, True), ('Walk', 36, k_walk, True), ('Run', 22, k_run, True), ('Attack', 40, k_attack, False), ('Hit', 18, k_hit, False), ('Death', DEATH_LEN, k_death, False),
+                       ('Spawn', DEATH_LEN, k_spawn, False), ('Salute', 70, k_salute, False), ('Boast', 80, k_boast, False), ('Admire', 84, k_admire, False), ('Pose', 70, k_pose, False)],
             'warrior': [('Idle', 60, w_idle, True), ('Walk', 32, w_walk, True), ('Run', 20, w_run, True), ('Attack', 36, w_attack, False), ('Hit', 18, w_hit, False), ('Death', DEATH_LEN, w_death, False),
                         ('Spawn', DEATH_LEN, w_spawn, False), ('Trip', 80, w_trip, False), ('Bonk', 75, w_bonk, False), ('Wobble', 90, w_wobble, False), ('Wave', 64, w_wave, False), ('Cheer', 60, w_cheer, False)],
             'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False), ('DoubleBiceps', 90, dbl, False), ('BoneCrack', 80, crack, False), ('BowTwirl', 70, twirl, False),

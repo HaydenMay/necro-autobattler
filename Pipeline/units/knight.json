@@ -1,0 +1,138 @@
+{
+  "name": "Knight",
+  "body_glb": "../input/knight/knight_body.glb",
+  "out": "../out",
+  "facing": "-Y",
+  "comment": "Devout holy knight, chibi, Tripo Smart Mesh. Sword in the right hand, shield on the left (weapon2, not mirrored).",
+  "landmarks": {
+    "pelvis": [
+      0,
+      -0.14,
+      0.27
+    ],
+    "spine": [
+      0,
+      -0.14,
+      0.33
+    ],
+    "chest": [
+      0,
+      -0.14,
+      0.41
+    ],
+    "neck": [
+      0,
+      -0.16,
+      0.5
+    ],
+    "head": [
+      0,
+      -0.18,
+      0.6
+    ],
+    "head_top": [
+      0,
+      -0.16,
+      0.85
+    ],
+    "shoulder": [
+      0.16,
+      -0.15,
+      0.45
+    ],
+    "elbow": [
+      0.26,
+      -0.15,
+      0.35
+    ],
+    "wrist": [
+      0.31,
+      -0.16,
+      0.25
+    ],
+    "hand_end": [
+      0.335,
+      -0.16,
+      0.15
+    ],
+    "hip": [
+      0.1,
+      -0.14,
+      0.25
+    ],
+    "knee": [
+      0.13,
+      -0.14,
+      0.17
+    ],
+    "ankle": [
+      0.14,
+      -0.14,
+      0.09
+    ],
+    "toe": [
+      0.15,
+      -0.29,
+      0.03
+    ]
+  },
+  "weights": {
+    "method": "auto",
+    "head_z": 0.52,
+    "head_blend": 0.06,
+    "back_y": -0.07,
+    "back_x": 0.5,
+    "arm_y": -0.15,
+    "arm_r": 0.11
+  },
+  "weapon": {
+    "glb": "../input/knight/sword.glb",
+    "hand": "R",
+    "rotate_deg": [
+      0,
+      0,
+      0
+    ],
+    "offset": [
+      0,
+      0,
+      0
+    ]
+  },
+  "weapon2": {
+    "glb": "../input/knight/shield.glb",
+    "hand": "L",
+    "mirror": false,
+    "rotate_deg": [
+      0,
+      0,
+      0
+    ],
+    "offset": [
+      0.03,
+      -0.1,
+      0.05
+    ]
+  },
+  "clips": "knight",
+  "team_texture": {
+    "from_hue": [
+      0.7,
+      0.9
+    ],
+    "to_hue": 0.105,
+    "eye_box": {
+      "z": [
+        0.5,
+        0.68
+      ],
+      "x": 0.16,
+      "y_max": -0.25
+    }
+  },
+  "export": {
+    "glb": true,
+    "fbx": false,
+    "qa_sheets": true
+  }
+}

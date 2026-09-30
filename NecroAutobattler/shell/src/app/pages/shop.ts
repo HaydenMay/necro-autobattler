@@ -49,7 +49,7 @@ import { fmt, goldIcon, range, skullIcon } from '../soul-ui';
       <div class="box" style="max-width:460px;margin:8px 0 16px"><b>No packs waiting.</b><div class="lead" style="margin:4px 0 0">Clear a stage to earn one. Your first clear on each difficulty gives a better pack.</div></div>
     }
 
-    <button class="acc" (click)="toggleInfo()" [attr.aria-expanded]="info()">How packs are earned <span class="tag soon">placeholder numbers</span><span class="sp"></span><span class="chev" [class.open]="info()"></span></button>
+    <button class="acc" (click)="toggleInfo()" [attr.aria-expanded]="info()">How packs are earned<span class="sp"></span><span class="chev" [class.open]="info()"></span></button>
     @if (info()) {
     <div class="box accbody">
       <div>

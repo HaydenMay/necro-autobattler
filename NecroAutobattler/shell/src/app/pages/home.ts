@@ -72,6 +72,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     /* unlock celebration: the padlock shakes, the shackle swings open, a ring bursts out, then the words appear */
     .newb { font-weight:800; }
     .cscrim { position:fixed; inset:0; z-index:36; background:rgba(6,3,12,.78); display:flex; align-items:center; justify-content:center; animation:fadeIn .2s ease-out both; }
+    .msbtn { display:flex; align-items:center; gap:8px; align-self:flex-start; margin-top:0; padding:.25em .9em; border-radius:999px; background:rgba(28,20,44,.9); border:2px solid #4a2f74; color:#fff; font-weight:800; font-size:.95em; } .msbtn img { width:1.3em; height:1.3em; } .msbtn .mc { opacity:.7; font-weight:600; } .msbtn .rbadge { position:static; margin-left:2px; }
     .mbox { width:min(520px,94%); max-height:92%; display:flex; flex-direction:column; padding:clamp(10px,2.2vmin,18px); border-radius:16px; background:#1c1632; border:2px solid #7a5cc0; box-shadow:0 0 30px rgba(122,92,192,.45); }
     .mbox .ct { font-size:1.3em; color:var(--gold); margin-bottom:6px; display:flex; align-items:center; gap:10px; } .mbox .ct button { margin-left:auto; padding:.3em .8em; }
     .mlist { overflow-y:auto; min-height:0; }
@@ -98,7 +99,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
     .sc.lock .th { filter:grayscale(1) brightness(.6); }
     /* short phones: drop the extras so the whole page fits without scrolling */
-    @media (max-height:430px) { .more, .sc small:not(.lk) { display:none; } .sc .tx { padding:.45em .6em .45em 0; } .stages { gap:6px; } }
+    @media (max-height:430px) { .more, .sc small:not(.lkm) { display:none; } .sc .tx { padding:.32em .6em .32em 0; } .stages { gap:4px; } }
     @media (max-width:640px) { .wrap { grid-template-columns:1fr; } }
   `],
   template: `
@@ -150,7 +151,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
               <small>Recommended level {{ st.rec[shown()] }} on {{ label(shown()) }}</small>
               <div class="marks">@for (d of diffs; track d.id) { <span class="mark" [class.none]="!save.cleared(st.id, $any(d.id))">@if (save.cleared(st.id, $any(d.id))) { <img [src]="checkIcon" alt=""> }{{ d.label }}</span> }</div>
             } @else {
-              <small class="lk"><img class="ic" style="width:1.1em;height:1.1em" [src]="lockIcon" alt=""> {{ save.stageReason(i) }}</small>
+              <small class="lkm"><img class="ic" style="width:1.1em;height:1.1em" [src]="lockIcon" alt=""> {{ save.stageReason(i) }}</small>
             }
             </span>
           </button>
@@ -162,7 +163,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
             <small>{{ endlessRun() ? 'Run in progress' : 'Best: wave ' + save.endlessBest() }}</small>
             <div class="marks"><span class="mark">{{ endlessRun() ? 'Run in progress' : 'Best: wave ' + save.endlessBest() }}</span><span class="mark">A pack every 10 waves</span></div>
           } @else {
-            <small class="lk"><img class="ic" style="width:1.1em;height:1.1em" [src]="lockIcon" alt=""> Clear {{ lastStageName }} on Normal to unlock.</small>
+            <small class="lkm"><img class="ic" style="width:1.1em;height:1.1em" [src]="lockIcon" alt=""> Clear {{ lastStageName }} on Normal to unlock.</small>
           }
           </span>
         </button>
@@ -173,13 +174,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
             <div class="marks"><span class="mark" [title]="todayMod.text">{{ todayMod.name }}</span><span class="mark">{{ dailyRun() ? 'Run in progress' : save.dailyDoneToday() ? 'Done today' : 'Reward: a pack + gold' }}</span>@if (save.dailyStreak() > 0) { <span class="mark">{{ save.dailyStreak() }}-day streak</span> }@if (save.dailyDoneToday() && !dailyRun()) { <span class="mark">Play again for fun</span> }</div>
           </span>
         </button>
-        <button class="sc endl" [style.--ac]="lookOf('graveyard').accent" (click)="showMs.set(true)">
-          <span class="th" [style.background-image]="mood" [style.background-position]="lookOf('bastion').pos" [style.filter]="'hue-rotate(' + lookOf('bastion').hue + 'deg) saturate(1.25) brightness(1.35)'"></span>
-          <span class="tx"><b>Milestones</b>
-            <small>Long-term goals with one-time rewards.</small>
-            <div class="marks"><span class="mark">{{ claimedCount() }}/{{ milestoneCount }} claimed</span>@if (save.milestonesReady()) { <span class="mark">{{ save.milestonesReady() }} ready</span> }</div>
-          </span>
-        </button>
+        <button class="msbtn" (click)="showMs.set(true)"><img src="assets/icons/star.png" alt="">Milestones<span class="mc">{{ claimedCount() }}/{{ milestoneCount }}</span>@if (save.milestonesReady()) { <i class="rbadge">{{ save.milestonesReady() }}</i> }</button>
       </div>
     </div>
     @if (showMs()) {

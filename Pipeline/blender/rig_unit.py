@@ -776,12 +776,26 @@ def b_cheer(f, n=64):   # axe overhead, victory hops
     p = f / n; up = seg(p, 0, .18) * (1 - seg(p, .86, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 3)) * up
     hr = vl(BR, V(-0.13, BY - 0.05, 0.90 + 0.03 * pump), up); rot = lerp(BR0, -8, up)
     return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot), chest_rot=(6 - 20 * up, 0, 0), head_rot=(-4 - 16 * up, 0, 0), hips_off=(0, 0, -0.02 + 0.05 * pump), foot_L=(0, 0, 0.04 * pump), foot_R=(0, 0, 0.04 * pump))
+def o_scratch(f, n=90):   # lazily scratches his belly, mace dangling, then gives it an approving pat
+    p = f / n; up = seg(p, .08, .22) * (1 - seg(p, .82, .95)); rub = math.sin(p * 2 * math.pi * 4) * up
+    return dict(hand_L=vl(va(RL, (0, -0.02, 0)), V(0.09 + 0.03 * rub, -0.22, 0.30 + 0.02 * rub), up), hand_R=va(RR, (0.02, -0.06, 0)), rot_R=(ROT0 + 6 * up, 0, 0), chest_rot=(6 * up, 0, 0), head_rot=(-12 * up, 0, 5 * math.sin(p * 2 * math.pi) * up), hips_off=(0, 0, 0.004 * rub))
+def o_stomp(f, n=70):   # hulking tantrum: two heavy stomps that shake the whole body
+    p = f / n; up = seg(p, .05, .16) * (1 - seg(p, .86, 1.0)); w = p * 2 * math.pi * 2; sl = max(0, math.sin(w)); sr = max(0, -math.sin(w))
+    return dict(foot_L=(0, 0, 0.11 * sl * up), foot_R=(0, 0, 0.11 * sr * up), hips_off=(0, 0, -0.03 * (1 - sl) * (1 - sr) * up), hips_rot=(0, 0, 5 * math.sin(w) * up), chest_rot=(8 * up, 0, -5 * math.sin(w) * up),
+                head_rot=(-6 * up, 0, 3 * math.sin(w) * up), hand_L=va(RL, (0, -0.02, 0.04 * (sl + sr) * up)), hand_R=va(RR, (0.02, -0.06, 0.04 * (sl + sr) * up)), rot_R=(ROT0 - 12 * up * (sl + sr), 0, 0))
+def o_thump(f, n=80):   # pounds his chest with the free fist and bellows
+    p = f / n; up = seg(p, .08, .20) * (1 - seg(p, .84, 1.0)); th = max(0, math.sin(p * 2 * math.pi * 3)) * up
+    return dict(hand_L=vl(va(RL, (0, -0.02, 0)), V(0.05, -0.25 + 0.03 * th, 0.46), up), hand_R=va(RR, (0.02, -0.06, 0)), rot_R=(ROT0, 0, 0), chest_rot=(-10 * up + 5 * th, 0, 0), head_rot=(-16 * up, 0, 0), hips_off=(0, 0, -0.01 * th))
+def k_pray(f, n=100):   # kneels, plants the sword point-down and bows his head over the pommel
+    p = f / n; dn = seg(p, .08, .30) * (1 - seg(p, .76, .94)); glow = math.sin(p * 2 * math.pi * 2) * dn
+    return dict(hips_off=(0, 0, -0.10 * dn), foot_L=(0, -0.05 * dn, 0), foot_R=(0, 0.10 * dn, 0.06 * dn), chest_rot=(-3 + 14 * dn, 0, 0), head_rot=(30 * dn, 0, 0),
+                hand_R=vl(KR, V(-0.02, KY - 0.24, 0.40), dn), rot_R=(lerp(KR0, 180, dn), 0, 0), hand_L=vl(KL, V(0.33, KY + 0.02, 0.17), dn), rot_L=(lerp(0, -15, dn), 0, 0))
 CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('Run', 24, o_run, True), ('Attack', 40, o_attack, False), ('Hit', 18, o_hit, False),
-                     ('Death', DEATH_LEN, o_death, False), ('Spawn', 50, o_spawn, False), ('Yawn', 70, o_yawn, False), ('Cheer', 60, o_cheer, False)],
+                     ('Death', DEATH_LEN, o_death, False), ('Spawn', 50, o_spawn, False), ('Yawn', 70, o_yawn, False), ('Cheer', 60, o_cheer, False), ('Scratch', 90, o_scratch, False), ('Stomp', 70, o_stomp, False), ('Thump', 80, o_thump, False)],
             'goblin': [('Idle', 64, g_idle, True), ('Walk', 28, g_walk, True), ('Run', 18, g_run, True), ('Attack', 30, g_attack, False), ('Hit', 18, g_hit, False), ('Death', DEATH_LEN, g_death, False),
                        ('Spawn', DEATH_LEN, g_spawn, False), ('Scheme', 80, g_scheme, False), ('Peek', 90, g_peek, False), ('Spin', 70, g_spin, False), ('Snicker', 60, g_snicker, False), ('Cheer', 60, g_cheer, False)],
             'knight': [('Idle', 72, k_idle, True), ('Walk', 36, k_walk, True), ('Run', 22, k_run, True), ('Attack', 40, k_attack, False), ('Hit', 18, k_hit, False), ('Death', DEATH_LEN, k_death, False),
-                       ('Spawn', DEATH_LEN, k_spawn, False), ('Salute', 70, k_salute, False), ('Boast', 80, k_boast, False), ('Admire', 84, k_admire, False), ('Pose', 70, k_pose, False)],
+                       ('Spawn', DEATH_LEN, k_spawn, False), ('Salute', 70, k_salute, False), ('Boast', 80, k_boast, False), ('Admire', 84, k_admire, False), ('Pose', 70, k_pose, False), ('Pray', 100, k_pray, False)],
             'barbarian': [('Idle', 72, b_idle, True), ('Walk', 32, b_walk, True), ('Run', 20, b_run, True), ('Attack', 32, b_attack, False), ('Hit', 18, b_hit, False), ('Death', DEATH_LEN, b_death, False),
                           ('Spawn', DEATH_LEN, b_spawn, False), ('Roar', 84, b_roar, False), ('ChestBeat', 90, b_chest, False), ('Stomp', 72, b_stomp, False), ('Cheer', 64, b_cheer, False)],
             'warrior': [('Idle', 60, w_idle, True), ('Walk', 32, w_walk, True), ('Run', 20, w_run, True), ('Attack', 36, w_attack, False), ('Hit', 18, w_hit, False), ('Death', DEATH_LEN, w_death, False),

@@ -68,7 +68,7 @@ export class Game {
     for (const team of [0, 1] as const) for (let c = 0; c < GRID_CELLS; c++) { const t = this.makeTile(team, c); if (team === 0) this.tiles.push(t); else t.setEnabled(false); }
 
     this.A = await loadAssets(scene);
-    this.necro = new Necromancer(scene, this.A.soft);       // stands just behind his army's back column, facing the battlefield
+    this.necro = new Necromancer(scene, this.A.soft, this.A.necro);       // stands just behind his army's back column, facing the battlefield
     this.necro.holder.position.set(-(FRONT_X + (GRID_COLS - 1) * GRID_SP) - 1.05, 0, 0); this.necro.holder.rotation.y = Math.PI / 2;
     this.arrowMats = [0, 1].map((t) => { const m = new BABYLON.StandardMaterial('am' + t, scene); m.diffuseColor = BABYLON.Color3.Black(); m.emissiveColor = t === 0 ? new BABYLON.Color3(0.75, 0.3, 1) : new BABYLON.Color3(1, 0.7, 0.25); m.disableLighting = true; return m; });
     this.ui = new Ui(this); this.seed = +(qs.get('seed') || 1); if (qs.get('fps')) this.setShowFps(true);

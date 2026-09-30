@@ -1,0 +1,127 @@
+{
+  "name": "Necromancer",
+  "body_glb": "../input/necro/necro_body.glb",
+  "out": "../out",
+  "facing": "-Y",
+  "comment": "The hero: chibi hooded necromancer, Tripo Smart Mesh, crystal staff in the right hand.",
+  "landmarks": {
+    "pelvis": [
+      0,
+      -0.12,
+      0.28
+    ],
+    "spine": [
+      0,
+      -0.12,
+      0.35
+    ],
+    "chest": [
+      0,
+      -0.12,
+      0.43
+    ],
+    "neck": [
+      0,
+      -0.15,
+      0.5
+    ],
+    "head": [
+      0,
+      -0.16,
+      0.62
+    ],
+    "head_top": [
+      0,
+      -0.05,
+      0.98
+    ],
+    "shoulder": [
+      0.19,
+      -0.1,
+      0.42
+    ],
+    "elbow": [
+      0.27,
+      -0.1,
+      0.37
+    ],
+    "wrist": [
+      0.34,
+      -0.1,
+      0.3
+    ],
+    "hand_end": [
+      0.38,
+      -0.1,
+      0.21
+    ],
+    "hip": [
+      0.09,
+      -0.12,
+      0.22
+    ],
+    "knee": [
+      0.12,
+      -0.12,
+      0.15
+    ],
+    "ankle": [
+      0.14,
+      -0.1,
+      0.08
+    ],
+    "toe": [
+      0.14,
+      -0.25,
+      0.03
+    ]
+  },
+  "weights": {
+    "method": "auto",
+    "spatial": true,
+    "spatial_power": 2.5,
+    "spatial_top": 3,
+    "head_z": 0.5,
+    "head_blend": 0.06,
+    "back_y": 0,
+    "back_x": 0.5,
+    "arm_y": -0.1,
+    "arm_r": 0.11,
+    "spatial_arm_r": 0.11
+  },
+  "weapon": {
+    "glb": "../input/necro/staff.glb",
+    "hand": "R",
+    "rotate_deg": [
+      0,
+      0,
+      0
+    ],
+    "offset": [
+      0,
+      0,
+      0
+    ]
+  },
+  "clips": "necro",
+  "team_texture": {
+    "from_hue": [
+      0.7,
+      0.9
+    ],
+    "to_hue": 0.105,
+    "eye_box": {
+      "z": [
+        0.52,
+        0.7
+      ],
+      "x": 0.18,
+      "y_max": -0.25
+    }
+  },
+  "export": {
+    "glb": true,
+    "fbx": false,
+    "qa_sheets": true
+  }
+}

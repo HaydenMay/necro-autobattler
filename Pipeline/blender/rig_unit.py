@@ -245,6 +245,12 @@ if AUTO:
         WS_ = CFG['weights']; nbS_ = [n_ for n_, d_ in B.items() if d_['deform'] and not n_.startswith('Socket_') and n_ in body.vertex_groups]
         AS_ = np.array([B[n_]['head'][:] for n_ in nbS_]); BS_ = np.array([B[n_]['tail'][:] for n_ in nbS_]); cS_ = verts_np(body); DS_ = seg_dist(cS_, AS_, BS_)
         rawS_ = 1.0 / (DS_ + WS_.get('spatial_eps', 0.02)) ** WS_.get('spatial_power', 2.0); topS_ = np.argsort(-rawS_, axis=1)[:, :WS_.get('spatial_top', 3)]
+        AR2_ = WS_.get('spatial_arm_r')       # robe cloth that merely hangs next to an arm must not follow it: arm bones only count for vertices within this distance of them
+        if AR2_ is not None:
+            for j_, n_ in enumerate(nbS_):
+                if n_.startswith(('UpperArm', 'LowerArm')): rawS_[DS_[:, j_] > AR2_, j_] = 0.0
+            rawS_[rawS_.sum(1) < 1e-9] = 1.0 / (DS_[rawS_.sum(1) < 1e-9] + 0.02) ** 2
+            topS_ = np.argsort(-rawS_, axis=1)[:, :WS_.get('spatial_top', 3)]
         for g_ in body.vertex_groups: g_.remove(list(range(len(cS_))))
         for vi_ in range(len(cS_)):
             w_ = rawS_[vi_, topS_[vi_]]; w_ = w_ / w_.sum()
@@ -817,6 +823,30 @@ def w_slash(f, n=36):   # Warrior: a quick diagonal slash from the right shoulde
     hl = vl(WL, V(0.20, -0.04, 0.60), wind); hl = vl(hl, V(0.16, -0.18, 0.36), sw); hl = vl(hl, WL, rec)
     return dict(hand_R=hr, rot_R=(pitch, 0, yaw), hand_L=hl, chest_rot=(lerp(-10 * wind, 18, sw) * (1 - rec), 0, tw), head_rot=(lerp(-4 * wind, 8, sw) * (1 - rec), 0, tw * 0.3),
                 hips_off=(0, -0.05 * sw * (1 - rec), -0.02 * sw * (1 - rec)), foot_R=(0, -0.05 * sw * (1 - rec), 0))
+# ---- Necromancer (the player's hero): robed, calm, casts with the free hand. Staff in the right hand (rot_R: 0 = crystal straight up, + = crystal forward).
+NY = -0.12   # this model's body sits 12 cm forward of the centre of its bounding box (the hood tail sticks out backwards)
+NL, NR = V(0.31, NY - 0.02, 0.29), V(-0.30, NY - 0.06, 0.30)
+def n_idle(f, n=72):
+    w = 2 * math.pi * f / n; br = math.sin(w)
+    return dict(hips_off=(0, 0, 0.006 * br), chest_rot=(1.5 * br, 0, 0.8 * math.sin(w * 0.5)), head_rot=(-1.5 * math.sin(w - 1.0), 0, 2.5 * math.sin(w * 0.5)),
+                hand_L=va(NL, (0, 0.01 * math.sin(w - 0.5), 0.008 * br)), hand_R=va(NR, (0, 0, 0.005 * math.sin(w - 0.8))), rot_R=(1.5 * math.sin(w - 0.4), 0, 0))
+def n_cast(f, n=34):   # the free hand thrusts forward, the staff lifts: the spell that ends a won wave
+    p = f / n; up = seg(p, 0, .34) * (1 - seg(p, .74, 1.0)); kick = math.sin(seg(p, .30, .50) * math.pi) * 0.04
+    return dict(hand_L=vl(NL, V(0.16, NY - 0.46 - kick, 0.52), up), hand_R=vl(NR, V(-0.24, NY - 0.20, 0.60), up), rot_R=(lerp(0, 18, up), 0, 0), chest_rot=(-4 - 10 * up, 0, -8 * up), head_rot=(4 * up, 0, 6 * up), hips_off=(0, -0.03 * up, 0))
+def n_hurt(f, n=24):   # flinches back
+    k = math.sin(max(0, min(1, f / n)) * math.pi)
+    return dict(chest_rot=(-14 * k, 0, 4 * k), head_rot=(-10 * k, 0, -6 * k), hips_off=(0, 0.05 * k, -0.01 * k), hand_L=va(NL, (0.04, 0.05, 0.08 * k)), hand_R=va(NR, (-0.02, 0.04, 0.05 * k)), rot_R=(-14 * k, 0, 0))
+def n_down(f, n=40):   # crumples forward onto his knees when the last heart goes
+    t = min(1.0, f / 26); e = t * t * (3 - 2 * t)
+    return dict(root_rot=(58 * e, 0, 0), root_off=(0, -0.10 * e, -0.06 * e), hips_off=(0, 0, -0.06 * e), chest_rot=(20 * e, 0, 0), head_rot=(24 * e, 0, 0),
+                hand_L=vl(NL, V(0.28, NY - 0.30, 0.16), e), hand_R=vl(NR, V(-0.28, NY - 0.30, 0.20), e), rot_R=(lerp(0, 60, e), 0, 0))
+def n_revive(f, n=40): return n_down(n - f, n)
+def n_tap(f, n=66):   # taps the staff on the ground twice, impatiently
+    p = f / n; up = seg(p, .06, .16) * (1 - seg(p, .84, .96)); t1 = max(0, math.sin(seg(p, .22, .34) * math.pi)); t2 = max(0, math.sin(seg(p, .50, .62) * math.pi))
+    return dict(hand_R=va(NR, (0, 0, 0.09 * (t1 + t2) * up)), rot_R=(2 * up, 0, 0), hips_off=(0, 0, -0.004 * (t1 + t2)), head_rot=(-6 * up, 0, 5 * up), chest_rot=(2 * up, 0, 0), hand_L=va(NL, (0, 0, 0)))
+def n_cheer(f, n=64):   # staff up high, a little triumphant lean back
+    p = f / n; up = seg(p, 0, .22) * (1 - seg(p, .84, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 2)) * up
+    return dict(hand_R=vl(NR, V(-0.22, NY - 0.08, 0.72 + 0.03 * pump), up), rot_R=(lerp(0, 4, up), 0, 0), hand_L=vl(NL, V(0.27, NY - 0.05, 0.62), up), chest_rot=(-8 * up, 0, 0), head_rot=(-8 * up, 0, 0), hips_off=(0, 0, 0.012 * pump))
 CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('Run', 24, o_run, True), ('Attack', 40, o_attack, False), ('Hit', 18, o_hit, False),
                      ('Death', DEATH_LEN, o_death, False), ('Spawn', 50, o_spawn, False), ('Yawn', 70, o_yawn, False), ('Cheer', 60, o_cheer, False), ('Scratch', 90, o_scratch, False), ('Stomp', 70, o_stomp, False), ('Thump', 80, o_thump, False)],
             'goblin': [('Idle', 64, g_idle, True), ('Walk', 28, g_walk, True), ('Run', 18, g_run, True), ('Attack', 30, g_attack, False), ('Hit', 18, g_hit, False), ('Death', DEATH_LEN, g_death, False),
@@ -825,6 +855,7 @@ CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('R
                        ('Spawn', DEATH_LEN, k_spawn, False), ('Salute', 70, k_salute, False), ('Boast', 80, k_boast, False), ('Admire', 84, k_admire, False), ('Pose', 70, k_pose, False), ('Pray', 100, k_pray, False)],
             'barbarian': [('Idle', 72, b_idle, True), ('Walk', 32, b_walk, True), ('Run', 20, b_run, True), ('Attack', 36, b_sweep, False), ('Hit', 18, b_hit, False), ('Death', DEATH_LEN, b_death, False),
                           ('Spawn', DEATH_LEN, b_spawn, False), ('Roar', 84, b_roar, False), ('ChestBeat', 90, b_chest, False), ('Stomp', 72, b_stomp, False), ('Cheer', 64, b_cheer, False)],
+            'necro': [('Idle', 72, n_idle, True), ('Cast', 34, n_cast, False), ('Hurt', 24, n_hurt, False), ('Down', 40, n_down, False), ('Revive', 40, n_revive, False), ('Tap', 66, n_tap, False), ('Cheer', 64, n_cheer, False)],
             'warrior': [('Idle', 60, w_idle, True), ('Walk', 32, w_walk, True), ('Run', 20, w_run, True), ('Attack', 36, w_slash, False), ('Hit', 18, w_hit, False), ('Death', DEATH_LEN, w_death, False),
                         ('Spawn', DEATH_LEN, w_spawn, False), ('Trip', 80, w_trip, False), ('Bonk', 75, w_bonk, False), ('Wobble', 90, w_wobble, False), ('Wave', 64, w_wave, False), ('Cheer', 60, w_cheer, False)],
             'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False), ('DoubleBiceps', 90, dbl, False), ('BoneCrack', 80, crack, False), ('BowTwirl', 70, twirl, False),

@@ -80,7 +80,7 @@ export class Ui {
       const unlockHtml = rw && rw.unlocked && rw.unlocked.length ? `<div class="sub" style="color:#7ef2c8;font-weight:700">${iconImg('check')} Unlocked: ${rw.unlocked.map((k: string) => describeUnlock(k)).join(' \u00b7 ')}</div>` : '';
       const goldHtml = g.runGold ? `<div class="sub" style="color:#ffd24a;font-weight:700">${iconImg('gold')} Gold earned this run: ${fmt(g.runGold)}</div>` : '';
       const dr = ph === 'won' && g.daily ? g.dailyReward : null;
-      const dailyHtml = g.daily ? (dr ? `<div class="sub" style="color:#ffd24a;font-weight:700">${dr.pack ? `${iconImg('shop')} Daily complete! You earned a ${sk(1)} Soul Pack and ${fmt(dr.gold)} ${iconImg('gold')}.` : 'Daily complete again. The reward comes once per day: see you tomorrow!'}</div>` : '') : '';
+      const dailyHtml = g.daily ? (dr ? `<div class="sub" style="color:#ffd24a;font-weight:700">${dr.pack ? `${iconImg('shop')} Daily complete! Day ${dr.streak} in a row: a ${sk(dr.pack.tier)} Soul Pack and ${fmt(dr.gold)} ${iconImg('gold')}.` : 'Daily complete again. The reward comes once per day: see you tomorrow!'}</div>` : '') : '';
       const rewardHtml = goldHtml + dailyHtml + unlockHtml + (rw ? `<div class="sub" style="color:#ffd24a;font-weight:700">${rw.pack ? (rw.first ? `${iconImg('shop')} First clear! You earned a ${sk(rw.pack.tier)} Soul Pack.` : `${iconImg('shop')} Replay reward: a ${sk(rw.pack.tier)} Soul Pack.`) : `Replay progress ${rw.replayMeter}/${rw.replayNeeded} toward a Soul Pack.`}</div>` : '');
       if (ph === 'lost' && isEndless() && g.endless) {                    // the end of an endless run: how deep, any record, packs earned
         const e = g.endless, rec = e.cleared > e.startBest;

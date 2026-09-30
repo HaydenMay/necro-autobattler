@@ -33,7 +33,7 @@ function play(seed: number, difficulty: 'easy' | 'normal' | 'hard' | 'nightmare'
     if (!GOLD_ON) s.gold = 1e9;
     for (const soul of SOULS) while (levelUp(s, soul)) { /* level as far as the copies allow */ }
     const levels = SOULS.map((x) => s.souls[x].level);
-    for (const L of [2, 3, 5, 8]) { if (Math.min(...levels) >= L) mark('all Souls at level ' + L, c); if (Math.max(...levels) >= L) mark('first Soul at level ' + L, c); }
+    for (const L of [2, 3, 4, 5, 6, 8, 10]) { if (Math.min(...levels) >= L) mark('all Souls at level ' + L, c); if (Math.max(...levels) >= L) mark('first Soul at level ' + L, c); }
   }
   return { packs, milestones, levels: SOULS.map((x) => s.souls[x].level) };
 }
@@ -41,7 +41,7 @@ function play(seed: number, difficulty: 'easy' | 'normal' | 'hard' | 'nightmare'
 for (const diff of ['normal', 'nightmare'] as const) {
   console.log(`\n== a player who only clears ${diff}: stage clears needed (median of ${RUNS} players; one first-clear pack, then a replay pack every ${REWARDS.replayClearsPerPack} clears) ==`);
   const runs = Array.from({ length: RUNS }, (_, i) => play(7 + i, diff, 400));
-  for (const k of ['first Soul at level 2', 'all Souls at level 2', 'first Soul at level 3', 'all Souls at level 3', 'first Soul at level 5', 'all Souls at level 5', 'first Soul at level 8', 'all Souls at level 8']) {
+  for (const k of ['first Soul at level 2', 'all Souls at level 2', 'first Soul at level 3', 'all Souls at level 3', 'first Soul at level 5', 'all Souls at level 5', 'first Soul at level 8', 'all Souls at level 8', 'first Soul at level 4', 'all Souls at level 4', 'first Soul at level 6', 'all Souls at level 6', 'first Soul at level 10', 'all Souls at level 10']) {
     const v = runs.map((r) => r.milestones[k] ?? 999).sort((a, b) => a - b), med = v[Math.floor(v.length / 2)];
     console.log(k.padEnd(24), med >= 999 ? '> 400 clears' : med + ' clears');
   }

@@ -4,7 +4,8 @@ import type { Difficulty, Save, SoulProgress } from '../../../core/save.ts';
 import { SOULS } from '../../../core/data.ts';
 import type { SoulId } from '../../../core/data.ts';
 import { makeRng } from '../../../core/rng.ts';
-import { dailyDone, endlessUnlocked, canLevelUp, clearCopies, clearCount, resetLevels, upgradeCosts, newUnlocks, unlockedKeys, difficultyLockReason, difficultyUnlocked, grantPack, levelUp, openOwnedPack, playable, stageLockReason, stageUnlocked } from '../../../core/progress.ts';
+import { claimMilestone, readyMilestones } from '../../../core/milestones.ts';
+import { dailyDone, dailyStreakNow, endlessUnlocked, canLevelUp, clearCopies, clearCount, resetLevels, upgradeCosts, newUnlocks, unlockedKeys, difficultyLockReason, difficultyUnlocked, grantPack, levelUp, openOwnedPack, playable, stageLockReason, stageUnlocked } from '../../../core/progress.ts';
 import { STAGES } from '../../../core/waves.ts';
 import { dayNumber } from '../../../core/daily.ts';
 import type { PackResult } from '../../../core/packs.ts';
@@ -32,6 +33,11 @@ export class SaveService {
   readonly gold = computed(() => this.state().gold);
   /** Today's Daily Challenge reward already taken? (checked against the clock each time it is asked) */
   dailyDoneToday(): boolean { return dailyDone(this.state(), dayNumber()); }
+  /** Consecutive days with a Daily win that are still alive today. */
+  dailyStreak(): number { return dailyStreakNow(this.state(), dayNumber()); }
+  readonly snapshot = computed(() => this.state());
+  readonly milestonesReady = computed(() => readyMilestones(this.state()));
+  claim(id: string) { return this.mutate((s) => claimMilestone(s, id)); }
   readonly replayMeter = computed(() => this.state().replayMeter);
   /** Endless Depths: the deepest wave cleared, and whether the mode is open yet. */
   readonly endlessBest = computed(() => this.state().endless.best);

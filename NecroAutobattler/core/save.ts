@@ -29,6 +29,9 @@ export interface Save {
   endless: { best: number };                    // Endless Depths: the deepest wave cleared
   goldScale: number;                            // 2 = gold in the current (x100) units; a save without it holds gold in the old small units and is converted on load
   gold: number;                                 // spent on Soul level-ups (alongside copies); earned per wave cleared and from opening packs
+  dailyStreak: { count: number; last: number }; // consecutive days with a Daily win, and the last day won
+  dailyWins: number;                            // Daily Challenges won (one per day counts)
+  claimed: string[];                            // milestones whose reward was taken
   daily: { day: number; won: boolean } | null;  // the last Daily Challenge day played and whether its one-time reward was taken
 }
 /** Gold given once to a save that predates gold and has progress. */
@@ -38,7 +41,7 @@ export interface Store { getItem(k: string): string | null; setItem(k: string, v
 export function defaultSave(): Save {
   const souls = {} as Record<SoulId, SoulProgress>;
   for (const id of SOULS) souls[id] = { level: 1, copies: 0 };
-  return { v: VERSION, deck: SOULS.slice(0, DECK_SIZE), souls, settings: { music: true, sfx: true }, difficulty: 'normal', stage: 'crypt', seen: [], packs: [], nextPackId: 1, clears: {}, replayMeter: 0, endless: { best: 0 }, goldScale: 2, gold: 0, daily: null };
+  return { v: VERSION, deck: SOULS.slice(0, DECK_SIZE), souls, settings: { music: true, sfx: true }, difficulty: 'normal', stage: 'crypt', seen: [], packs: [], nextPackId: 1, clears: {}, replayMeter: 0, endless: { best: 0 }, goldScale: 2, gold: 0, daily: null, dailyStreak: { count: 0, last: 0 }, dailyWins: 0, claimed: [] };
 }
 
 export function browserStore(): Store | null { try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; } }
@@ -78,6 +81,9 @@ export function sanitize(raw: any): Save {
   if (raw.endless && Number.isInteger(raw.endless.best) && raw.endless.best >= 0 && raw.endless.best <= 9999) base.endless.best = raw.endless.best;
   if (Number.isInteger(raw.gold) && raw.gold >= 0 && raw.gold <= 1e9) base.gold = raw.goldScale === 2 ? raw.gold : Math.min(1e9, raw.gold * 100);   // early saves counted gold in units 100 times smaller
   else if (raw.gold === undefined && Object.keys(base.clears).length) base.gold = CATCH_UP_GOLD;        // a player from before gold existed: one-time grant so the new cost does not lock their stockpiled copies
+  if (raw.dailyStreak && Number.isInteger(raw.dailyStreak.count) && raw.dailyStreak.count >= 0 && raw.dailyStreak.count < 1e5 && Number.isInteger(raw.dailyStreak.last) && raw.dailyStreak.last >= 0 && raw.dailyStreak.last < 1e6) base.dailyStreak = { count: raw.dailyStreak.count, last: raw.dailyStreak.last };
+  if (Number.isInteger(raw.dailyWins) && raw.dailyWins >= 0 && raw.dailyWins < 1e5) base.dailyWins = raw.dailyWins;
+  if (Array.isArray(raw.claimed)) base.claimed = [...new Set<string>(raw.claimed.filter((k: any) => typeof k === 'string' && k.length < 40))].slice(0, 80);
   if (raw.daily && Number.isInteger(raw.daily.day) && raw.daily.day > 0 && raw.daily.day < 1e6) base.daily = { day: raw.daily.day, won: !!raw.daily.won };
   return base;
 }

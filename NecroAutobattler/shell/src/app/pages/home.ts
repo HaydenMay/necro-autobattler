@@ -162,7 +162,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
           <span class="th" [style.background-image]="mood" [style.background-position]="lookOf('graveyard').pos" [style.filter]="'hue-rotate(' + lookOf('graveyard').hue + 'deg) saturate(1.25) brightness(1.35)'"></span>
           <span class="tx"><b>Daily Challenge</b>
             <small>{{ todayMod.name }}: {{ todayMod.text }}</small>
-            <div class="marks"><span class="mark" [title]="todayMod.text">{{ todayMod.name }}</span><span class="mark">{{ dailyRun() ? 'Run in progress' : save.dailyDoneToday() ? 'Done today' : 'Reward: a pack + gold' }}</span>@if (save.dailyDoneToday() && !dailyRun()) { <span class="mark">Play again for fun</span> }</div>
+            <div class="marks"><span class="mark" [title]="todayMod.text">{{ todayMod.name }}</span><span class="mark">{{ dailyRun() ? 'Run in progress' : save.dailyDoneToday() ? 'Done today' : 'Reward: a pack + gold' }}</span>@if (save.dailyStreak() > 0) { <span class="mark">{{ save.dailyStreak() }}-day streak</span> }@if (save.dailyDoneToday() && !dailyRun()) { <span class="mark">Play again for fun</span> }</div>
           </span>
         </button>
       </div>

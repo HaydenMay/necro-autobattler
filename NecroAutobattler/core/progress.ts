@@ -100,12 +100,17 @@ export function recordClearAndSave(stageId: string, difficulty: Difficulty, stor
 }
 
 // ------------------------------------------------------------------------------------------------ Daily Challenge
-export interface DailyReward { first: boolean; pack: PackItem | null; gold: number }
+export interface DailyReward { first: boolean; pack: PackItem | null; gold: number; streak: number }
+/** The streak that counts today: still alive if the last win was today or yesterday, otherwise 0. */
+export const dailyStreakNow = (save: Save, day: number): number => (save.dailyStreak.last === day || save.dailyStreak.last === day - 1 ? save.dailyStreak.count : 0);
+/** Daily pack tier by streak: 1 at first, 2 from three days in a row, 3 from seven. */
+export const dailyPackTier = (streak: number): number => (streak >= 7 ? 3 : streak >= 3 ? 2 : 1);
 /** The day's challenge was won. Only the first win of a given day pays (a Tier 1 pack and some gold). */
 export function recordDailyWin(save: Save, day: number): DailyReward {
-  if (save.daily && save.daily.day === day && save.daily.won) return { first: false, pack: null, gold: 0 };
-  save.daily = { day, won: true };
-  return { first: true, pack: grantPack(save, 1, 'Daily challenge'), gold: addGold(save, GOLD.dailyWin) };
+  if (save.daily && save.daily.day === day && save.daily.won) return { first: false, pack: null, gold: 0, streak: dailyStreakNow(save, day) };
+  const streak = save.dailyStreak.last === day - 1 ? save.dailyStreak.count + 1 : 1;
+  save.daily = { day, won: true }; save.dailyStreak = { count: streak, last: day }; save.dailyWins++;
+  return { first: true, pack: grantPack(save, dailyPackTier(streak), 'Daily challenge'), gold: addGold(save, GOLD.dailyWin + 1000 * (Math.min(streak, 7) - 1)), streak };
 }
 export function recordDailyWinAndSave(day: number, store?: Store | null): DailyReward { const s = loadSave(store); const r = recordDailyWin(s, day); writeSave(s, store); return r; }
 /** Has today's reward already been taken? */

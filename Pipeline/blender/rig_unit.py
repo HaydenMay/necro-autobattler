@@ -631,12 +631,13 @@ def w_fumble(f, n=130):   # tosses his sword up to admire it, fumbles the catch,
     return d
 def w_shieldbonk(f, n=96):   # hides behind his shield, peeks round each side, loses patience, winds up and bonks the shield into his own helmet, reels and shakes it off
     p = f / n
-    hide = seg(p, .06, .18) * (1 - seg(p, .50, .58)); peek = math.sin(seg(p, .20, .46) * 2 * math.pi * 1.5) * seg(p, .20, .26) * (1 - seg(p, .42, .48))
-    wind = seg(p, .56, .66) * (1 - seg(p, .66, .68)); hit = seg(p, .66, .70) * (1 - seg(p, .70, .76)); reel = seg(p, .68, .74) * (1 - seg(p, .90, 1.0)); sway = math.sin(p * 2 * math.pi * 6) * reel
-    sh = vl(WL, V(0.02, -0.22, 0.64), hide); sh = va(sh, (0.07 * peek, 0, 0)); sh = vl(sh, V(0.34, -0.04, 0.80), wind); sh = vl(sh, V(0.12, -0.12, 0.80), hit)
-    sh = vl(sh, WL, seg(p, .76, .92))
-    return dict(hand_L=sh, rot_L=(0, 0, 0), hand_R=WR, rot_R=(WR0, 0, 0), hips_off=(0, 0, -0.03 * hide - 0.02 * wind - 0.02 * hit),
-                head_rot=(-2 * hide + 4 * wind + 18 * hit + 6 * reel, 0, -16 * peek + 8 * wind + 22 * hit * 0 + 12 * sway), chest_rot=(-3 * hide + 8 * hit - 4 * wind, 0, 4 * peek + 6 * sway),
+    hide = seg(p, .06, .18); peek = math.sin(seg(p, .20, .46) * 2 * math.pi * 1.5) * seg(p, .20, .26) * (1 - seg(p, .42, .48))
+    wind = seg(p, .52, .64); hit = seg(p, .64, .68) * (1 - seg(p, .68, .74)); swing = seg(p, .64, .68); reel = seg(p, .68, .74) * (1 - seg(p, .90, 1.0)); sway = math.sin(p * 2 * math.pi * 6) * reel
+    sh = vl(WL, V(0.02, -0.22, 0.64), hide); sh = va(sh, (0.07 * peek, 0, 0)); sh = vl(sh, V(0.34, -0.04, 0.80), wind); sh = vl(sh, V(0.12, -0.12, 0.80), swing)   # raised once and never lowered: hide, peek, wind up from where it is, smash
+    sh = vl(sh, WL, seg(p, .78, .94))
+    wk = wind * (1 - swing)
+    return dict(hand_L=sh, rot_L=(0, 0, 0), hand_R=WR, rot_R=(WR0, 0, 0), hips_off=(0, 0, -0.03 * hide - 0.02 * wk - 0.02 * hit),
+                head_rot=(-2 * hide + 4 * wk + 18 * hit + 6 * reel, 0, -16 * peek + 8 * wk + 22 * hit * 0 + 12 * sway), chest_rot=(-3 * hide + 8 * hit - 4 * wk, 0, 4 * peek + 6 * sway),
                 hips_rot=(0, 0, 5 * sway), helm_off=(0, -0.01 * hit, -0.05 * hit + 0.012 * sway), helm_rot=(20 * hit + 8 * reel, 0, 12 * sway), foot_R=(0, 0.03 * reel, 0.02 * abs(sway)))
 def w_trip(f, n=80):   # the toe catches, he pitches forward, arms and sword windmilling, stumbles a step to catch himself, straightens up and pretends nothing happened
     p = f / n; hook = seg(p, .06, .18) * (1 - seg(p, .44, .52)); fall = seg(p, .16, .38) * (1 - seg(p, .50, .72)); catch = seg(p, .36, .48) * (1 - seg(p, .62, .72))
@@ -848,7 +849,7 @@ def o_stomp(f, n=70):   # hulking tantrum: two heavy stomps that shake the whole
                 head_rot=(-6 * up, 0, 3 * math.sin(w) * up), hand_L=va(RL, (0, -0.02, 0.04 * (sl + sr) * up)), hand_R=va(RR, (0.02, -0.06, 0.04 * (sl + sr) * up)), rot_R=(ROT0 - 12 * up * (sl + sr), 0, 0))
 def o_thump(f, n=80):   # pounds his chest with the free fist and bellows
     p = f / n; up = seg(p, .08, .20) * (1 - seg(p, .84, 1.0)); th = max(0, math.sin(p * 2 * math.pi * 3)) * up
-    return dict(hand_L=vl(va(RL, (0, -0.02, 0)), V(0.13, -0.17 + 0.05 * th, 0.47), up), hand_R=va(RR, (0.02, -0.06, 0)), rot_R=(ROT0, 0, 0), chest_rot=(-14 * up + 7 * th, 0, 0), head_rot=(-18 * up + 4 * th, 0, 0), hips_off=(0, 0, -0.012 * th))
+    return dict(hand_L=vl(va(RL, (0, -0.02, 0)), V(0.18, -0.28 + 0.04 * th, 0.49), up), hand_R=va(RR, (0.02, -0.06, 0)), rot_R=(ROT0, 0, 0), chest_rot=(4 * up + 3 * th, 0, 0), head_rot=(-12 * up + 4 * th, 0, 0), hips_off=(0, 0, -0.012 * th))      # the fist lands ON the front of the chest (surface is y = -0.21 there), not inside it
 def k_pray(f, n=100):   # kneels, plants the sword point-down and bows his head over the pommel
     p = f / n; dn = seg(p, .08, .30) * (1 - seg(p, .76, .94)); glow = math.sin(p * 2 * math.pi * 2) * dn
     return dict(hips_off=(0, 0, -0.10 * dn), foot_L=(0, -0.05 * dn, 0), foot_R=(0, 0.10 * dn, 0.06 * dn), chest_rot=(-3 + 14 * dn, 0, 0), head_rot=(30 * dn, 0, 0),

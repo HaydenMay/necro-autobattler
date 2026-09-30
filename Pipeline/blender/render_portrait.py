@@ -1,6 +1,6 @@
 # Render a card portrait (transparent PNG) of a rigged Soul from its game GLB.
 #   blender -b -P render_portrait.py -- model.glb out.png [action|REST] [frame] [yaw_degrees] [full|head]
-import bpy, sys, math
+import bpy, sys, math, os
 from mathutils import Vector
 a = sys.argv[sys.argv.index('--') + 1:]
 glb, out = a[0], a[1]; action = a[2] if len(a) > 2 else 'Idle'; frame = int(a[3]) if len(a) > 3 else 10; yaw = float(a[4]) if len(a) > 4 else 28
@@ -11,8 +11,13 @@ bpy.ops.import_scene.gltf(filepath=glb)
 sc = bpy.context.scene
 for o in list(sc.objects):
     if o.name.startswith('Icosphere'): bpy.data.objects.remove(o, do_unlink=True)          # the blob-shadow helper, not part of the character
+if os.environ.get('HIDE_PROPS'):                       # weapons and shields in front of the face: leave them out of the portrait
+    for o in list(sc.objects):
+        if o.type == 'MESH' and 'Weapon' in o.name: bpy.data.objects.remove(o, do_unlink=True)
 arm = next(o for o in sc.objects if o.type == 'ARMATURE')
 arm.animation_data_create(); arm.animation_data.action = None if action == 'REST' else bpy.data.actions[action]     # REST = the unposed model (no stretching from the rig)
+if os.environ.get('HEAD_ROT'):                        # tilt the head (degrees x,y,z; negative x looks up) to show more of the face
+    hr_ = [math.radians(float(v)) for v in os.environ['HEAD_ROT'].split(',')]; pb_ = arm.pose.bones['Head']; pb_.rotation_mode = 'XYZ'; pb_.rotation_euler = hr_
 sc.frame_set(frame); bpy.context.view_layer.update()
 dg = bpy.context.evaluated_depsgraph_get(); lo = Vector((1e9,) * 3); hi = Vector((-1e9,) * 3)
 for o in sc.objects:
@@ -22,7 +27,7 @@ for o in sc.objects:
         w = o.matrix_world @ Vector(c); lo = Vector(map(min, lo, w)); hi = Vector(map(max, hi, w))
 ctr = (lo + hi) / 2; size = hi - lo
 if HEAD:                                              # head and shoulders: same-size window centred on the skull, so every Soul's face lands in the same place
-    hp = arm.matrix_world @ arm.pose.bones['Head'].head; size = Vector((0.3, 0.3, 0.58)); ctr = Vector((hp.x, hp.y, hp.z + 0.075))
+    hp = arm.matrix_world @ arm.pose.bones['Head'].head; k_ = float(os.environ.get('PORT_SCALE', 1.0)); size = Vector((0.3, 0.3, 0.58)) * k_; ctr = Vector((hp.x, hp.y, hp.z + 0.075 + float(os.environ.get('PORT_DZ', 0.0))))
 # camera: long lens (almost flat), in front of the character, turned a little for a three-quarter look
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam
 cam.data.lens = 85; cam.data.sensor_fit = 'VERTICAL'; cam.data.sensor_height = 24

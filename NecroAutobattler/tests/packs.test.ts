@@ -58,7 +58,7 @@ test('clear rewards: first clear per difficulty gives the improved pack, replays
   const s = defaultSave();
   const first = recordClear(s, 'crypt', 'nightmare'); assert.ok(first.first); assert.equal(first.pack!.tier, REWARDS.firstClearTier.nightmare);
   const easyFirst = recordClear(s, 'crypt', 'easy'); assert.ok(easyFirst.first, 'a new difficulty is a first clear again'); assert.equal(easyFirst.pack!.tier, REWARDS.firstClearTier.easy);
-  let replayPacks = 0; for (let i = 0; i < REWARDS.replayClearsPerPack * 3; i++) { const r = recordClear(s, 'crypt', 'nightmare'); assert.equal(r.first, false); if (r.pack) { replayPacks++; assert.equal(r.pack.tier, REWARDS.replayTier); } }
+  let replayPacks = 0; for (let i = 0; i < REWARDS.replayClearsPerPack * 3; i++) { const r = recordClear(s, 'crypt', 'nightmare'); assert.equal(r.first, false); if (r.pack) { replayPacks++; assert.equal(r.pack.tier, REWARDS.replayTier.nightmare); } }
   assert.equal(replayPacks, 3);
   assert.equal(s.packs.length, 2 + 3);
   const ids = s.packs.map((p) => p.id); assert.equal(new Set(ids).size, ids.length, 'pack ids are unique');

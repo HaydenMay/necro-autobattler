@@ -158,7 +158,6 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
           }
           </span>
         </button>
-        <div class="box rp"><span>Bonus pack</span><span class="meter"><i [style.width.%]="(100 * save.replayMeter()) / replayNeeded"></i></span><span>{{ save.replayMeter() }}/{{ replayNeeded }} clears</span></div>
         <button class="sc endl" [style.--ac]="lookOf('crypt').accent" [class.sel]="dailyRun()" [disabled]="!!run() && !dailyRun()" [title]="todayMod.name + ': ' + todayMod.text" (click)="startDaily()">
           <span class="th" [style.background-image]="mood" [style.background-position]="lookOf('graveyard').pos" [style.filter]="'hue-rotate(' + lookOf('graveyard').hue + 'deg) saturate(1.25) brightness(1.35)'"></span>
           <span class="tx"><b>Daily Challenge</b>

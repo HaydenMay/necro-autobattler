@@ -54,8 +54,7 @@ import { fmt, goldIcon, range, skullIcon } from '../soul-ui';
     <div class="box accbody">
       <div>
         @for (d of diffs; track d.id) { <div class="row3"><span style="flex:1">First clear on {{ d.label }}</span><span class="sk">@for (i of range(firstTier(d.id)); track i) { <img [src]="skullIcon" alt=""> }</span></div> }
-        <div class="row3"><span style="flex:1">Replay clears: a pack every {{ replayNeeded }} clears</span><span class="sk">@for (i of range(replayTier); track i) { <img [src]="skullIcon" alt=""> }</span></div>
-        <div class="row3"><span style="flex:1">Progress to the next replay pack</span><span class="meter"><i [style.width.%]="(100 * save.replayMeter()) / replayNeeded"></i></span> <span>{{ save.replayMeter() }}/{{ replayNeeded }}</span></div>
+        <div class="row3"><span style="flex:1">Replay clears: a pack every clear</span><span class="sk">@for (d of diffs; track d.id) { <span>{{ d.label }}</span> @for (i of range(replayTier[d.id]); track i) { <img [src]="skullIcon" alt=""> } }</span></div>
       </div>
       <div class="lead" style="margin:8px 0 0">A pack can also jump up a tier while it is being opened.</div>
     </div>

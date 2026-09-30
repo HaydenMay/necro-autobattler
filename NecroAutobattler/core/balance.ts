@@ -57,7 +57,7 @@ export const DEFAULTS: Balance = {
   taunt: { duration: 3, radius: 4.5 },
   smash: { mult: 2.0, radius: 1.6 },
   frenzy: { perSwing: 0.14, maxStacks: 8, resetAfter: 0.6 },
-  level: { hp: 0.08, dmg: 0.08, copiesToLevel: [5, 10, 20, 40, 80, 120, 200, 300, 500], goldToLevel: [6000, 12000, 24000, 48000, 96000, 168000, 270000, 420000, 660000] },
+  level: { hp: 0.08, dmg: 0.08, copiesToLevel: [5, 10, 20, 40, 80, 90, 140, 200, 300], goldToLevel: [6000, 12000, 24000, 48000, 72000, 110000, 170000, 260000, 400000] },
   sim: { separation: 0.6, hitFraction: 0.47, timeLimit: 120, retargetEvery: 0.5 },
 };
 

@@ -17,8 +17,8 @@ export const MAX_PACKS = 99;
 /** Where packs come from. PLACEHOLDER. First clear of a stage on each difficulty gives one improved pack; later clears fill a meter. */
 export const REWARDS = {
   firstClearTier: { easy: 1, normal: 2, hard: 2, nightmare: 3 } as Record<Difficulty, number>,
-  replayTier: 1,
-  replayClearsPerPack: 2,
+  replayTier: { easy: 1, normal: 1, hard: 2, nightmare: 2 } as Record<Difficulty, number>,   // every clear pays a pack; harder tiers pay better
+  replayClearsPerPack: 1,
 };
 
 // ------------------------------------------------------------------------------------------------ levels
@@ -90,7 +90,7 @@ function recordClearBase(save: Save, stageId: string, difficulty: Difficulty): O
   if (before === 0) return { first: true, pack: grantPack(save, REWARDS.firstClearTier[difficulty] + (stageIndex(stageId) === STAGES.length - 1 ? 1 : 0), 'First clear · ' + difficulty), replayMeter: save.replayMeter, replayNeeded: REWARDS.replayClearsPerPack };
   save.replayMeter++;
   let pack: PackItem | null = null;
-  if (save.replayMeter >= REWARDS.replayClearsPerPack) { save.replayMeter -= REWARDS.replayClearsPerPack; pack = grantPack(save, REWARDS.replayTier, 'Replay reward'); }
+  if (save.replayMeter >= REWARDS.replayClearsPerPack) { save.replayMeter -= REWARDS.replayClearsPerPack; pack = grantPack(save, REWARDS.replayTier[difficulty], 'Replay reward'); }
   return { first: false, pack, replayMeter: save.replayMeter, replayNeeded: REWARDS.replayClearsPerPack };
 }
 

@@ -27,7 +27,7 @@ function play(seed: number, difficulty: 'easy' | 'normal' | 'hard' | 'nightmare'
   for (let c = 1; c <= clears; c++) {
     let tiers: number[] = [];
     if (!firstDone) { firstDone = true; tiers = [REWARDS.firstClearTier[difficulty]]; }
-    else { replay++; if (replay >= REWARDS.replayClearsPerPack) { replay = 0; tiers = [REWARDS.replayTier]; } }
+    else { replay++; if (replay >= REWARDS.replayClearsPerPack) { replay = 0; tiers = [REWARDS.replayTier[difficulty]]; } }
     s.gold += 10 * waveGold('crypt', difficulty);
     for (const t of tiers) { const r = openPack(t, rng); packs++; s.gold += packGold(r.finalTier); for (const v of r.reveals) s.souls[v.soul].copies += v.copies; }
     if (!GOLD_ON) s.gold = 1e9;

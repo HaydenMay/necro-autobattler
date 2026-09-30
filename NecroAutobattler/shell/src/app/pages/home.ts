@@ -25,7 +25,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     .stage .in { padding:clamp(7px,1.9vh,20px) clamp(10px,2.4vmin,20px); }
     .hero { position:relative; overflow:hidden; height:clamp(42px,11vh,92px); border-bottom:1px solid color-mix(in srgb, var(--accent) 50%, #000); }
     .heroimg { position:absolute; inset:0; background-size:cover; }
-    .necro { position:absolute; z-index:1; right:clamp(4px,2vmin,16px); top:-72%; height:225%; aspect-ratio:1; pointer-events:none; filter:drop-shadow(0 3px 8px #000c); }
+    .necro { position:absolute; z-index:1; right:clamp(4px,2vmin,16px); top:-60%; height:225%; aspect-ratio:1; pointer-events:none; filter:drop-shadow(0 3px 8px #000c); }
     .hero::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,rgba(3,7,10,.88),rgba(3,7,10,.35) 70%,rgba(3,7,10,.1)); }
     .herotxt { position:absolute; z-index:1; left:clamp(10px,2.4vmin,20px); right:10px; bottom:clamp(6px,1.4vmin,12px); }
     .stage h2 { margin:0; font-size:1.7em; color:var(--gold); text-shadow:0 2px 0 #000, 0 0 16px color-mix(in srgb, var(--accent) 60%, transparent); } .sub { opacity:.85; font-size:.92em; text-shadow:0 1px 2px #000; margin-bottom:clamp(6px,1.6vmin,12px); } .hero .sub { margin:0; }

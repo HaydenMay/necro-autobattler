@@ -7,7 +7,7 @@ import { canMergeDeployed, canMergeFromHand, canSummon, cost, dominionFree, domi
 import { enemyWave, previewText } from '../core/waves.ts';
 import { audio } from './audio.ts';
 import { artBg, hasArt, rarityColor, soulArt } from '../ui/portraits.ts';
-import { SOUL_ICON, heartsHtml, iconImg, iconUrl, skullImgs } from '../ui/icons.ts';
+import { SOUL_ICON, heartsHtml, fmt, iconImg, iconUrl, skullImgs } from '../ui/icons.ts';
 import { describeUnlock } from '../core/progress.ts';
 
 const portraitHtml = (s: SoulId): string => `<div class="pt" style="background:${artBg(s)}"><img src="${soulArt(s)}" alt="" draggable="false"></div>`;
@@ -73,18 +73,18 @@ export class Ui {
     // overlay
     const ov = $('overlay'); ov.className = ''; ov.innerHTML = '';
     if (ph === 'draft' && g.draft) {
-      ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>Victory Draft</h2><div class="sub">Wave cleared. Dominion is now ${s.cap}.${g.lastGold ? ` <b style="color:#ffd24a">+${g.lastGold}</b> ${iconImg('gold')}` : ''} Keep one:</div><div class="row">${g.draft.map((soul: SoulId, i: number) => `<div class="card big${hasArt(soul) ? ' art' : ''}" data-i="${i}"${hasArt(soul) ? ` style="border-color:${rarityColor(soul)}"` : ''}><div class="cost">${cost(soul, 1)}</div>${hasArt(soul) ? portraitHtml(soul) : ICON[soul]}<div class="nm">${SOUL_NAME[soul]}</div><div class="role">${ROLE_TEXT[soul]}</div></div>`).join('')}</div></div>`;
+      ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>Victory Draft</h2><div class="sub">Wave cleared. Dominion is now ${s.cap}.${g.lastGold ? ` <b style="color:#ffd24a">+${fmt(g.lastGold)}</b> ${iconImg('gold')}` : ''} Keep one:</div><div class="row">${g.draft.map((soul: SoulId, i: number) => `<div class="card big${hasArt(soul) ? ' art' : ''}" data-i="${i}"${hasArt(soul) ? ` style="border-color:${rarityColor(soul)}"` : ''}><div class="cost">${cost(soul, 1)}</div>${hasArt(soul) ? portraitHtml(soul) : ICON[soul]}<div class="nm">${SOUL_NAME[soul]}</div><div class="role">${ROLE_TEXT[soul]}</div></div>`).join('')}</div></div>`;
       ov.querySelectorAll<HTMLElement>('.card').forEach((c) => (c.onclick = () => g.pickDraft(+c.dataset.i!)));
     } else if (ph === 'won' || ph === 'lost') {
       const rw = ph === 'won' ? g.reward : null, sk = (n: number) => skullImgs(n);
       const unlockHtml = rw && rw.unlocked && rw.unlocked.length ? `<div class="sub" style="color:#7ef2c8;font-weight:700">${iconImg('check')} Unlocked: ${rw.unlocked.map((k: string) => describeUnlock(k)).join(' \u00b7 ')}</div>` : '';
-      const goldHtml = g.runGold ? `<div class="sub" style="color:#ffd24a;font-weight:700">${iconImg('gold')} Gold earned this run: ${g.runGold}</div>` : '';
+      const goldHtml = g.runGold ? `<div class="sub" style="color:#ffd24a;font-weight:700">${iconImg('gold')} Gold earned this run: ${fmt(g.runGold)}</div>` : '';
       const dr = ph === 'won' && g.daily ? g.dailyReward : null;
-      const dailyHtml = g.daily ? (dr ? `<div class="sub" style="color:#ffd24a;font-weight:700">${dr.pack ? `${iconImg('shop')} Daily complete! You earned a ${sk(1)} Soul Pack and ${dr.gold} ${iconImg('gold')}.` : 'Daily complete again. The reward comes once per day: see you tomorrow!'}</div>` : '') : '';
+      const dailyHtml = g.daily ? (dr ? `<div class="sub" style="color:#ffd24a;font-weight:700">${dr.pack ? `${iconImg('shop')} Daily complete! You earned a ${sk(1)} Soul Pack and ${fmt(dr.gold)} ${iconImg('gold')}.` : 'Daily complete again. The reward comes once per day: see you tomorrow!'}</div>` : '') : '';
       const rewardHtml = goldHtml + dailyHtml + unlockHtml + (rw ? `<div class="sub" style="color:#ffd24a;font-weight:700">${rw.pack ? (rw.first ? `${iconImg('shop')} First clear! You earned a ${sk(rw.pack.tier)} Soul Pack.` : `${iconImg('shop')} Replay reward: a ${sk(rw.pack.tier)} Soul Pack.`) : `Replay progress ${rw.replayMeter}/${rw.replayNeeded} toward a Soul Pack.`}</div>` : '');
       if (ph === 'lost' && isEndless() && g.endless) {                    // the end of an endless run: how deep, any record, packs earned
         const e = g.endless, rec = e.cleared > e.startBest;
-        ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>Run over</h2><div class="sub">You cleared ${e.cleared} wave${e.cleared === 1 ? '' : 's'}. ${rec ? '<b style="color:#ffd24a">New best depth!</b>' : 'Best: wave ' + Math.max(e.startBest, e.cleared) + '.'}</div>${g.runGold ? `<div class="sub" style="color:#ffd24a;font-weight:700">${iconImg('gold')} Gold earned this run: ${g.runGold}</div>` : ''}${e.packs ? `<div class="sub" style="color:#ffd24a;font-weight:700">${iconImg('shop')} ${e.packs} Soul Pack${e.packs === 1 ? '' : 's'} earned this run.</div>` : '<div class="sub">Clear wave 10 to earn a Soul Pack.</div>'}<div class="row">${e.packs ? '<button id="toShop" class="go">Open pack</button>' : ''}<button id="again" class="${e.packs ? 'blue' : 'go'}">Go again</button><button id="toHome" class="blue">Home</button></div></div>`;
+        ov.className = 'show'; ov.innerHTML = `<div class="box"><h2>Run over</h2><div class="sub">You cleared ${e.cleared} wave${e.cleared === 1 ? '' : 's'}. ${rec ? '<b style="color:#ffd24a">New best depth!</b>' : 'Best: wave ' + Math.max(e.startBest, e.cleared) + '.'}</div>${g.runGold ? `<div class="sub" style="color:#ffd24a;font-weight:700">${iconImg('gold')} Gold earned this run: ${fmt(g.runGold)}</div>` : ''}${e.packs ? `<div class="sub" style="color:#ffd24a;font-weight:700">${iconImg('shop')} ${e.packs} Soul Pack${e.packs === 1 ? '' : 's'} earned this run.</div>` : '<div class="sub">Clear wave 10 to earn a Soul Pack.</div>'}<div class="row">${e.packs ? '<button id="toShop" class="go">Open pack</button>' : ''}<button id="again" class="${e.packs ? 'blue' : 'go'}">Go again</button><button id="toHome" class="blue">Home</button></div></div>`;
         $('again').onclick = () => g.newEndless(); $('toHome').onclick = () => window.dispatchEvent(new Event('necro-go-home'));
         const ts2 = document.getElementById('toShop'); if (ts2) ts2.onclick = () => window.dispatchEvent(new Event('necro-go-shop'));
       } else {

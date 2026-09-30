@@ -6,7 +6,7 @@ import type { PackResult, Rarity } from '../../../core/packs.ts';
 import { SOUL_NAME } from '../../../core/balance.ts';
 import { copiesNeeded, isMaxLevel, packGold } from '../../../core/progress.ts';
 import type { SoulProgress } from '../../../core/save.ts';
-import { BG, RARITY_COLOR, artBg, gemIcon, goldIcon, hasArt, range, skullIcon, soulArt } from './soul-ui';
+import { BG, RARITY_COLOR, artBg, fmt, gemIcon, goldIcon, hasArt, range, skullIcon, soulArt } from './soul-ui';
 
 export interface OpenData { result: PackResult; before: Record<SoulId, SoulProgress> }
 type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary';
@@ -154,7 +154,7 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
       @if (stage() === 'summary') {
         <div class="summary" (click)="$event.stopPropagation()">
           <h2>Pack opened! <span class="sk">@for (i of range(data().result.finalTier); track i) { <img [src]="skullIcon" alt=""> }</span></h2>
-          <div class="goldline"><img [src]="goldIcon" alt=""> +{{ gold() }} gold</div>
+          <div class="goldline"><img [src]="goldIcon" alt=""> +{{ fmt(gold()) }} gold</div>
           @if (data().result.upgrades.length) { <div class="up">Tier up! @for (i of range(data().result.startTier); track i) { <img [src]="skullIcon" alt=""> } &rarr; @for (i of range(data().result.finalTier); track i) { <img [src]="skullIcon" alt=""> }</div> }
           <div class="cards">
             @for (t of totals(); track t.soul; let i = $index) {
@@ -194,7 +194,7 @@ export class PackOpen implements OnInit, OnDestroy {
       .sort((a, b) => ['common', 'rare', 'epic', 'legendary'].indexOf(a.rarity) - ['common', 'rare', 'epic', 'legendary'].indexOf(b.rarity));
   });
 
-  skullIcon = skullIcon; goldIcon = goldIcon; range = range; gem = gemIcon;
+  skullIcon = skullIcon; goldIcon = goldIcon; fmt = fmt; range = range; gem = gemIcon;
   gold = computed(() => packGold(this.data().result.finalTier));
   icon = (s: SoulId) => soulArt(s); art = (s: SoulId) => hasArt(s); bg = (s: SoulId) => (hasArt(s) ? artBg(s) : BG[s]);
   back = 'url(assets/packs/cardback.png)';

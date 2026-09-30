@@ -23,3 +23,5 @@ export const RARITY_GEM: Record<Rarity, IconName> = { common: 'gem_common', rare
 /** Pack tiers are shown as skulls (never stars: stars mean an in-run merge level). */
 export const skullImgs = (n: number, cls = 'sk'): string => iconImg('souls', cls).repeat(Math.max(1, n));
 export const heartsHtml = (hearts: number, max = 3): string => iconImg('heart', 'ic heart').repeat(Math.max(0, hearts)) + iconImg('heart_empty', 'ic heart').repeat(Math.max(0, max - hearts));
+/** A number with thousands separators (gold gets big): 12500 -> "12,500". */
+export const fmt = (n: number): string => Math.round(n).toLocaleString('en-US');

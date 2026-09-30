@@ -1,6 +1,7 @@
 import type { SoulId } from '../../../core/data.ts';
 import type { Rarity } from '../../../core/packs.ts';
-import { RARITY_GEM, SOUL_ICON, iconUrl } from '../../../ui/icons.ts';
+import { RARITY_GEM, SOUL_ICON, fmt, iconUrl } from '../../../ui/icons.ts';
+export { fmt };
 
 /** Soul art: the weapon/role icon on a coloured card until real portraits exist. */
 export const soulIcon = (s: SoulId): string => iconUrl(SOUL_ICON[s]);

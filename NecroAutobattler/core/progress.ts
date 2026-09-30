@@ -55,11 +55,11 @@ export function clearCopies(save: Save): void { for (const k of SOULS) save.soul
 export const levelMult = (level: number, stat: 'hp' | 'dmg'): number => 1 + (Math.max(1, level) - 1) * BALANCE.level[stat];
 
 // ------------------------------------------------------------------------------------------------ gold
-export const GOLD = { tierMult: { easy: 0.6, normal: 1, hard: 1.4, nightmare: 2 } as Record<Difficulty, number>, packPerTier: 15, dailyWin: 50 };
+export const GOLD = { tierMult: { easy: 0.6, normal: 1, hard: 1.4, nightmare: 2 } as Record<Difficulty, number>, packPerTier: 1500, dailyWin: 5000 };
 /** Gold for clearing one campaign wave: more in later stages and on harder tiers. */
-export const waveGold = (stage: string, tier: Difficulty | string): number => Math.max(1, Math.round((6 + 2 * stageIndex(stage)) * (GOLD.tierMult[tier as Difficulty] ?? 1)));
+export const waveGold = (stage: string, tier: Difficulty | string): number => Math.max(1, Math.round(100 * (6 + 2 * stageIndex(stage)) * (GOLD.tierMult[tier as Difficulty] ?? 1)));
 /** Gold for clearing one Endless wave. */
-export const endlessWaveGold = (wave: number): number => 8 + Math.floor(0.6 * Math.max(1, wave));
+export const endlessWaveGold = (wave: number): number => 100 * (8 + Math.floor(0.6 * Math.max(1, wave)));
 /** Gold for opening a pack that finished at `tier`. */
 export const packGold = (tier: number): number => GOLD.packPerTier * Math.max(1, tier);
 export function addGold(save: Save, n: number): number { const g = Math.max(0, Math.floor(n)); save.gold = Math.min(1e9, save.gold + g); return g; }

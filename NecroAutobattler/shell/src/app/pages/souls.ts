@@ -5,7 +5,7 @@ import { BALANCE, ROLE_TEXT, SOUL_NAME, abilityInfo } from '../../../../core/bal
 import { canAfford, copiesNeeded, goldNeeded, isMaxLevel } from '../../../../core/progress.ts';
 import { RARITIES, RARITY_NAME, RARITY_OF } from '../../../../core/packs.ts';
 import { SaveService } from '../save.service';
-import { artBg, checkIcon, closeIcon, gemIcon, goldIcon, hasArt, rarityColor, soulArt, upgradeIcon } from '../soul-ui';
+import { artBg, checkIcon, closeIcon, fmt, gemIcon, goldIcon, hasArt, rarityColor, soulArt, upgradeIcon } from '../soul-ui';
 
 const BG: Record<SoulId, string> = {
   warrior: 'linear-gradient(#6b4a8f,#2c1b45)', archer: 'linear-gradient(#5a4a9a,#251a4a)', goblin: 'linear-gradient(#4f7a3a,#1d2d17)',
@@ -109,7 +109,7 @@ type Filter = 'all' | 'skill' | 'passive';
   `],
   template: `
   <div class="cols"><div class="lcol">
-    <div class="top"><h1>Souls</h1><span class="goldpill" title="Gold: spent with copies to level up a Soul"><img [src]="goldIcon" alt="">{{ save.gold() }}</span><span class="meta">Deck <b>{{ deck().length }}/{{ save.deckSize }}</b> &middot; avg Dominion <b>{{ avg() }}</b> (1★)</span>
+    <div class="top"><h1>Souls</h1><span class="goldpill" title="Gold: spent with copies to level up a Soul"><img [src]="goldIcon" alt="">{{ fmt(save.gold()) }}</span><span class="meta">Deck <b>{{ deck().length }}/{{ save.deckSize }}</b> &middot; avg Dominion <b>{{ avg() }}</b> (1★)</span>
       <button class="go small" style="margin-left:auto" (click)="recommended($event)">Recommended</button></div>
     @if (deck().length < save.deckSize) { <p class="note">Only equipped Souls are drawn in a run. You need all {{ save.deckSize }} slots filled to start.</p> }
     <div class="filters">
@@ -164,7 +164,7 @@ type Filter = 'all' | 'skill' | 'passive';
             <div class="swipehint">swipe or tap the tabs</div>
           </div>
           <div class="acts">
-            <button [class]="canLevel(d) ? 'go' : 'grey'" (click)="upgradeClick(d, $event)">@if (canLevel(d)) { <img class="ic" [src]="upgradeIcon" alt=""> }Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies + ' + goldNeed(d) + ' gold' : needText(d) }}</small></button>
+            <button [class]="canLevel(d) ? 'go' : 'grey'" (click)="upgradeClick(d, $event)">@if (canLevel(d)) { <img class="ic" [src]="upgradeIcon" alt=""> }Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies + ' + fmt(goldNeed(d)) + ' gold' : needText(d) }}</small></button>
             <button [class]="save.isEquipped(d) ? 'blue' : 'go'" (click)="toggle(d, $event)">{{ save.isEquipped(d) ? 'Unequip' : 'Equip' }}</button>
           </div>
       </aside>
@@ -182,7 +182,7 @@ type Filter = 'all' | 'skill' | 'passive';
             <div class="cs"><span>Damage</span><b>{{ statAt(c, 'dmg', save.progress(c).level) }} &rarr; {{ statAt(c, 'dmg', save.progress(c).level + 1) }}</b></div>
           </div>
           <div class="ccost"><span class="clab">Cost</span>
-            @for (r of costs(c); track r.id) { <div class="crow" [class.bad]="!r.ok"><span>{{ r.label }}</span><b>{{ r.have }} / {{ r.need }}</b><img class="ic" [src]="r.ok ? checkIcon : closeIcon" alt=""></div> }
+            @for (r of costs(c); track r.id) { <div class="crow" [class.bad]="!r.ok"><span>{{ r.label }}</span><b>{{ fmt(r.have) }} / {{ fmt(r.need) }}</b><img class="ic" [src]="r.ok ? checkIcon : closeIcon" alt=""></div> }
           </div>
           <div class="cbtns"><button class="blue" (click)="cancelUpgrade()">Cancel</button><button class="go" [disabled]="!canPay(c)" (click)="doUpgrade()"><img class="ic" [src]="upgradeIcon" alt="">Confirm</button></div>
         </div>
@@ -208,7 +208,7 @@ type Filter = 'all' | 'skill' | 'passive';
 })
 export class Souls {
   save = inject(SaveService);
-  goldIcon = goldIcon; checkIcon = checkIcon; closeIcon = closeIcon; upgradeIcon = upgradeIcon; gem = gemIcon;
+  fmt = fmt; goldIcon = goldIcon; checkIcon = checkIcon; closeIcon = closeIcon; upgradeIcon = upgradeIcon; gem = gemIcon;
   rarityOf = (s: SoulId) => RARITY_OF[s]; rarityName = (s: SoulId) => RARITY_NAME[RARITY_OF[s]];
   filters: Filter[] = ['all', 'skill', 'passive'];
   filter = signal<Filter>('all');
@@ -243,7 +243,7 @@ export class Souls {
   copiesOk = (s: SoulId) => !this.isMax(s) && this.save.progress(s).copies >= this.need(s);
   goldNeed = (s: SoulId) => goldNeeded(this.save.progress(s).level);
   /** What is still missing, in the button's small print. */
-  needText = (s: SoulId) => this.costs(s).filter((c) => !c.ok).map((c) => 'Needs ' + c.have + '/' + c.need + ' ' + c.label.toLowerCase()).join(' · ');
+  needText = (s: SoulId) => 'Needs ' + this.costs(s).filter((c) => !c.ok).map((c) => fmt(c.have) + '/' + fmt(c.need) + ' ' + c.label.toLowerCase()).join(' · ');
   pct = (s: SoulId) => this.isMax(s) ? 100 : Math.min(100, (100 * this.save.progress(s).copies) / Math.max(1, this.need(s)));
   statAt(s: SoulId, k: 'hp' | 'dmg', level: number) { return Math.round(BALANCE.stats[s][k] * (1 + (level - 1) * BALANCE.level[k])); }
   costs = (s: SoulId) => this.save.costs(s);

@@ -40,6 +40,7 @@ test('the daily field survives a round trip and rejects nonsense', () => {
 });
 
 test('a save from before gold gets a one-time catch-up grant; a brand new save does not', () => {
-  assert.equal(sanitize({}).gold, 0); assert.ok(sanitize({ clears: { 'crypt:normal': 1 } }).gold > 0); assert.equal(sanitize({ clears: { 'crypt:normal': 1 }, gold: 5 }).gold, 5);
-  for (const bad of [-3, 1.5, 'x', 1e12]) assert.equal(sanitize({ gold: bad }).gold, 0);
+  assert.equal(sanitize({}).gold, 0); assert.ok(sanitize({ clears: { 'crypt:normal': 1 } }).gold > 0); assert.equal(sanitize({ clears: { 'crypt:normal': 1 }, gold: 5, goldScale: 2 }).gold, 5); assert.equal(sanitize({ gold: 5 }).gold, 500, 'gold saved in the old small units is converted once');
+  for (const bad of [-3, 1.5, 'x', 1e12]) assert.equal(sanitize({ gold: bad, goldScale: 2 }).gold, 0);
+  const s = defaultSave(); s.gold = 1234; assert.equal(sanitize(JSON.parse(JSON.stringify(s))).gold, 1234, 'a converted save is not converted again');
 });

@@ -5,7 +5,7 @@ import type { Difficulty } from '../../../../core/save.ts';
 import { SaveService } from '../save.service';
 import { PackOpen } from '../pack-open';
 import type { OpenData } from '../pack-open';
-import { goldIcon, range, skullIcon } from '../soul-ui';
+import { fmt, goldIcon, range, skullIcon } from '../soul-ui';
 
 @Component({
   selector: 'app-shop',
@@ -28,7 +28,7 @@ import { goldIcon, range, skullIcon } from '../soul-ui';
     .meter { display:inline-block; width:110px; height:10px; border-radius:6px; background:#0e0918; border:1px solid #4a3470; vertical-align:middle; overflow:hidden; } .meter i { display:block; height:100%; background:var(--go); }
   `],
   template: `
-    <h1>Shop <span class="goldpill" style="font-size:.5em;vertical-align:middle;margin-left:8px" title="Gold: spent with copies to level up a Soul"><img [src]="goldIcon" alt="">{{ save.gold() }}</span></h1>
+    <h1>Shop <span class="goldpill" style="font-size:.5em;vertical-align:middle;margin-left:8px" title="Gold: spent with copies to level up a Soul"><img [src]="goldIcon" alt="">{{ fmt(save.gold()) }}</span></h1>
     <p class="lead">Packs give permanent copies. Fill a Soul's level bar, then upgrade it on the Souls page.</p>
     <div class="cols"><div class="col">
     <b>Your Soul Packs</b> @if (save.packs().length) { <span class="badge2">{{ save.packs().length }}</span> }
@@ -66,7 +66,7 @@ export class Shop {
   diffs = DIFFICULTY_INFO;
   replayNeeded = REWARDS.replayClearsPerPack;
   replayTier = REWARDS.replayTier;
-  skullIcon = skullIcon; goldIcon = goldIcon; range = range;
+  skullIcon = skullIcon; goldIcon = goldIcon; fmt = fmt; range = range;
   firstTier = (d: string) => REWARDS.firstClearTier[d as Difficulty];
   open(id: number) { const r = this.save.openPack(id); if (r) this.opening.set(r); }
 }

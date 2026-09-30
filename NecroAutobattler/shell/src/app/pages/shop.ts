@@ -54,7 +54,7 @@ import { fmt, goldIcon, range, skullIcon } from '../soul-ui';
     <div class="box accbody">
       <div>
         @for (d of diffs; track d.id) { <div class="row3"><span style="flex:1">First clear on {{ d.label }}</span><span class="sk">@for (i of range(firstTier(d.id)); track i) { <img [src]="skullIcon" alt=""> }</span></div> }
-        <div class="row3"><span style="flex:1">Replay clears: a pack every clear</span><span class="sk">@for (d of diffs; track d.id) { <span>{{ d.label }}</span> @for (i of range(replayTier[d.id]); track i) { <img [src]="skullIcon" alt=""> } }</span></div>
+        <div class="row3"><span style="flex:1">Replay clears: a pack every clear</span><span class="sk">@for (d of diffs; track d.id) { <span>{{ d.label }}</span> @for (i of range(replayTierOf(d.id)); track i) { <img [src]="skullIcon" alt=""> } }</span></div>
       </div>
       <div class="lead" style="margin:8px 0 0">A pack can also jump up a tier while it is being opened.</div>
     </div>
@@ -70,6 +70,7 @@ export class Shop {
   diffs = DIFFICULTY_INFO;
   replayNeeded = REWARDS.replayClearsPerPack;
   replayTier = REWARDS.replayTier;
+  replayTierOf = (id: string): number => (REWARDS.replayTier as Record<string, number>)[id] ?? 1;
   skullIcon = skullIcon; goldIcon = goldIcon; fmt = fmt; range = range;
   firstTier = (d: string) => REWARDS.firstClearTier[d as Difficulty];
   open(id: number) { const r = this.save.openPack(id); if (r) this.opening.set(r); }

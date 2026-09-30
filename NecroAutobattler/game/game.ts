@@ -203,7 +203,7 @@ export class Game {
     this.arena.setTheme(currentStageId);
     this.seed = snap.seed; this.attempt = snap.attempt; this.s = state; this.seenMerges = state.stats.merges;
     this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
-    this.sel = null; this.swapMode = false; this.draft = snap.phase === 'draft' ? snap.draft : null; this.phase = this.draft ? 'draft' : 'build';
+    this.sel = null; this.swapMode = false; this.draft = snap.phase === 'draft' ? snap.draft : null; this.phase = this.draft ? 'draft' : 'build'; this.showGrid(this.phase === 'build');
     this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast(`Run restored: wave ${isEndless() ? state.wave : state.wave + '/' + stageWaves(state)}, ${state.hearts} heart${state.hearts === 1 ? '' : 's'}.`);
   }
 
@@ -254,7 +254,7 @@ export class Game {
   startStage(seed: number) {
     this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
     this.seed = seed; this.attempt = 0; this.endless = null; const sv = loadSave(), pl = playable(sv); setStageDifficulty(pl.stage, pl.difficulty); this.arena.setTheme(currentStageId); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
-    this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
+    this.clearBattle(); this.showGrid(true); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();   // (a battle left half-way had hidden the grid)
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build';
     this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');
   }
@@ -265,7 +265,7 @@ export class Game {
     this.seed = seed; this.attempt = 0; const sv = loadSave(); setEndless(); this.arena.setTheme(ENDLESS_ID);
     this.endless = { startBest: sv.endless.best, cleared: 0, packs: 0 };
     this.s = newStage({ ...ENDLESS_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
-    this.clearBattle(); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();
+    this.clearBattle(); this.showGrid(true); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();   // (a battle left half-way had hidden the grid)
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build';
     this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast('Endless Depths: how deep can you go? A Soul Pack every 10 waves.');
   }

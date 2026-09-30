@@ -22,10 +22,10 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     :host { display:flex; align-items:center; justify-content:center; min-height:100%; font-size:clamp(11px,1.9vmin,14px); }
     .wrap { width:100%; display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,1fr); gap:clamp(8px,2vmin,18px); max-width:960px; }
     .stage { position:relative; padding:0; overflow:hidden; background:linear-gradient(160deg,rgba(10,22,30,.86),rgba(8,10,16,.9)); border-color:color-mix(in srgb, var(--accent) 45%, #1b1526); box-shadow:0 0 22px color-mix(in srgb, var(--accent) 22%, transparent), 0 8px 24px #000a; }
-    .stage .in { position:relative; padding:clamp(7px,1.9vh,20px) clamp(10px,2.4vmin,20px); }
+    .stage .in { padding:clamp(7px,1.9vh,20px) clamp(10px,2.4vmin,20px); }
     .hero { position:relative; overflow:hidden; height:clamp(42px,11vh,92px); border-bottom:1px solid color-mix(in srgb, var(--accent) 50%, #000); }
     .heroimg { position:absolute; inset:0; background-size:cover; }
-    .necro { position:absolute; z-index:0; right:clamp(0px,.6vmin,8px); bottom:clamp(2px,1vh,10px); height:clamp(96px,27vh,230px); width:auto; pointer-events:none; filter:drop-shadow(0 4px 10px #000c); }
+    .necro { position:absolute; z-index:1; right:clamp(4px,2vmin,16px); top:-72%; height:225%; aspect-ratio:1; pointer-events:none; filter:drop-shadow(0 3px 8px #000c); }
     .hero::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,rgba(3,7,10,.88),rgba(3,7,10,.35) 70%,rgba(3,7,10,.1)); }
     .herotxt { position:absolute; z-index:1; left:clamp(10px,2.4vmin,20px); right:10px; bottom:clamp(6px,1.4vmin,12px); }
     .stage h2 { margin:0; font-size:1.7em; color:var(--gold); text-shadow:0 2px 0 #000, 0 0 16px color-mix(in srgb, var(--accent) 60%, transparent); } .sub { opacity:.85; font-size:.92em; text-shadow:0 1px 2px #000; margin-bottom:clamp(6px,1.6vmin,12px); } .hero .sub { margin:0; }
@@ -90,7 +90,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
   template: `
     <div class="wrap">
       <div class="box stage" [style.--accent]="look().accent">
-        <div class="hero"><div class="heroimg" [style.background-image]="mood" [style.background-position]="look().pos" [style.filter]="'hue-rotate(' + look().hue + 'deg) saturate(1.2)'"></div>
+        <div class="hero"><img class="necro" src="assets/portraits/necromancer_banner.png" alt="" draggable="false"><div class="heroimg" [style.background-image]="mood" [style.background-position]="look().pos" [style.filter]="'hue-rotate(' + look().hue + 'deg) saturate(1.2)'"></div>
           <div class="herotxt"><h2>{{ heroName() }}</h2><div class="sub">{{ heroBlurb() }}</div></div></div>
         <div class="in">
         @if (endlessRun()) { <div class="blurb" style="margin:6px 0 2px">This run: Endless Depths. Finish or start over to change it. A Soul Pack for every 10 waves cleared.</div> } @else {
@@ -117,7 +117,6 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
           <a routerLink="/souls" style="margin-left:4px">change</a>
           @if (!deckOk()) { <span class="warn">Equip {{ save.deckSize }} Souls to start ({{ save.deck().length }}/{{ save.deckSize }})</span> }
         </div>
-        <img class="necro" src="assets/portraits/necromancer_hero.png" alt="" draggable="false">
         <div class="acts">
           @if (run(); as r) {
             <button class="big" (click)="resume()">Continue <small style="font-size:.5em;letter-spacing:0">Wave {{ r.wave }}{{ endlessRun() ? '' : '/' + r.total }} &middot; @for (h of heartList(r.hearts); track $index) { <img class="ic" [src]="h ? heartFull : heartEmpty" alt=""> }</small></button>

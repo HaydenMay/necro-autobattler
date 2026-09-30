@@ -274,6 +274,19 @@ export class Game {
     this.arrows.forEach((a) => a.mesh.dispose()); this.arrows = [];
   }
   private pos(cell: number) { return cellPos(0, cell); }
+  /** For the tutorial spotlight: where an empty tile (the one nearest the middle of the grid) is on the screen, in CSS pixels, or null. */
+  emptyTileRect(): { x: number; y: number; w: number; h: number } | null {
+    if (!this.s || !this.canvas || this.phase !== 'build') return null;
+    const used = new Set(this.s.units.map((u: any) => u.cell)); let mx = 0, mz = 0; const all = Array.from({ length: GRID_CELLS }, (_, c) => this.pos(c)); all.forEach((p) => { mx += p.x / GRID_CELLS; mz += p.z / GRID_CELLS; });
+    let best = -1, bd = 1e9; for (let c = 0; c < GRID_CELLS; c++) { if (used.has(c)) continue; const d = Math.hypot(all[c].x - mx, all[c].z - mz); if (d < bd) { bd = d; best = c; } }
+    if (best < 0) return null;
+    const p = all[best], h = GRID_SP * 0.46, W = this.engine.getRenderWidth(), H = this.engine.getRenderHeight(), vp = this.camera.viewport.toGlobal(W, H), m = this.scene.getTransformMatrix();
+    const pts = [[-h, -h], [h, -h], [h, h], [-h, h]].map(([dx, dz]) => BABYLON.Vector3.Project(new BABYLON.Vector3(p.x + dx, 0.02, p.z + dz), BABYLON.Matrix.Identity(), m, vp));
+    const r = this.canvas.getBoundingClientRect(), kx = r.width / W, ky = r.height / H, xs = pts.map((q: any) => q.x), ys = pts.map((q: any) => q.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    if (!isFinite(x0 + x1 + y0 + y1)) return null;
+    return { x: r.left + x0 * kx, y: r.top + y0 * ky, w: (x1 - x0) * kx, h: (y1 - y0) * ky };
+  }
   syncBuild() {
     this.persistRun();
     const merged = this.s.stats.merges > this.seenMerges; this.seenMerges = this.s.stats.merges;

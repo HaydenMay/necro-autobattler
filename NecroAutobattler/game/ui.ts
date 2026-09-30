@@ -20,7 +20,7 @@ export class Ui {
   constructor(private g: any) {
     $('btnHome').onclick = () => window.dispatchEvent(new Event('necro-go-home'));
     $('btnBattle').onclick = () => g.startBattle(); $('btnSwap').onclick = () => g.toggleSwap();
-    $('btnMerge').onclick = () => g.mergeSelected(); $('btnRemove').onclick = () => g.removeSelected();
+    $('btnRemove').onclick = () => g.removeSelected();
     document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => (b.onclick = () => g.setSpeed(+b.dataset.speed!)));
     document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => (b.onclick = () => g.setCamMode(b.dataset.cam!)));
     $('gear').onclick = () => { this.dbg.classList.toggle('open'); this.renderDebug(); };
@@ -59,10 +59,10 @@ export class Ui {
     const sw = $('btnSwap') as HTMLButtonElement; sw.disabled = !build || s.discardUsed; sw.classList.toggle('on', g.swapMode); sw.textContent = s.discardUsed ? 'Swap used' : g.swapMode ? 'Swap: pick a card or unit' : 'Swap (1/round)';
     const selU = g.sel && g.sel.type === 'unit' ? s.units.find((u: any) => u.id === g.sel.id) : null;
     const partner = selU && s.units.some((o: any) => canMergeDeployed(selU, o));
-    $('unitpanel').style.display = build && selU ? 'flex' : 'none'; ($('btnMerge') as HTMLButtonElement).disabled = !partner;
+    $('unitpanel').style.display = build && selU ? 'flex' : 'none';
     $('btnRemove').textContent = g.confirmRemove ? 'Confirm remove' : 'Remove';
     $('info').textContent = build ? (g.swapMode ? 'SWAP: tap a hand card to discard it, or tap a unit you did not summon this round to sell it. You draw a different Soul.'
-      : selU ? `${SOUL_NAME[selU.soul as SoulId]} ${stars(selU.star)}  •  ${ROLE_TEXT[selU.soul as SoulId]}  ${partner ? '• Tap a glowing partner to merge.' : ''}`
+      : selU ? `${SOUL_NAME[selU.soul as SoulId]} ${stars(selU.star)}  •  ${ROLE_TEXT[selU.soul as SoulId]}  ${partner ? '• Tap the matching unit to merge into a stronger star.' : ''}`
       : g.sel && g.sel.type === 'card' ? `${SOUL_NAME[s.hand[g.sel.idx] as SoulId]}: ${ROLE_TEXT[s.hand[g.sel.idx] as SoulId]}  •  ` + (() => { const i = g.sel.idx, sm = canSummon(s, i), mg = s.units.some((u: any) => canMergeFromHand(s, i, u.id)); return sm && mg ? 'Tap a green tile to summon, or a glowing purple unit to merge it in.' : sm ? 'Tap a green tile to summon.' : mg ? 'Dominion is full: tap a glowing purple unit to merge it in.' : 'Not enough free Dominion to summon this.'; })() : 'Tap a card, then a tile. Tap a unit to merge, move or remove it.')
       : ph === 'battle' || ph === 'transition' ? 'Battle! Units fight on their own.' : '';
     $('speed').style.display = ph === 'battle' || ph === 'transition' ? 'flex' : 'none';

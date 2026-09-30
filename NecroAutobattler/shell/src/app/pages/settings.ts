@@ -1,6 +1,7 @@
 import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { STAGES } from '../../../../core/waves.ts';
 import { SaveService } from '../save.service';
+import { Tutorial } from '../tutorial';
 
 @Component({
   selector: 'app-settings',
@@ -21,6 +22,8 @@ import { SaveService } from '../save.service';
       <button class="sw" [class.on]="save.settings().music" role="switch" [attr.aria-checked]="save.settings().music" (click)="save.setSound('music', !save.settings().music)"></button></div>
     <div class="box row"><img class="ic" style="width:34px;height:34px" src="assets/icons/sound_on.png" alt=""><div class="grow"><b>Sound effects</b><span>Hits, spells, summoning, merging</span></div>
       <button class="sw" [class.on]="save.settings().sfx" role="switch" [attr.aria-checked]="save.settings().sfx" (click)="save.setSound('sfx', !save.settings().sfx)"></button></div>
+    <div class="box row"><img class="ic" style="width:34px;height:34px" src="assets/icons/info.png" alt=""><div class="grow"><b>How to play</b><span>A guided walkthrough of your first battle. Skip it any time. No free pack the second time</span></div>
+      <button class="go" (click)="replayTut()">Replay</button></div>
     <div class="box row"><img class="ic" style="width:34px;height:34px" src="assets/icons/info.png" alt=""><div class="grow"><b>Sound check</b><span>{{ msg() }}</span></div>
       <button class="go" (click)="test()">Test sound</button></div>
     </div><div class="col">
@@ -31,10 +34,12 @@ import { SaveService } from '../save.service';
 })
 export class Settings implements OnDestroy {
   save = inject(SaveService);
+  tut = inject(Tutorial);
   msg = signal('checking…');
   private timer = window.setInterval(() => this.refresh(), 500);
   constructor() { this.refresh(); }
   ngOnDestroy() { clearInterval(this.timer); }
+  replayTut() { this.tut.replay(); location.hash = '#/home'; }
   private get audio(): any { return (window as any).__audio; }
   private refresh() {
     const a = this.audio; if (!a) { this.msg.set('Still loading…'); return; }

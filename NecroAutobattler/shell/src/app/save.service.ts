@@ -64,6 +64,10 @@ export class SaveService {
   /** Music / sound-effect switch. The game's audio engine picks the change up through the event. */
   setSound(which: 'music' | 'sfx', on: boolean) { this.mutate((s) => { s.settings = { ...s.settings, [which]: on }; }); window.dispatchEvent(new Event('necro-settings-changed')); }
 
+  /** A save nobody has played yet (no clears, packs or levels): the first-time tutorial is for these. */
+  isFresh(): boolean { const s = this.state(); return Object.keys(s.clears).length === 0 && s.packs.length === 0 && s.nextPackId === 1 && s.endless.best === 0 && SOULS.every((k) => s.souls[k].level === 1 && s.souls[k].copies === 0); }
+  /** The one-time gift at the end of the tutorial. */
+  grantWelcomePack() { this.mutate((s) => grantPack(s, 1, 'Welcome gift')); }
   progress(id: SoulId): SoulProgress { return this.state().souls[id]; }
   isEquipped(id: SoulId) { return this.state().deck.includes(id); }
 

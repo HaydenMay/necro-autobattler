@@ -3,6 +3,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { Backdrop } from './backdrop';
 import { GameLink } from './game-link.service';
 import { SaveService } from './save.service';
+import { TutorialOverlay } from './tutorial';
 
 declare global { interface Window { __game?: { setActive(on: boolean): void }; } }
 
@@ -10,7 +11,7 @@ const SCRIPTS = ['vendor/babylon.js', 'vendor/babylonjs.loaders.min.js', 'game.j
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Backdrop],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Backdrop, TutorialOverlay],
   templateUrl: './app.html',
 })
 export class App {

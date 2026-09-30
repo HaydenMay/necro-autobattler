@@ -778,8 +778,8 @@ def k_pose(f, n=70):   # hero pose: sword pointed at the sky, shield out, chest 
 # the left hand is put ON THE HAFT by LH(), so both hands follow every swing without a second weapon socket.
 BY = -0.07   # this model's body sits 7 cm behind the centre of its bounding box (the hair sticks out backwards)
 BR = V(-0.05, BY - 0.12, 0.30)
-BR0 = -35   # axe carried back over the shoulder
-def LH(hr, rot, s=0.28, yaw=0):   # a point s metres up the haft; yaw = how far the haft is swung sideways about the vertical (degrees, + = towards the character's left)
+BR0 = 55   # axe carried forward and low (head pointing ahead at chest height): over the shoulder it sank into the big chibi head and hair
+def LH(hr, rot, s=-0.20, yaw=0):   # a point s metres up the haft; yaw = how far the haft is swung sideways about the vertical (degrees, + = towards the character's left)
     r = math.radians(rot); t = math.radians(yaw); k = max(0.0, 1 - abs(s) / 0.24)      # near s = 0 the left hand would sit on the right one: step it in towards the body and down
     return (hr[0] + s * math.sin(r) * math.sin(t) + 0.16 * k, hr[1] - s * math.sin(r) * math.cos(t), hr[2] + s * math.cos(r) - 0.06 * k)
 def b_idle(f, n=72):
@@ -788,7 +788,7 @@ def b_idle(f, n=72):
 def b_walk(f, n=32, stride=0.065, lift=0.04, bob=0.014, lean=5, run=False):
     w = 2 * math.pi * f / n
     foot = lambda ph: (0, -stride * math.sin(w + ph), lift * max(0, math.cos(w + ph)))
-    hr = va(BR, (0, 0.03 * math.sin(w), 0.012 * math.cos(2 * w))); rot = BR0 + 6 * math.sin(w) - (25 if run else 0)
+    hr = va(BR, (0, 0.03 * math.sin(w), 0.012 * math.cos(2 * w))); rot = BR0 + 6 * math.sin(w) + (20 if run else 0)
     return dict(hips_off=(0.01 * math.sin(w), -0.008 if run else 0, -0.02 + bob * math.cos(2 * w) - (0.02 if run else 0)), hips_rot=(lean, 0, 5 * math.sin(w)), chest_rot=(lean + 3, 0, -6 * math.sin(w)),
                 head_rot=(-4 - lean * 0.5, 0, 2 * math.sin(w)), foot_L=foot(0), foot_R=foot(math.pi), hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot))
 def b_run(f, n=20):
@@ -801,10 +801,10 @@ def b_attack(f, n=32):   # axe hauled back over the shoulder, then a furious ove
     return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot), chest_rot=(lean, 0, 5 * chop * (1 - rec)), head_rot=(lerp(-10 * wind, 14, chop) * (1 - rec) - 4, 0, 0),
                 hips_off=(0, -0.06 * chop * (1 - rec), -0.02 - 0.03 * chop * (1 - rec)), foot_R=(0, -0.06 * chop * (1 - rec), 0), foot_L=(0, 0.03 * chop * (1 - rec), 0))
 def b_hit(f, n=18):
-    k = math.sin(max(0, min(1, f / n)) * math.pi); hr = va(BR, (0.02, 0.05, 0.05 * k)); rot = BR0 - 18 * k
+    k = math.sin(max(0, min(1, f / n)) * math.pi); hr = va(BR, (0.02, 0.05, 0.05 * k)); rot = BR0 + 18 * k
     return dict(chest_rot=(6 - 22 * k, 0, 5 * k), head_rot=(-4 - 14 * k, 0, -7 * k), hips_off=(0, 0.05 * k, -0.02 - 0.02 * k), hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot))
 def b_death(f):
-    hr0 = va(BR, (0.02, 0.05, 0.05)); r0 = BR0 - 18
+    hr0 = va(BR, (0.02, 0.05, 0.05)); r0 = BR0 + 18
     st = dict(chest_rot=(-16, 0, 5), head_rot=(-16, 0, -8), hips_off=(0, 0.05, -0.04), hand_R=hr0, rot_R=(r0, 0, 0), hand_L=LH(hr0, r0))
     if f <= 5:
         k = f / 5; return dict(chest_rot=vl((6, 0, 0), st['chest_rot'], k), head_rot=vl((-4, 0, 0), st['head_rot'], k), hips_off=vl((0, 0, -0.02), st['hips_off'], k),
@@ -819,8 +819,8 @@ def b_death(f):
 def b_spawn(f): return b_death(DEATH_LEN - f)
 def b_roar(f, n=84):   # axe up, head thrown back, bellowing and shaking
     p = f / n; up = seg(p, .10, .30) * (1 - seg(p, .82, 1.0)); sh = math.sin(p * 2 * math.pi * 9) * up
-    hr = vl(BR, V(-0.11, BY - 0.06, 0.84), up); rot = lerp(BR0, -5, up)
-    return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot), chest_rot=(6 - 28 * up + 2 * sh, 0, 0), head_rot=(-4 - 26 * up + 3 * sh, 0, 2 * sh), hips_off=(0, 0, -0.02 + 0.012 * abs(sh)))
+    hr = vl(BR, V(-0.38, BY - 0.08, 0.64), up); rot = lerp(BR0, -4, up)
+    return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=vl(LH(BR, BR0), V(0.30, BY - 0.10, 0.62), up), chest_rot=(6 - 28 * up + 2 * sh, 0, 0), head_rot=(-4 - 26 * up + 3 * sh, 0, 2 * sh), hips_off=(0, 0, -0.02 + 0.012 * abs(sh)))
 def b_chest(f, n=90):   # axe hangs from one hand while the free fist pounds his chest
     p = f / n; up = seg(p, .06, .18) * (1 - seg(p, .86, 1.0)); beat = max(0, math.sin(p * 2 * math.pi * 3.5)) * up
     hr = vl(BR, V(-0.24, BY - 0.04, 0.30), up); rot = lerp(BR0, 100, up); hl0 = LH(BR, BR0)
@@ -832,8 +832,8 @@ def b_stomp(f, n=72):   # tantrum: stamps each foot, shaking the axe
                 head_rot=(-4 + 6 * up, 0, 6 * math.sin(w * 2) * up), hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot))
 def b_cheer(f, n=64):   # axe overhead, victory hops
     p = f / n; up = seg(p, 0, .18) * (1 - seg(p, .86, 1.0)); pump = max(0, math.sin(p * 2 * math.pi * 3)) * up
-    hr = vl(BR, V(-0.13, BY - 0.05, 0.90 + 0.03 * pump), up); rot = lerp(BR0, -8, up)
-    return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot), chest_rot=(6 - 20 * up, 0, 0), head_rot=(-4 - 16 * up, 0, 0), hips_off=(0, 0, -0.02 + 0.05 * pump), foot_L=(0, 0, 0.04 * pump), foot_R=(0, 0, 0.04 * pump))
+    hr = vl(BR, V(-0.38, BY - 0.08, 0.62 + 0.03 * pump), up); rot = lerp(BR0, -4, up)      # axe raised BESIDE the head (straight up in front of it, the haft sank into the face); the free fist pumps on the other side
+    return dict(hand_R=hr, rot_R=(rot, 0, 0), hand_L=vl(LH(BR, BR0), V(0.30, BY - 0.10, 0.60 + 0.03 * pump), up), chest_rot=(6 - 20 * up, 0, 0), head_rot=(-4 - 16 * up, 0, 0), hips_off=(0, 0, -0.02 + 0.05 * pump), foot_L=(0, 0, 0.04 * pump), foot_R=(0, 0, 0.04 * pump))
 def o_scratch(f, n=90):   # lazily scratches his belly, mace dangling, then gives it an approving pat
     p = f / n; up = seg(p, .08, .22) * (1 - seg(p, .82, .95)); rub = math.sin(p * 2 * math.pi * 4) * up
     return dict(hand_L=vl(va(RL, (0, -0.02, 0)), V(0.09 + 0.03 * rub, -0.22, 0.30 + 0.02 * rub), up), hand_R=va(RR, (0.02, -0.06, 0)), rot_R=(ROT0 + 6 * up, 0, 0), chest_rot=(6 * up, 0, 0), head_rot=(-12 * up, 0, 5 * math.sin(p * 2 * math.pi) * up), hips_off=(0, 0, 0.004 * rub))
@@ -849,7 +849,7 @@ def k_pray(f, n=100):   # kneels, plants the sword point-down and bows his head 
     return dict(hips_off=(0, 0, -0.10 * dn), foot_L=(0, -0.05 * dn, 0), foot_R=(0, 0.10 * dn, 0.06 * dn), chest_rot=(-3 + 14 * dn, 0, 0), head_rot=(30 * dn, 0, 0),
                 hand_R=vl(KR, V(-0.02, KY - 0.24, 0.40), dn), rot_R=(lerp(KR0, 180, dn), 0, 0), hand_L=vl(KL, V(0.33, KY + 0.02, 0.17), dn), rot_L=(lerp(0, -15, dn), 0, 0))
 # ---- sweeping attacks: weapon held level (pitch ~80) and swung sideways about the vertical (yaw, rot_*[2]) across the front of the body
-POLICY = lambda wind, sw, rec: lerp(lerp(0.28, -0.20, wind), 0.28, rec)   # left hand slides from above the right hand (carry) to BELOW it (swing): up the haft is out of reach when the haft swings behind him
+POLICY = lambda wind, sw, rec: -0.20   # left hand slides from above the right hand (carry) to BELOW it (swing): up the haft is out of reach when the haft swings behind him
 def b_sweep(f, n=36):   # Barbarian: a huge two-handed horizontal sweep
     p = f / n; wind = seg(p, 0, .34); sw = seg(p, .42, .56); rec = seg(p, .74, 1.0)
     SLP = POLICY(wind, sw, rec)

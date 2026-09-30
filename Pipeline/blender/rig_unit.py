@@ -453,7 +453,7 @@ def va(a, b): return tuple(x + y for x, y in zip(a, b))
 V = lambda *a: tuple(a)
 
 # absolute hand targets (metres, character space, faces -Y)
-GL, GR = V(0.20, -0.12, 0.40), V(-0.15, -0.10, 0.40)          # guard: bow hand low in front of the hip, draw hand at the belt
+GL, GR = V(0.27, -0.14, 0.36), V(-0.24, -0.12, 0.36)          # guard: bow hand low in front of the hip, draw hand at the belt
 def idle(f, n=60):
     w = 2 * math.pi * f / n
     return dict(hips_off=(0, 0, 0.006 * math.sin(w)), chest_rot=(1.5 * math.sin(w - 0.6), 0, 1.5 * math.sin(w)), head_rot=(-1.0 * math.sin(w - 1.0), 0, 2.5 * math.sin(w * 0.5)),
@@ -673,8 +673,8 @@ def g_run(f, n=18):
     d['hand_L'] = V(0.19, 0.02 - 0.08 * math.sin(w), 0.30); d['hand_R'] = V(-0.19, 0.02 + 0.08 * math.sin(w), 0.30); d['rot_L'] = (-15, 0, 0); d['rot_R'] = (-15, 0, 0); return d
 def g_attack(f, n=30):   # both daggers cocked back, then a crossing double slash
     p = f / n; wind = seg(p, 0, .30); slash = seg(p, .38, .52); rec = seg(p, .70, 1.0)
-    hr = vl(GBR, V(-0.26, 0.04, 0.50), wind); hr = vl(hr, V(0.06, -0.30, 0.30), slash); hr = vl(hr, GBR, rec)
-    hl = vl(GBL, V(0.26, 0.04, 0.50), wind); hl = vl(hl, V(-0.06, -0.30, 0.30), slash); hl = vl(hl, GBL, rec)
+    hr = vl(GBR, V(-0.26, 0.04, 0.50), wind); hr = vl(hr, V(0.08, -0.26, 0.42), slash); hr = vl(hr, GBR, rec)
+    hl = vl(GBL, V(0.26, 0.04, 0.50), wind); hl = vl(hl, V(-0.08, -0.36, 0.22), seg(p, .42, .56)); hl = vl(hl, GBL, rec)   # the blades cross, but the hands pass at different heights and depths so they never pile up
     rot = lerp(GR0, -30, wind); rot = lerp(rot, 130, slash); rot = lerp(rot, GR0, rec)
     lean = lerp(lerp(-8 * wind, 30, slash), 0, rec) + 9 * (1 - rec)
     return dict(hand_R=hr, hand_L=hl, rot_R=(rot, 0, 0), rot_L=(rot, 0, 0), chest_rot=(lean, 0, 8 * slash * (1 - rec)), head_rot=(lerp(-4 * wind, 8, slash) * (1 - rec) - 4, 0, 0),
@@ -779,8 +779,9 @@ def k_pose(f, n=70):   # hero pose: sword pointed at the sky, shield out, chest 
 BY = -0.07   # this model's body sits 7 cm behind the centre of its bounding box (the hair sticks out backwards)
 BR = V(-0.05, BY - 0.12, 0.30)
 BR0 = -35   # axe carried back over the shoulder
-def LH(hr, rot, s=0.17, yaw=0):   # a point s metres up the haft; yaw = how far the haft is swung sideways about the vertical (degrees, + = towards the character's left)
-    r = math.radians(rot); t = math.radians(yaw); return (hr[0] + s * math.sin(r) * math.sin(t), hr[1] - s * math.sin(r) * math.cos(t), hr[2] + s * math.cos(r))
+def LH(hr, rot, s=0.28, yaw=0):   # a point s metres up the haft; yaw = how far the haft is swung sideways about the vertical (degrees, + = towards the character's left)
+    r = math.radians(rot); t = math.radians(yaw); k = max(0.0, 1 - abs(s) / 0.14)      # near s = 0 the left hand would sit on the right one: step it in towards the body and down
+    return (hr[0] + s * math.sin(r) * math.sin(t) + 0.09 * k, hr[1] - s * math.sin(r) * math.cos(t), hr[2] + s * math.cos(r) - 0.05 * k)
 def b_idle(f, n=72):
     w = 2 * math.pi * f / n; br = math.sin(w); hr = va(BR, (0, 0, 0.006 * math.sin(w - 0.8))); rot = BR0 + 2 * br
     return dict(hips_off=(0, 0, -0.02 + 0.006 * br), chest_rot=(6 + 2 * br, 0, 2 * math.sin(w * 0.5)), head_rot=(-4, 0, 3 * math.sin(w * 0.5)), hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot))
@@ -848,21 +849,23 @@ def k_pray(f, n=100):   # kneels, plants the sword point-down and bows his head 
     return dict(hips_off=(0, 0, -0.10 * dn), foot_L=(0, -0.05 * dn, 0), foot_R=(0, 0.10 * dn, 0.06 * dn), chest_rot=(-3 + 14 * dn, 0, 0), head_rot=(30 * dn, 0, 0),
                 hand_R=vl(KR, V(-0.02, KY - 0.24, 0.40), dn), rot_R=(lerp(KR0, 180, dn), 0, 0), hand_L=vl(KL, V(0.33, KY + 0.02, 0.17), dn), rot_L=(lerp(0, -15, dn), 0, 0))
 # ---- sweeping attacks: weapon held level (pitch ~80) and swung sideways about the vertical (yaw, rot_*[2]) across the front of the body
+POLICY = lambda wind, sw, rec: lerp(lerp(0.28, -0.20, wind), 0.28, rec)   # left hand slides from above the right hand (carry) to BELOW it (swing): up the haft is out of reach when the haft swings behind him
 def b_sweep(f, n=36):   # Barbarian: a huge two-handed horizontal sweep
     p = f / n; wind = seg(p, 0, .34); sw = seg(p, .42, .56); rec = seg(p, .74, 1.0)
+    SLP = POLICY(wind, sw, rec)
     hr = vl(BR, V(-0.24, BY - 0.02, 0.40), wind); hr = vl(hr, V(0.16, BY - 0.30, 0.36), sw); hr = vl(hr, BR, rec)
     pitch = lerp(lerp(BR0, 80, wind), 80, sw); pitch = lerp(pitch, BR0, rec)
     yaw = lerp(lerp(0, -120, wind), 115, sw); yaw = lerp(yaw, 0, rec)
     tw = lerp(lerp(0, -38, wind), 42, sw); tw = lerp(tw, 0, rec)
-    return dict(hand_R=hr, rot_R=(pitch, 0, yaw), hand_L=LH(hr, pitch, 0.17, yaw), chest_rot=(6 + 10 * sw * (1 - rec), 0, tw), hips_rot=(0, 0, tw * 0.4), head_rot=(-4, 0, tw * 0.3),
+    return dict(hand_R=hr, rot_R=(pitch, 0, yaw), hand_L=LH(hr, pitch, SLP, yaw), chest_rot=(6 + 10 * sw * (1 - rec), 0, tw), hips_rot=(0, 0, tw * 0.4), head_rot=(-4, 0, tw * 0.3),
                 hips_off=(0, -0.05 * sw * (1 - rec), -0.02 - 0.03 * sw * (1 - rec)), foot_R=(0, -0.07 * sw * (1 - rec), 0), foot_L=(0, 0.03 * sw * (1 - rec), 0))
 def k_swing(f, n=40):   # Knight: a wide swinging slash with the shield braced forward
     p = f / n; wind = seg(p, 0, .34); sw = seg(p, .44, .56); rec = seg(p, .74, 1.0)
-    hr = vl(KR, V(-0.27, KY - 0.06, 0.44), wind); hr = vl(hr, V(0.10, KY - 0.32, 0.40), sw); hr = vl(hr, KR, rec)
+    hr = vl(KR, V(-0.27, KY - 0.06, 0.44), wind); hr = vl(hr, V(-0.02, KY - 0.32, 0.40), sw); hr = vl(hr, KR, rec)
     pitch = lerp(lerp(KR0, 80, wind), 80, sw); pitch = lerp(pitch, KR0, rec)
-    yaw = lerp(lerp(0, -110, wind), 95, sw); yaw = lerp(yaw, 0, rec)
+    yaw = lerp(lerp(0, -110, wind), 28, sw); yaw = lerp(yaw, 0, rec)      # the slash stops before the shield side, so the blade never cuts through the shield
     tw = lerp(lerp(0, -28, wind), 32, sw); tw = lerp(tw, 0, rec)
-    hl = vl(KL, V(0.28, KY - 0.14, 0.38), wind); hl = vl(hl, V(0.24, KY - 0.26, 0.38), sw); hl = vl(hl, KL, rec)
+    hl = vl(KL, V(0.30, KY - 0.14, 0.38), wind); hl = vl(hl, V(0.28, KY - 0.26, 0.36), sw); hl = vl(hl, KL, rec)
     return dict(hand_R=hr, rot_R=(pitch, 0, yaw), hand_L=hl, chest_rot=(-3 + 6 * sw * (1 - rec), 0, tw), hips_rot=(0, 0, tw * 0.4), head_rot=(-4 * wind, 0, tw * 0.3),
                 hips_off=(0, -0.04 * sw * (1 - rec), -0.015 * sw * (1 - rec)), foot_R=(0, -0.06 * sw * (1 - rec), 0))
 def w_slash(f, n=36):   # Warrior: a quick diagonal slash from the right shoulder across to the left

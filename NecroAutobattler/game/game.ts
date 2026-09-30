@@ -404,12 +404,12 @@ export class Game {
       else { const v = createVisual(this.A, f.soul, 1, f.star); v.holder.position.set(f.x, 0, f.z); v.holder.rotation.y = -Math.PI / 2; v.play('spawn'); v.setHp(1); v.setMana(f.maxMana ? 0 : null); this.fvis.set(f.id, v); this.later(1.1, () => { if (v.state === 'spawn') v.play('idle'); }); this.burst(f.x, f.z, [0.7, 0.6, 0.5, 0.7], [0.4, 0.35, 0.3, 0.6], 14); }
     });
     for (let c = 0; c < GRID_CELLS; c++) this.tint(c, 'normal');
-    this.phase = 'transition'; this.startStepAt = 1.0; this.acc = 0; this.tweenCam(this.poses().battle, 2.2); this.syncBuild(); this.ui.render();
+    this.phase = 'transition'; this.startStepAt = 1.0; this.acc = 0; this.tweenCam(this.poses().battle, 2.2); this.syncBuild(); this.ui.render(); this.battleRoar();
   }
   private applyEvents(evs: BEvent[]) {
     const b = this.battle!;
     for (const e of evs) {
-      if (e.t === 'swing') { const v = this.fvis.get(e.id); if (v) v.play('attack', e.speed); }
+      if (e.t === 'swing') { const v = this.fvis.get(e.id); if (v) v.play('attack', e.speed); if (Math.random() < 0.08) { const f = b.byId(e.id); if (f) audio.bark(f.soul, 0, f.team === 0 ? 1 : 0.85); } }
       else if (e.t === 'hit') { const v = this.fvis.get(e.to); if (v) v.pulse(); if (e.kind === 'arrow') audio.play('hitArrow'); else if (e.kind === 'melee') audio.play('hit'); }
       else if (e.t === 'arrow') { const f = b.byId(e.from)!, to = b.byId(e.to)!; this.spawnArrow(f.team, f.x, f.z, to.x, to.z, e.dur); audio.play('arrow'); }
       else if (e.t === 'death') { const v = this.fvis.get(e.id); if (v) { v.play('death'); v.setHp(null); v.setMana(null); const f = b.byId(e.id)!; audio.play('death'); this.burst(f.x, f.z, [0.6, 0.5, 0.7, 0.8], [0.3, 0.2, 0.5, 0.6], 12); if (f.team === 1) this.later(5, () => { if (this.fvis.get(e.id) === v && this.phase !== 'build') { v.holder.setEnabled(false); } }); } }
@@ -439,6 +439,13 @@ export class Game {
     mesh.setEnabled(true);
     if (this.A.arrow) { const tm = this.arrowTeamMat(team); mesh.getChildMeshes().forEach((m: any) => { if (tm) m.material = tm; }); }
     this.arrows.push({ mesh, x0, z0, x1, z1, t: 0, dur });
+  }
+
+  /** Battle cry: up to three different Souls from your army bellow in turn, and one from the enemy answers, a little lower. */
+  private battleRoar() {
+    const b = this.battle; if (!b) return; const mine = new Set<string>(), theirs = new Set<string>();
+    for (const f of b.fighters) (f.team === 0 ? mine : theirs).add(f.soul);
+    [...mine].slice(0, 3).forEach((soul, i) => audio.bark(soul, 0.15 + 0.16 * i, 1)); const e = [...theirs][0]; if (e) audio.bark(e, 0.55, 0.82);
   }
 
   private frame(dt: number) {
@@ -526,7 +533,7 @@ export class Game {
     if (kind === 'win') {
       // the survivors celebrate right where they stand (purely visual), THEN the camera swings to the Necromancer and the army is raised
       audio.play('victory');
-      for (const f of b.fighters) if (f.team === 0 && f.alive) { const v = this.fvis.get(f.id); if (v) this.later(Math.random() * 0.35, () => v.play('cheer')); }
+      for (const f of b.fighters) if (f.team === 0 && f.alive) { const v = this.fvis.get(f.id); if (v) this.later(Math.random() * 0.35, () => { v.play('cheer'); audio.bark(f.soul); }); }
       this.later(1.6, () => { this.tweenCam(this.poses().necro, 1.1); n.cast(); });
       this.later(1.85, home); this.later(3.6, done); return;
     }

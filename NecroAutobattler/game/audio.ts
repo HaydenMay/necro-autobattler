@@ -119,6 +119,20 @@ class AudioEngine {
   private hiss(dur: number, gain: number, type: BiquadFilterType, freq: number, delay = 0, sweepTo?: number) { this.noise(this.ctx!.currentTime + delay, dur, gain, type, freq, this.sfxBus, sweepTo); }
   private throttle(key: string, ms: number) { const n = performance.now(); if (n - (this.stamps[key] || 0) < ms) return false; this.stamps[key] = n; return true; }
 
+  /** A Soul's voice, synthesized: skeleton rattle, archer whistle, goblin cackle, knight grunt, ogre growl, barbarian roar. `k` shifts the pitch (enemies a little lower), `delay` staggers a chorus. */
+  bark(soul: string, delay = 0, k = 1) {
+    if (!this.ctx || !this.sfx || this.ctx.state !== 'running' || !this.throttle('bark' + soul, 350)) return;
+    const T = (f: number, d: number, type: OscillatorType, g: number, dl: number, slide?: number, att?: number, lp?: number) => this.tone(f * k, d, type, g, delay + dl, slide ? slide * k : undefined, att, lp);
+    const H = (d: number, g: number, type: BiquadFilterType, f: number, dl: number, sw?: number) => this.hiss(d, g, type, f, delay + dl, sw);
+    switch (soul) {
+      case 'warrior': [0, 0.06, 0.12, 0.19].forEach((dl) => H(0.03, 0.16, 'highpass', 3500, dl)); T(520, 0.22, 'square', 0.07, 0, 280, 0.005, 1800); break;
+      case 'archer': T(900, 0.16, 'sine', 0.13, 0, 1350, 0.01); T(1350, 0.22, 'sine', 0.11, 0.16, 760, 0.01); break;
+      case 'goblin': [0, 0.11, 0.22].forEach((dl, i) => T(500 + i * 70, 0.1, 'sawtooth', 0.09, dl, 620 + i * 70, 0.005, 2600)); H(0.3, 0.05, 'bandpass', 2200, 0); break;
+      case 'knight': T(150, 0.32, 'sawtooth', 0.12, 0, 105, 0.02, 900); T(225, 0.3, 'square', 0.05, 0.02, 160, 0.02, 900); H(0.08, 0.12, 'highpass', 4500, 0.1); break;
+      case 'ogre': T(75, 0.75, 'sawtooth', 0.2, 0, 52, 0.05, 320); T(112, 0.7, 'sawtooth', 0.08, 0.03, 80, 0.05, 420); H(0.6, 0.12, 'lowpass', 420, 0.02, 140); break;
+      case 'barbarian': T(170, 0.5, 'sawtooth', 0.14, 0, 340, 0.03, 1400); T(340, 0.45, 'sawtooth', 0.08, 0.1, 210, 0.03, 1600); H(0.45, 0.1, 'bandpass', 900, 0, 500); break;
+    }
+  }
   play(name: Sfx) {
     if (!this.ctx || !this.sfx || this.ctx.state !== 'running') return;
     switch (name) {

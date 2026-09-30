@@ -2,6 +2,7 @@
 // characters that are not generated yet, and the "star look" layered on top of both (size, tint, aura, halo, badge).
 declare const BABYLON: any;
 import { BALANCE } from '../core/balance.ts';
+import { audio } from './audio.ts';
 import type { SoulId } from '../core/data.ts';
 
 export type VState = 'idle' | 'run' | 'attack' | 'death' | 'spawn' | 'cheer';
@@ -34,6 +35,8 @@ export interface Assets {
   ringMat: any[]; haloMat: any; barBg: any; barFill: any[]; manaFill: any; arrow?: any; necro?: any;
 }
 /** Flavour a unit can have: a clip it plays now and then when it has stood idle for a while, a small emote, and an eye-glow mask (eyes dim when sleepy, flare when it fights). */
+/** Idle clips where the unit makes a noise. */
+const VOCAL = new Set(['Roar', 'Thump', 'Stomp', 'Snicker', 'Scheme', 'Boast', 'Flex', 'DoubleBiceps', 'Fumble', 'ShieldBonk', 'Bonk']);
 interface Pose { clip: string; emote?: string }
 interface Flavor { clips: Pose[]; min: number; max: number }
 interface TripoCfg { container: any; enemyTex: any; clips: Record<VState, string>; matCache: Record<string, any>; baseMat?: any; top: number; scale: number; flavor?: Flavor; cheers?: Pose[]; spawnEmote?: string; eyes?: string; eyeTex?: any; starScale?: number[] }
@@ -129,7 +132,9 @@ class TripoVisual implements UnitVisual {
   holder: any; team: 0 | 1; star = 1; state: VState = 'idle'; top: number;
   private ent: any; private body: any; private anims: Record<string, any> = {}; private cur: any = null; private deco: Deco; private pick: any; private pulseT = 0; private base: number;
   private lastFlavor = ''; private uid = ''; private own: any = null; private idleT = 0; private nextFlavor = 1e9; private flavorOn = false; private queued = false; private spawnT = 0; private eyeK = 0.65; private emotes: { m: any; t: number; y0: number }[] = [];
+  private soulId: SoulId;
   constructor(private A: Assets, private cfg: TripoCfg, soul: SoulId, team: 0 | 1, star: number) {
+    this.soulId = soul;
     const s = A.scene, uid = Math.random().toString(36).slice(2, 7); this.uid = uid;
     this.ent = cfg.container.instantiateModelsToScene((n: string) => n + '_' + uid, false, { doNotInstantiate: true });
     this.holder = new BABYLON.TransformNode('unit_' + uid, s); this.ent.rootNodes[0].parent = this.holder;
@@ -185,6 +190,7 @@ class TripoVisual implements UnitVisual {
     let pool = f.clips.filter((c) => c.clip !== this.lastFlavor && this.anims[c.clip]); if (!pool.length) pool = f.clips.filter((c) => this.anims[c.clip]); if (!pool.length) return;
     const pose = pool[Math.floor(Math.random() * pool.length)], g = this.anims[pose.clip]; this.lastFlavor = pose.clip;
     if (this.cur) this.cur.stop(); g.stop(); g.start(false, 1, g.from, g.to); this.cur = g; this.flavorOn = true; this.nextFlavor = f.min + Math.random() * (f.max - f.min);
+    if (VOCAL.has(pose.clip)) audio.bark(this.soulId, 0.25);
     if (pose.emote) { this.emote(pose.emote, 0.4); if (pose.emote === 'zzz') this.emote(pose.emote, 1.2); }
   }
   update(dt: number) {

@@ -10,7 +10,7 @@ import type { SoulId } from './data.ts';
 import { ENDLESS_ID, endlessPower, endlessWave } from './endless.ts';
 import { makeRng } from './rng.ts';
 
-export interface EnemySpec { soul: SoulId; star: number }
+export interface EnemySpec { soul: SoulId; star: number; boss?: boolean }
 export type Diff = 'easy' | 'normal' | 'hard' | 'nightmare';
 export const DIFFS: Diff[] = ['easy', 'normal', 'hard', 'nightmare'];
 
@@ -77,7 +77,10 @@ export const DIFFICULTY_INFO = [
 // ---- what the next battle uses (set when a run starts)
 export let difficultyName: string = 'normal';
 export let currentStageId: string = 'crypt';
-let power = 1, endlessMode = false;
+let power = 1, endlessMode = false, bossStr = 1;
+/** How hard the boss hits for the current mode (0 = an ordinary unit, 1 = the full boss): gentle on Easy, full on Nightmare and in Endless. */
+export const bossStrength = (): number => bossStr;
+const BOSS_BY_TIER: Record<string, number> = { easy: 0.2, normal: 0.5, hard: 0.8, nightmare: 1 };
 let dailyRewrite: ((w: EnemySpec[], wave: number) => EnemySpec[]) | null = null;   // set only during a Daily Challenge run
 /** Enemy health/damage multiplier for the current stage and tier (in endless mode it depends on the wave). */
 export const enemyPower = (wave = 1): number => (endlessMode ? endlessPower(wave) : power);
@@ -88,7 +91,7 @@ export const AUTHORED: EnemySpec[][] = DIFFICULTY.normal.map(parseWave);
 
 export function setStageDifficulty(stage: string, name: string): void {
   const st = stageById(stage); if (!DIFFS.includes(name as Diff)) return;
-  endlessMode = false; dailyRewrite = null; currentStageId = st.id; difficultyName = name; power = st.power[name as Diff];
+  endlessMode = false; dailyRewrite = null; bossStr = BOSS_BY_TIER[name] ?? 0.5; currentStageId = st.id; difficultyName = name; power = st.power[name as Diff];
   AUTHORED.length = 0; st.lists[name as Diff].forEach((w) => AUTHORED.push(parseWave(w)));
 }
 /** Switch to the Daily Challenge: Stage 1 Normal with the day's twist (see core/daily.ts). `day` is kept as the 'difficulty' so a saved run can rebuild the same day. */
@@ -96,16 +99,23 @@ export function setDaily(mod: { power: number; enemy?: (w: EnemySpec[], wave: nu
   setStageDifficulty('crypt', 'normal'); dailyRewrite = mod.enemy ?? null; currentStageId = 'daily'; difficultyName = String(day); power = mod.power;
 }
 /** Switch to Endless Depths: waves come from core/endless.ts instead of a stage list. */
-export function setEndless(): void { endlessMode = true; dailyRewrite = null; currentStageId = ENDLESS_ID; difficultyName = 'endless'; power = 1; AUTHORED.length = 0; }
+export function setEndless(): void { endlessMode = true; dailyRewrite = null; bossStr = 1; currentStageId = ENDLESS_ID; difficultyName = 'endless'; power = 1; AUTHORED.length = 0; }
 /** Change the tier within the current stage. */
 export function setDifficulty(name: string): void { setStageDifficulty(currentStageId, name); }
 
 export const waveCost = (w: EnemySpec[]): number => w.reduce((n, e) => n + COST[e.soul][e.star - 1], 0);
 
+/** The last wave of a stage has a BOSS: its biggest unit (a brute if there is one) gets extra health, damage and size (see BOSS in battle.ts). */
+export function markBoss(w: EnemySpec[]): EnemySpec[] {
+  let best = -1, bs = -1;
+  w.forEach((e, i) => { const brute = e.soul === 'ogre' || e.soul === 'knight' || e.soul === 'barbarian' ? 100 : 0, sc = brute + COST[e.soul][e.star - 1]; if (sc > bs) { bs = sc; best = i; } });
+  if (best >= 0) w[best] = { ...w[best], boss: true };
+  return w;
+}
 /** Enemy army for a wave (1-based). Waves past the authored ones are generated from a fixed seed so retries face the same army. */
 export function enemyWave(wave: number, stageSeed = 0): EnemySpec[] {
   if (endlessMode) return endlessWave(wave, stageSeed);
-  if (wave <= AUTHORED.length) { const w = AUTHORED[wave - 1].map((e) => ({ ...e })); return dailyRewrite ? dailyRewrite(w, wave) : w; }
+  if (wave <= AUTHORED.length) { let w = AUTHORED[wave - 1].map((e) => ({ ...e })); if (dailyRewrite) w = dailyRewrite(w, wave); return wave === AUTHORED.length ? markBoss(w) : w; }
   const cap = CURVES.doc[Math.min(wave, CURVES.doc.length) - 1];
   const budget = Math.round(cap * 0.92);
   const rng = makeRng(stageSeed * 1009 + wave * 7919);
@@ -123,12 +133,12 @@ export function enemyWave(wave: number, stageSeed = 0): EnemySpec[] {
 }
 
 /** What the build screen shows: counts per Soul and star, no positions. */
-export function previewText(w: EnemySpec[]): { soul: SoulId; star: number; count: number }[] {
-  const map = new Map<string, { soul: SoulId; star: number; count: number }>();
+export function previewText(w: EnemySpec[]): { soul: SoulId; star: number; count: number; boss?: boolean }[] {
+  const map = new Map<string, { soul: SoulId; star: number; count: number; boss?: boolean }>();
   for (const e of w) {
-    const k = e.soul + e.star;
+    const k = e.soul + e.star + (e.boss ? 'B' : '');
     const cur = map.get(k);
-    if (cur) cur.count++; else map.set(k, { soul: e.soul, star: e.star, count: 1 });
+    if (cur) cur.count++; else map.set(k, { soul: e.soul, star: e.star, count: 1, boss: e.boss });
   }
   return [...map.values()];
 }

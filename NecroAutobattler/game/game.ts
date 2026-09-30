@@ -403,7 +403,7 @@ export class Game {
     this.fvis.clear(); this.fUnit.clear(); this.lastState.clear();
     this.battle.fighters.forEach((f) => {
       if (f.team === 0) { const u = units[f.id - 1]; const v = this.unitVis.get(u.id)!; this.fvis.set(f.id, v); this.fUnit.set(f.id, u.id); v.setHp(1); v.setMana(f.maxMana ? 0 : null); }
-      else { const v = createVisual(this.A, f.soul, 1, f.star); v.holder.position.set(f.x, 0, f.z); v.holder.rotation.y = -Math.PI / 2; v.play('spawn'); v.setHp(1); v.setMana(f.maxMana ? 0 : null); this.fvis.set(f.id, v); this.later(1.1, () => { if (v.state === 'spawn') v.play('idle'); }); this.burst(f.x, f.z, [0.7, 0.6, 0.5, 0.7], [0.4, 0.35, 0.3, 0.6], 14); }
+      else { const v = createVisual(this.A, f.soul, 1, f.star); v.holder.position.set(f.x, 0, f.z); v.holder.rotation.y = -Math.PI / 2; if (f.boss && v.setBoss) v.setBoss(true); v.play('spawn'); v.setHp(1); v.setMana(f.maxMana ? 0 : null); this.fvis.set(f.id, v); this.later(1.1, () => { if (v.state === 'spawn') v.play('idle'); }); this.burst(f.x, f.z, [0.7, 0.6, 0.5, 0.7], [0.4, 0.35, 0.3, 0.6], 14); }
     });
     for (let c = 0; c < GRID_CELLS; c++) this.tint(c, 'normal');
     this.phase = 'transition'; this.startStepAt = 1.0; this.acc = 0; this.tweenCam(this.poses().battle, 2.2); this.syncBuild(); this.ui.render(); this.battleRoar();

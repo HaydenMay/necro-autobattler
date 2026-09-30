@@ -14,6 +14,7 @@
 import { GRID_COLS, GRID_ROWS } from './data.ts';
 import type { SoulId } from './data.ts';
 import { BALANCE } from './balance.ts';
+import { bossStrength } from './waves.ts';
 import { makeRng } from './rng.ts';
 import type { Rng } from './rng.ts';
 
@@ -47,7 +48,10 @@ export function enemyCells(specs: Spec[]): number[] {
 }
 
 export type FState = 'idle' | 'run' | 'attack' | 'dead';
+/** A boss is one enemy with extra health and damage, and more size. */
+export const BOSS = { hp: 0.6, dmg: 0.2, size: 1.3 };   // size is the look only (game/visuals.ts)     // extras at full strength (see bossStrength in waves.ts)
 export interface Fighter {
+  boss?: boolean;
   id: number; team: 0 | 1; soul: SoulId; star: number; cell: number;
   x: number; z: number; yaw: number;
   hp: number; maxHp: number; dmg: number; interval: number; range: number; speed: number; radius: number;
@@ -84,20 +88,20 @@ export class Battle {
     this.rng = makeRng(seed); this.enemyPower = enemyPower;
     for (const p of players) this.add(0, p.soul, p.star, p.cell, levels?.[p.soul] ?? 1);
     const cells = enemyCells(enemies);
-    enemies.forEach((e, i) => this.add(1, e.soul, e.star, cells[i]));
+    enemies.forEach((e, i) => this.add(1, e.soul, e.star, cells[i], 1, !!e.boss));
   }
 
-  private add(team: 0 | 1, soul: SoulId, star: number, cell: number, level = 1): Fighter {
+  private add(team: 0 | 1, soul: SoulId, star: number, cell: number, level = 1, boss = false): Fighter {
     const B = BALANCE, st = B.stats[soul], p = cellPos(team, cell);
     const lvHp = 1 + (Math.max(1, level) - 1) * B.level.hp, lvDmg = 1 + (Math.max(1, level) - 1) * B.level.dmg;
     const pw = team === 1 ? this.enemyPower : 1;
-    const hp = st.hp * B.star.hp[star - 1] * lvHp * pw;
+    const hp = st.hp * B.star.hp[star - 1] * lvHp * pw * (boss ? 1 + BOSS.hp * bossStrength() : 1);
     const f: Fighter = {
       id: this.nextId++, team, soul, star, cell, x: p.x, z: p.z, yaw: team === 0 ? 0 : Math.PI,
-      hp, maxHp: hp, dmg: st.dmg * B.star.dmg[star - 1] * lvDmg * pw, interval: st.interval, range: st.range, speed: st.speed, radius: st.size * B.star.scale[star - 1],
+      hp, maxHp: hp, dmg: st.dmg * B.star.dmg[star - 1] * lvDmg * pw * (boss ? 1 + BOSS.dmg * bossStrength() : 1), interval: st.interval, range: st.range, speed: st.speed, radius: st.size * B.star.scale[star - 1],   // (a boss only LOOKS bigger: a larger collision radius would keep melee units out of reach)
       alive: true, state: 'idle', target: -1, retargetAt: 0, forcedTarget: -1, forcedUntil: 0,
       nextAttack: this.rng.next() * 0.3, attackStart: -9, attackDur: 1, animSpeed: 1, hitFrac: 0, hitDone: true,
-      mana: 0, maxMana: B.mana[soul]?.max ?? 0, casting: false, frenzy: 0, deadAt: 0,
+      mana: 0, maxMana: B.mana[soul]?.max ?? 0, casting: false, frenzy: 0, deadAt: 0, boss,
     } as Fighter;
     this.fighters.push(f); return f;
   }

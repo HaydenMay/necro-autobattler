@@ -55,7 +55,7 @@ export function endlessWave(n: number, seed = 0): EnemySpec[] {
   const wave = Math.max(1, Math.floor(n)), rng = makeRng(seed * 1009 + wave * 7919 + 17), tpl = endlessTemplate(wave, seed);
   let left = endlessBudget(wave); const army: EnemySpec[] = [];
   if (wave % 10 === 0 && left >= 20) {                                   // champion wave: one starred brute up front (2 stars, 3 from wave 40), then the usual escort
-    const soul: SoulId = rng.next() < 0.5 ? 'ogre' : 'knight', star = wave >= 40 ? 3 : 2; army.push({ soul, star }); left -= COST[soul][star - 1];
+    const soul: SoulId = rng.next() < 0.5 ? 'ogre' : 'knight', star = wave >= 40 ? 3 : 2; army.push({ soul, star, boss: true }); left -= COST[soul][star - 1];
   }
   const total = tpl.mix.reduce((a, [, w]) => a + w, 0);
   for (let guard = 0; guard < 80 && army.length < MAX_UNITS && left >= 2; guard++) {

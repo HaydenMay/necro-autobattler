@@ -87,7 +87,7 @@ export interface ClearReward { first: boolean; pack: PackItem | null; replayMete
 function recordClearBase(save: Save, stageId: string, difficulty: Difficulty): Omit<ClearReward, 'unlocked'> {
   const key = stageId + ':' + difficulty, before = save.clears[key] ?? 0;
   save.clears[key] = before + 1;
-  if (before === 0) return { first: true, pack: grantPack(save, REWARDS.firstClearTier[difficulty], 'First clear · ' + difficulty), replayMeter: save.replayMeter, replayNeeded: REWARDS.replayClearsPerPack };
+  if (before === 0) return { first: true, pack: grantPack(save, REWARDS.firstClearTier[difficulty] + (stageIndex(stageId) === STAGES.length - 1 ? 1 : 0), 'First clear · ' + difficulty), replayMeter: save.replayMeter, replayNeeded: REWARDS.replayClearsPerPack };
   save.replayMeter++;
   let pack: PackItem | null = null;
   if (save.replayMeter >= REWARDS.replayClearsPerPack) { save.replayMeter -= REWARDS.replayClearsPerPack; pack = grantPack(save, REWARDS.replayTier, 'Replay reward'); }

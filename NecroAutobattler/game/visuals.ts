@@ -12,6 +12,7 @@ export interface UnitVisual {
   team: 0 | 1; star: number; state: VState; top: number;
   play(state: VState, speed?: number): void;
   setStar(star: number): void;
+  setBoss?(on: boolean): void;       // an enemy boss: bigger, with a BOSS tag
   setLevel?(level: number): void;    // the permanent Soul level shown beside the health bar (player units only)
   setTeam(team: 0 | 1): void;
   setHp(frac: number | null): void;  // null hides the health bar
@@ -97,7 +98,18 @@ class Deco {
     const lm = new BABYLON.StandardMaterial('lvm', s); lm.emissiveColor = BABYLON.Color3.White(); lm.disableLighting = true; lm.useAlphaFromDiffuseTexture = true; this.lv.material = lm;
     this.bar.setEnabled(false); this.fill.setEnabled(false); this.mbg.setEnabled(false); this.mfill.setEnabled(false);
   }
-  private lv: any; private lvN = 0; private barOn = false;
+  private lv: any; private lvN = 0; private barOn = false; private tag: any = null;
+  /** A red BOSS tag above the stars. */
+  setBoss(on: boolean) {
+    if (!on) { if (this.tag) this.tag.setEnabled(false); return; }
+    if (!this.tag) {
+      const A = this.A, t = BABYLON.MeshBuilder.CreatePlane('bosstag', { width: 0.5, height: 0.17 }, A.scene); t.parent = this.badge; t.position.set(0, 0.29, 0); t.isPickable = false;
+      const m = new BABYLON.StandardMaterial('bosstagm', A.scene); m.emissiveColor = BABYLON.Color3.White(); m.disableLighting = true; m.useAlphaFromDiffuseTexture = true;
+      m.diffuseTexture = dyn(A.scene, 192, 64, (c) => { c.font = '900 46px sans-serif'; c.textAlign = 'center'; c.lineWidth = 8; c.strokeStyle = '#2a0508'; c.fillStyle = '#ff5b4a'; c.lineJoin = 'round'; c.strokeText('BOSS', 96, 48); c.fillText('BOSS', 96, 48); });
+      t.material = m; this.tag = t;
+    }
+    this.tag.setEnabled(true);
+  }
   /** "LV n" beside the health bar (permanent Soul level); 0 hides it. */
   setLevel(n: number) {
     this.lvN = n; if (!this.lv) return; if (n <= 0 || !this.barOn) { this.lv.setEnabled(false); if (n > 0) this.ensureLv(n); return; }
@@ -174,7 +186,9 @@ class TripoVisual implements UnitVisual {
   }
   setTeam(t: 0 | 1) { this.team = t; this.applyMat(); this.deco.set(t, this.star); }
   setStar(st: number) { this.star = st; this.applyMat(); this.holder.scaling.setAll(this.sc(st) * this.base); this.deco.set(this.team, st); this.deco.fit(this.sc(st) * this.base); }
-  private sc(st: number) { return (this.cfg.starScale || BALANCE.star.scale)[st - 1]; }
+  private bossK = 1;
+  private sc(st: number) { return (this.cfg.starScale || BALANCE.star.scale)[st - 1] * this.bossK; }
+  setBoss(on: boolean) { this.bossK = on ? 1.3 : 1; this.holder.scaling.setAll(this.sc(this.star) * this.base); this.deco.fit(this.sc(this.star) * this.base); this.deco.setBoss(on); }
   setHp(f: number | null) { this.deco.setHp(f); }
   setLevel(n: number) { this.deco.setLevel(n); }
   setMana(f: number | null) { this.deco.setMana(f); }

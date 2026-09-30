@@ -42,7 +42,7 @@ export class Ui {
     const used = dominionUsed(s); $('dom').textContent = `${used}/${s.cap}`; ($('domfill') as HTMLElement).style.width = Math.min(100, (used / s.cap) * 100) + '%';
     // enemy preview: what is coming, never where
     const pv = previewText(enemyWave(s.wave, g.seed));
-    $('enemy').innerHTML = `<b>Next enemies</b>` + pv.map((p) => `<div class="erow"><span>${ICON[p.soul as SoulId]}</span><span>${SOUL_NAME[p.soul as SoulId]}</span><span class="x">×${p.count}</span><span class="st">${stars(p.star)}</span></div>`).join('') + `<div class="hint">Positions stay hidden until the battle.</div>`;
+    $('enemy').innerHTML = `<b>Next enemies</b>` + pv.map((p) => `<div class="erow"><span>${ICON[p.soul as SoulId]}</span><span>${SOUL_NAME[p.soul as SoulId]}${(p as any).boss ? ' <b style="color:#ff7b6a">BOSS</b>' : ''}</span><span class="x">×${p.count}</span><span class="st">${stars(p.star)}</span></div>`).join('') + `<div class="hint">Positions stay hidden until the battle.</div>`;
     // hand
     const hand = $('hand'); hand.innerHTML = '';
     s.hand.forEach((soul: SoulId, i: number) => {

@@ -31,7 +31,7 @@ const AURA = [
 
 export interface Assets {
   scene: any; soft: any; starTex: any[]; tripo: Partial<Record<SoulId, TripoCfg>>; emote: Record<string, any>;
-  ringMat: any[]; haloMat: any; barBg: any; barFill: any[]; manaFill: any;
+  ringMat: any[]; haloMat: any; barBg: any; barFill: any[]; manaFill: any; arrow?: any;
 }
 /** Flavour a unit can have: a clip it plays now and then when it has stood idle for a while, a small emote, and an eye-glow mask (eyes dim when sleepy, flare when it fights). */
 interface Pose { clip: string; emote?: string }
@@ -67,10 +67,11 @@ export async function loadAssets(scene: any): Promise<Assets> {
     ['barbarian', 'Barbarian.glb', 'Barbarian_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.0, 1.05, { flavor: { clips: [{ clip: 'Roar', emote: '!' }, { clip: 'ChestBeat' }, { clip: 'Stomp', emote: '!' }], min: 7, max: 13 }, cheers: [{ clip: 'Cheer', emote: 'sparkle' }, { clip: 'Roar', emote: '!' }, { clip: 'ChestBeat' }], eyes: 'Barbarian_eyes.png' }],
     ['ogre', 'Ogre.glb', 'Ogre_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.02, 1.12, { starScale: [1, 1.3, 1.65], flavor: { clips: [{ clip: 'Yawn', emote: 'zzz' }, { clip: 'Scratch' }, { clip: 'Stomp', emote: '!' }, { clip: 'Thump' }], min: 9, max: 16 }, cheers: [{ clip: 'Cheer' }, { clip: 'Thump', emote: '!' }, { clip: 'Stomp', emote: '!' }], spawnEmote: 'zzz', eyes: 'Ogre_eyes.png' }],
   ];
-  await Promise.all(defs.map(async ([soul, glb, enemy, clips, top, scale, extra]) => {
+  const arrowP = BABYLON.SceneLoader.LoadAssetContainerAsync('assets/', 'Arrow.glb', scene).then((c: any) => { A.arrow = c; }).catch(() => { /* falls back to the plain line */ });
+  await Promise.all([arrowP, ...defs.map(async ([soul, glb, enemy, clips, top, scale, extra]) => {
     const container = await BABYLON.SceneLoader.LoadAssetContainerAsync('assets/', glb, scene);
     A.tripo[soul] = { container, enemyTex: new BABYLON.Texture('assets/' + enemy, scene, false, false), clips, matCache: {}, top, scale, ...(extra || {}), eyeTex: extra && extra.eyes ? new BABYLON.Texture('assets/' + extra.eyes, scene, false, false) : undefined };
-  }));
+  })]);
   return A;
 }
 

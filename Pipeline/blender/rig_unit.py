@@ -722,8 +722,8 @@ def k_pose(f, n=70):   # hero pose: sword pointed at the sky, shield out, chest 
 BY = -0.07   # this model's body sits 7 cm behind the centre of its bounding box (the hair sticks out backwards)
 BR = V(-0.05, BY - 0.12, 0.30)
 BR0 = -35   # axe carried back over the shoulder
-def LH(hr, rot, s=0.17):
-    r = math.radians(rot); return (hr[0], hr[1] - s * math.sin(r), hr[2] + s * math.cos(r))
+def LH(hr, rot, s=0.17, yaw=0):   # a point s metres up the haft; yaw = how far the haft is swung sideways about the vertical (degrees, + = towards the character's left)
+    r = math.radians(rot); t = math.radians(yaw); return (hr[0] + s * math.sin(r) * math.sin(t), hr[1] - s * math.sin(r) * math.cos(t), hr[2] + s * math.cos(r))
 def b_idle(f, n=72):
     w = 2 * math.pi * f / n; br = math.sin(w); hr = va(BR, (0, 0, 0.006 * math.sin(w - 0.8))); rot = BR0 + 2 * br
     return dict(hips_off=(0, 0, -0.02 + 0.006 * br), chest_rot=(6 + 2 * br, 0, 2 * math.sin(w * 0.5)), head_rot=(-4, 0, 3 * math.sin(w * 0.5)), hand_R=hr, rot_R=(rot, 0, 0), hand_L=LH(hr, rot))
@@ -790,15 +790,42 @@ def k_pray(f, n=100):   # kneels, plants the sword point-down and bows his head 
     p = f / n; dn = seg(p, .08, .30) * (1 - seg(p, .76, .94)); glow = math.sin(p * 2 * math.pi * 2) * dn
     return dict(hips_off=(0, 0, -0.10 * dn), foot_L=(0, -0.05 * dn, 0), foot_R=(0, 0.10 * dn, 0.06 * dn), chest_rot=(-3 + 14 * dn, 0, 0), head_rot=(30 * dn, 0, 0),
                 hand_R=vl(KR, V(-0.02, KY - 0.24, 0.40), dn), rot_R=(lerp(KR0, 180, dn), 0, 0), hand_L=vl(KL, V(0.33, KY + 0.02, 0.17), dn), rot_L=(lerp(0, -15, dn), 0, 0))
+# ---- sweeping attacks: weapon held level (pitch ~80) and swung sideways about the vertical (yaw, rot_*[2]) across the front of the body
+def b_sweep(f, n=36):   # Barbarian: a huge two-handed horizontal sweep
+    p = f / n; wind = seg(p, 0, .34); sw = seg(p, .42, .56); rec = seg(p, .74, 1.0)
+    hr = vl(BR, V(-0.24, BY - 0.02, 0.40), wind); hr = vl(hr, V(0.16, BY - 0.30, 0.36), sw); hr = vl(hr, BR, rec)
+    pitch = lerp(lerp(BR0, 80, wind), 80, sw); pitch = lerp(pitch, BR0, rec)
+    yaw = lerp(lerp(0, -120, wind), 115, sw); yaw = lerp(yaw, 0, rec)
+    tw = lerp(lerp(0, -38, wind), 42, sw); tw = lerp(tw, 0, rec)
+    return dict(hand_R=hr, rot_R=(pitch, 0, yaw), hand_L=LH(hr, pitch, 0.17, yaw), chest_rot=(6 + 10 * sw * (1 - rec), 0, tw), hips_rot=(0, 0, tw * 0.4), head_rot=(-4, 0, tw * 0.3),
+                hips_off=(0, -0.05 * sw * (1 - rec), -0.02 - 0.03 * sw * (1 - rec)), foot_R=(0, -0.07 * sw * (1 - rec), 0), foot_L=(0, 0.03 * sw * (1 - rec), 0))
+def k_swing(f, n=40):   # Knight: a wide swinging slash with the shield braced forward
+    p = f / n; wind = seg(p, 0, .34); sw = seg(p, .44, .56); rec = seg(p, .74, 1.0)
+    hr = vl(KR, V(-0.27, KY - 0.06, 0.44), wind); hr = vl(hr, V(0.10, KY - 0.32, 0.40), sw); hr = vl(hr, KR, rec)
+    pitch = lerp(lerp(KR0, 80, wind), 80, sw); pitch = lerp(pitch, KR0, rec)
+    yaw = lerp(lerp(0, -110, wind), 95, sw); yaw = lerp(yaw, 0, rec)
+    tw = lerp(lerp(0, -28, wind), 32, sw); tw = lerp(tw, 0, rec)
+    hl = vl(KL, V(0.28, KY - 0.14, 0.38), wind); hl = vl(hl, V(0.24, KY - 0.26, 0.38), sw); hl = vl(hl, KL, rec)
+    return dict(hand_R=hr, rot_R=(pitch, 0, yaw), hand_L=hl, chest_rot=(-3 + 6 * sw * (1 - rec), 0, tw), hips_rot=(0, 0, tw * 0.4), head_rot=(-4 * wind, 0, tw * 0.3),
+                hips_off=(0, -0.04 * sw * (1 - rec), -0.015 * sw * (1 - rec)), foot_R=(0, -0.06 * sw * (1 - rec), 0))
+def w_slash(f, n=36):   # Warrior: a quick diagonal slash from the right shoulder across to the left
+    p = f / n; wind = seg(p, 0, .30); sw = seg(p, .40, .52); rec = seg(p, .70, 1.0)
+    hr = vl(WR, V(-0.20, -0.02, 0.66), wind); hr = vl(hr, V(0.06, -0.28, 0.34), sw); hr = vl(hr, WR, rec)
+    pitch = lerp(lerp(WR0, 30, wind), 105, sw); pitch = lerp(pitch, WR0, rec)
+    yaw = lerp(lerp(0, -65, wind), 45, sw); yaw = lerp(yaw, 0, rec)
+    tw = lerp(lerp(0, -20, wind), 22, sw); tw = lerp(tw, 0, rec)
+    hl = vl(WL, V(0.20, -0.04, 0.60), wind); hl = vl(hl, V(0.16, -0.18, 0.36), sw); hl = vl(hl, WL, rec)
+    return dict(hand_R=hr, rot_R=(pitch, 0, yaw), hand_L=hl, chest_rot=(lerp(-10 * wind, 18, sw) * (1 - rec), 0, tw), head_rot=(lerp(-4 * wind, 8, sw) * (1 - rec), 0, tw * 0.3),
+                hips_off=(0, -0.05 * sw * (1 - rec), -0.02 * sw * (1 - rec)), foot_R=(0, -0.05 * sw * (1 - rec), 0))
 CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('Run', 24, o_run, True), ('Attack', 40, o_attack, False), ('Hit', 18, o_hit, False),
                      ('Death', DEATH_LEN, o_death, False), ('Spawn', 50, o_spawn, False), ('Yawn', 70, o_yawn, False), ('Cheer', 60, o_cheer, False), ('Scratch', 90, o_scratch, False), ('Stomp', 70, o_stomp, False), ('Thump', 80, o_thump, False)],
             'goblin': [('Idle', 64, g_idle, True), ('Walk', 28, g_walk, True), ('Run', 18, g_run, True), ('Attack', 30, g_attack, False), ('Hit', 18, g_hit, False), ('Death', DEATH_LEN, g_death, False),
                        ('Spawn', DEATH_LEN, g_spawn, False), ('Scheme', 80, g_scheme, False), ('Peek', 90, g_peek, False), ('Spin', 70, g_spin, False), ('Snicker', 60, g_snicker, False), ('Cheer', 60, g_cheer, False)],
-            'knight': [('Idle', 72, k_idle, True), ('Walk', 36, k_walk, True), ('Run', 22, k_run, True), ('Attack', 40, k_attack, False), ('Hit', 18, k_hit, False), ('Death', DEATH_LEN, k_death, False),
+            'knight': [('Idle', 72, k_idle, True), ('Walk', 36, k_walk, True), ('Run', 22, k_run, True), ('Attack', 40, k_swing, False), ('Hit', 18, k_hit, False), ('Death', DEATH_LEN, k_death, False),
                        ('Spawn', DEATH_LEN, k_spawn, False), ('Salute', 70, k_salute, False), ('Boast', 80, k_boast, False), ('Admire', 84, k_admire, False), ('Pose', 70, k_pose, False), ('Pray', 100, k_pray, False)],
-            'barbarian': [('Idle', 72, b_idle, True), ('Walk', 32, b_walk, True), ('Run', 20, b_run, True), ('Attack', 32, b_attack, False), ('Hit', 18, b_hit, False), ('Death', DEATH_LEN, b_death, False),
+            'barbarian': [('Idle', 72, b_idle, True), ('Walk', 32, b_walk, True), ('Run', 20, b_run, True), ('Attack', 36, b_sweep, False), ('Hit', 18, b_hit, False), ('Death', DEATH_LEN, b_death, False),
                           ('Spawn', DEATH_LEN, b_spawn, False), ('Roar', 84, b_roar, False), ('ChestBeat', 90, b_chest, False), ('Stomp', 72, b_stomp, False), ('Cheer', 64, b_cheer, False)],
-            'warrior': [('Idle', 60, w_idle, True), ('Walk', 32, w_walk, True), ('Run', 20, w_run, True), ('Attack', 36, w_attack, False), ('Hit', 18, w_hit, False), ('Death', DEATH_LEN, w_death, False),
+            'warrior': [('Idle', 60, w_idle, True), ('Walk', 32, w_walk, True), ('Run', 20, w_run, True), ('Attack', 36, w_slash, False), ('Hit', 18, w_hit, False), ('Death', DEATH_LEN, w_death, False),
                         ('Spawn', DEATH_LEN, w_spawn, False), ('Trip', 80, w_trip, False), ('Bonk', 75, w_bonk, False), ('Wobble', 90, w_wobble, False), ('Wave', 64, w_wave, False), ('Cheer', 60, w_cheer, False)],
             'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False), ('DoubleBiceps', 90, dbl, False), ('BoneCrack', 80, crack, False), ('BowTwirl', 70, twirl, False),
                        ('Hit', 18, hit, False), ('Death', DEATH_LEN, death, False), ('Spawn', DEATH_LEN, spawn, False)]}

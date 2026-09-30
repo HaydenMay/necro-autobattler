@@ -384,10 +384,26 @@ export class Game {
       else if (e.t === 'smash') { audio.play('smash'); this.fxRing(e.x, e.z, new BABYLON.Color3(1, 0.5, 0.2), 0.2, e.r * 1.6, 0.45); }
     }
   }
+  private arrowBase: any[] = [];
+  /** The arrow's own material with a faint glow in the team colour (purple for yours, amber for the enemy's), so you can still tell whose it is. */
+  private arrowTeamMat(team: number) {
+    if (this.arrowBase[team]) return this.arrowBase[team];
+    const src = this.A.arrow.materials && this.A.arrow.materials[0]; if (!src) return null;
+    const m = src.clone('arrowT' + team); const c = team === 0 ? new BABYLON.Color3(0.55, 0.2, 0.85) : new BABYLON.Color3(0.9, 0.55, 0.15);
+    if ('emissiveColor' in m) m.emissiveColor = c.scale(0.035); this.arrowBase[team] = m; return m;
+  }
   private spawnArrow(team: number, x0: number, z0: number, x1: number, z1: number, dur: number) {
     let mesh = this.arrowMesh.pop();
-    if (!mesh) { mesh = BABYLON.MeshBuilder.CreateCylinder('arrow', { height: 0.55, diameter: 0.035 }, this.scene); mesh.rotation.x = Math.PI / 2; mesh.isPickable = false; const holder = new BABYLON.TransformNode('ar', this.scene); mesh.parent = holder; mesh = holder; }
-    mesh.setEnabled(true); mesh.getChildMeshes()[0].material = this.arrowMats[team];
+    if (!mesh) {
+      const holder = new BABYLON.TransformNode('ar', this.scene);
+      if (this.A.arrow) {                                 // the real arrow model (metal head, fletching): one instance per flying arrow
+        const ent = this.A.arrow.instantiateModelsToScene((n: string) => n + '_' + Math.random().toString(36).slice(2, 6), false);
+        ent.rootNodes[0].parent = holder; ent.rootNodes[0].getChildMeshes().forEach((m: any) => { m.isPickable = false; m.alwaysSelectAsActiveMesh = true; });
+      } else { const cyl = BABYLON.MeshBuilder.CreateCylinder('arrow', { height: 0.55, diameter: 0.035 }, this.scene); cyl.rotation.x = Math.PI / 2; cyl.isPickable = false; cyl.parent = holder; cyl.material = this.arrowMats[team]; }
+      mesh = holder;
+    }
+    mesh.setEnabled(true);
+    if (this.A.arrow) { const tm = this.arrowTeamMat(team); mesh.getChildMeshes().forEach((m: any) => { if (tm) m.material = tm; }); }
     this.arrows.push({ mesh, x0, z0, x1, z1, t: 0, dur });
   }
 

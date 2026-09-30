@@ -62,7 +62,7 @@ export async function loadAssets(scene: any): Promise<Assets> {
   const defs: [SoulId, string, string, Record<VState, string>, number, number, any?][] = [
     ['warrior', 'SkeletonWarrior.glb', 'SkeletonWarrior_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.05, 1.0, { flavor: { clips: [{ clip: 'Trip', emote: '!' }, { clip: 'Bonk', emote: '?' }, { clip: 'Wobble', emote: 'sweat' }, { clip: 'Wave', emote: 'sparkle' }], min: 8, max: 15 }, cheers: [{ clip: 'Cheer', emote: 'sparkle' }, { clip: 'Wave', emote: 'sparkle' }, { clip: 'Trip', emote: '!' }], eyes: 'SkeletonWarrior_eyes.png' }],
     ['archer', 'SkeletonArcher.glb', 'SkeletonArcher_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Shoot', death: 'Death', spawn: 'Spawn', cheer: 'Flex' }, 1.05, 1.0, { flavor: { clips: [{ clip: 'Flex', emote: 'sparkle' }, { clip: 'DoubleBiceps', emote: 'sparkle' }, { clip: 'BoneCrack' }, { clip: 'BowTwirl', emote: 'sparkle' }], min: 8, max: 15 }, cheers: [{ clip: 'Flex', emote: 'sparkle' }, { clip: 'DoubleBiceps', emote: 'sparkle' }, { clip: 'BowTwirl', emote: 'sparkle' }], eyes: 'SkeletonArcher_eyes.png' }],
-    ['ogre', 'Ogre.glb', 'Ogre_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.1, 1.12, { starScale: [1, 1.3, 1.65], flavor: { clips: [{ clip: 'Yawn', emote: 'zzz' }], min: 9, max: 16 }, spawnEmote: 'zzz', eyes: 'Ogre_eyes.png' }],
+    ['ogre', 'Ogre.glb', 'Ogre_enemy.jpg', { idle: 'Idle', run: 'Run', attack: 'Attack', death: 'Death', spawn: 'Spawn', cheer: 'Cheer' }, 1.02, 1.12, { starScale: [1, 1.3, 1.65], flavor: { clips: [{ clip: 'Yawn', emote: 'zzz' }], min: 9, max: 16 }, spawnEmote: 'zzz', eyes: 'Ogre_eyes.png' }],
   ];
   await Promise.all(defs.map(async ([soul, glb, enemy, clips, top, scale, extra]) => {
     const container = await BABYLON.SceneLoader.LoadAssetContainerAsync('assets/', glb, scene);
@@ -86,6 +86,8 @@ class Deco {
     this.mfill = BABYLON.MeshBuilder.CreatePlane('mfill', { width: 0.56, height: 0.03 }, s); this.mfill.parent = this.badge; this.mfill.position.set(0, -0.07, -0.002); this.mfill.material = A.manaFill; this.mfill.isPickable = false;
     this.bar.setEnabled(false); this.fill.setEnabled(false); this.mbg.setEnabled(false); this.mfill.setEnabled(false);
   }
+  /** The bars keep the same size and the same small gap above the head however big the unit grows. */
+  fit(k: number) { this.badge.scaling.setAll(1 / k); this.badge.position.y = this.top + 0.3 / k; if (this.halo) this.halo.position.y = this.top + 0.08; }
   set(team: 0 | 1, star: number) {
     const s = this.A.scene, cfg = AURA[star - 1];
     (this.stars as any)._sm.diffuseTexture = this.A.starTex[star - 1];
@@ -148,7 +150,7 @@ class TripoVisual implements UnitVisual {
     this.body.material = c.matCache[key];
   }
   setTeam(t: 0 | 1) { this.team = t; this.applyMat(); this.deco.set(t, this.star); }
-  setStar(st: number) { this.star = st; this.applyMat(); this.holder.scaling.setAll(this.sc(st) * this.base); this.deco.set(this.team, st); }
+  setStar(st: number) { this.star = st; this.applyMat(); this.holder.scaling.setAll(this.sc(st) * this.base); this.deco.set(this.team, st); this.deco.fit(this.sc(st) * this.base); }
   private sc(st: number) { return (this.cfg.starScale || BALANCE.star.scale)[st - 1]; }
   setHp(f: number | null) { this.deco.setHp(f); }
   setMana(f: number | null) { this.deco.setMana(f); }
@@ -239,7 +241,7 @@ class PlaceholderVisual implements UnitVisual {
     (this as any).parts = [lp]; this.setTeam(team); this.setStar(star); this.play('idle');
   }
   setTeam(t: 0 | 1) { this.team = t; (this as any).eyeM.emissiveColor = t === 0 ? new BABYLON.Color3(0.75, 0.25, 1) : new BABYLON.Color3(1, 0.66, 0.19); this.deco.set(t, this.star); }
-  setStar(st: number) { this.star = st; this.base = BALANCE.star.scale[st - 1]; const t = TINT[st - 1]; this.body.material.diffuseColor = BABYLON.Color3.FromHexString(PH[this.soul].col).scale(0.72).multiply(new BABYLON.Color3(Math.min(1, t[0]), Math.min(1, t[1]), Math.min(1, t[2]))); this.holder.scaling.setAll(this.base); this.deco.set(this.team, st); }
+  setStar(st: number) { this.star = st; this.base = BALANCE.star.scale[st - 1]; const t = TINT[st - 1]; this.body.material.diffuseColor = BABYLON.Color3.FromHexString(PH[this.soul].col).scale(0.72).multiply(new BABYLON.Color3(Math.min(1, t[0]), Math.min(1, t[1]), Math.min(1, t[2]))); this.holder.scaling.setAll(this.base); this.deco.set(this.team, st); this.deco.fit(this.base); }
   setHp(f: number | null) { this.deco.setHp(f); }
   setMana(f: number | null) { this.deco.setMana(f); }
   pulse() { this.pulseT = 0.16; }

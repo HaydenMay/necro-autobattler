@@ -30,7 +30,7 @@ export interface Balance {
   smash: { mult: number; radius: number };                                  // Ogre skill
   frenzy: { perSwing: number; maxStacks: number; resetAfter: number };      // Barbarian
   /** PLACEHOLDER permanent-level growth (per level above 1). Shown on the Souls page; NOT applied in battles yet. */
-  level: { hp: number; dmg: number; copiesToLevel: number[] };
+  level: { hp: number; dmg: number; copiesToLevel: number[]; goldToLevel: number[] };
   sim: { separation: number; hitFraction: number; timeLimit: number; retargetEvery: number };
 }
 
@@ -57,7 +57,7 @@ export const DEFAULTS: Balance = {
   taunt: { duration: 3, radius: 4.5 },
   smash: { mult: 2.0, radius: 1.6 },
   frenzy: { perSwing: 0.12, maxStacks: 8, resetAfter: 0.6 },
-  level: { hp: 0.08, dmg: 0.08, copiesToLevel: [5, 10, 20, 40, 80, 120, 200, 300, 500] },
+  level: { hp: 0.08, dmg: 0.08, copiesToLevel: [5, 10, 20, 40, 80, 120, 200, 300, 500], goldToLevel: [60, 120, 240, 480, 960, 1680, 2700, 4200, 6600] },
   sim: { separation: 0.6, hitFraction: 0.47, timeLimit: 120, retargetEvery: 0.5 },
 };
 

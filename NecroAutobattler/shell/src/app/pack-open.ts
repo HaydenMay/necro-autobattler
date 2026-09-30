@@ -4,9 +4,9 @@ import type { SoulId } from '../../../core/data.ts';
 import { RARITY_NAME, RARITY_OF } from '../../../core/packs.ts';
 import type { PackResult, Rarity } from '../../../core/packs.ts';
 import { SOUL_NAME } from '../../../core/balance.ts';
-import { copiesNeeded, isMaxLevel } from '../../../core/progress.ts';
+import { copiesNeeded, isMaxLevel, packGold } from '../../../core/progress.ts';
 import type { SoulProgress } from '../../../core/save.ts';
-import { BG, RARITY_COLOR, artBg, gemIcon, hasArt, range, skullIcon, soulArt } from './soul-ui';
+import { BG, RARITY_COLOR, artBg, gemIcon, goldIcon, hasArt, range, skullIcon, soulArt } from './soul-ui';
 
 export interface OpenData { result: PackResult; before: Record<SoulId, SoulProgress> }
 type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary';
@@ -96,6 +96,7 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
     .summary { display:flex; flex-direction:column; align-items:center; gap:clamp(8px,2vmin,16px); max-width:min(760px,94vw); }
     .summary h2 { margin:0; font-size:clamp(20px,4.6vmin,32px); color:#ffd24a; } .summary .sk { color:#dcbcff; letter-spacing:.1em; }
     .up { font-size:clamp(12px,2.2vmin,15px); color:#ffe27a; }
+    .goldline { display:flex; align-items:center; justify-content:center; gap:5px; color:#ffd24a; font-weight:800; font-size:clamp(12px,2.2vmin,15px); } .goldline img { width:1.4em; height:1.4em; }
     .cards { display:flex; flex-wrap:wrap; gap:clamp(8px,2vmin,16px); justify-content:center; }
     .mini { position:relative; width:clamp(82px,15vmin,120px); border:2px solid var(--c); border-radius:10px; background:#160d24; box-shadow:0 0 14px var(--c); overflow:hidden; text-align:center; animation:cardIn .4s ease-out both; }
     .mini .por { height:clamp(44px,9vmin,70px); font-size:clamp(26px,5.6vmin,42px); flex:none; } .mini b { display:block; background:var(--c); color:#150a24; font-size:clamp(13px,2.4vmin,17px); } .mini span { display:block; font-size:clamp(10px,1.8vmin,12px); padding:2px; }
@@ -153,6 +154,7 @@ type Stage = 'idle' | 'charge' | 'tierup' | 'tear' | 'fan' | 'reveal' | 'summary
       @if (stage() === 'summary') {
         <div class="summary" (click)="$event.stopPropagation()">
           <h2>Pack opened! <span class="sk">@for (i of range(data().result.finalTier); track i) { <img [src]="skullIcon" alt=""> }</span></h2>
+          <div class="goldline"><img [src]="goldIcon" alt=""> +{{ gold() }} gold</div>
           @if (data().result.upgrades.length) { <div class="up">Tier up! @for (i of range(data().result.startTier); track i) { <img [src]="skullIcon" alt=""> } &rarr; @for (i of range(data().result.finalTier); track i) { <img [src]="skullIcon" alt=""> }</div> }
           <div class="cards">
             @for (t of totals(); track t.soul; let i = $index) {
@@ -192,7 +194,8 @@ export class PackOpen implements OnInit, OnDestroy {
       .sort((a, b) => ['common', 'rare', 'epic', 'legendary'].indexOf(a.rarity) - ['common', 'rare', 'epic', 'legendary'].indexOf(b.rarity));
   });
 
-  skullIcon = skullIcon; range = range; gem = gemIcon;
+  skullIcon = skullIcon; goldIcon = goldIcon; range = range; gem = gemIcon;
+  gold = computed(() => packGold(this.data().result.finalTier));
   icon = (s: SoulId) => soulArt(s); art = (s: SoulId) => hasArt(s); bg = (s: SoulId) => (hasArt(s) ? artBg(s) : BG[s]);
   back = 'url(assets/packs/cardback.png)';
   frameImg = (r: Rarity) => `assets/packs/frame_${r}.png`;

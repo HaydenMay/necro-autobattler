@@ -12,6 +12,7 @@ export const upgradeIcon: string = iconUrl('upgrade');
 export const heartIcon: string = iconUrl('heart');
 export const heartEmptyIcon: string = iconUrl('heart_empty');
 export const shopIcon: string = iconUrl('shop');
+export const goldIcon: string = iconUrl('gold');
 /** 1..n as an array, so a template can repeat an icon n times. */
 export const range = (n: number): number[] => Array.from({ length: Math.max(1, n) }, (_, i) => i);
 

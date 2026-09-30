@@ -9,7 +9,7 @@ export type IconName =
   | 'warrior' | 'archer' | 'goblin' | 'knight' | 'ogre' | 'barbarian'
   | 'gem_common' | 'gem_rare' | 'gem_epic' | 'gem_legendary'
   | 'music' | 'sound_on' | 'sound_off' | 'upgrade' | 'swap'
-  | 'merge' | 'remove' | 'check' | 'back' | 'info';
+  | 'merge' | 'remove' | 'check' | 'back' | 'info' | 'gold';
 
 /** Relative to the page, so it works on GitHub Pages under /repo-name/. */
 export const iconUrl = (n: IconName): string => 'assets/icons/' + n + '.png';

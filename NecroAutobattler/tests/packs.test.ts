@@ -67,7 +67,7 @@ test('clear rewards: first clear per difficulty gives the improved pack, replays
 test('levelling: needs enough copies, spends them, stops at the max level', () => {
   const s = defaultSave(); const need = copiesNeeded(1, 'ogre');
   assert.equal(canLevelUp(s, 'ogre'), false); assert.equal(levelUp(s, 'ogre'), false);
-  s.souls.ogre.copies = need + 3; assert.ok(canLevelUp(s, 'ogre')); assert.ok(levelUp(s, 'ogre'));
+  s.gold = 500; s.souls.ogre.copies = need + 3; assert.ok(canLevelUp(s, 'ogre')); assert.ok(levelUp(s, 'ogre'));
   assert.equal(s.souls.ogre.level, 2); assert.equal(s.souls.ogre.copies, 3);
   s.souls.ogre.level = maxLevel(); s.souls.ogre.copies = 99999; assert.ok(isMaxLevel(s.souls.ogre.level)); assert.equal(levelUp(s, 'ogre'), false); assert.equal(copiesNeeded(maxLevel(), 'ogre'), 0);
   assert.ok(copiesNeeded(3, 'ogre') < copiesNeeded(3, 'archer') && copiesNeeded(3, 'archer') < copiesNeeded(3, 'warrior'), 'rarer Souls need fewer copies per level');

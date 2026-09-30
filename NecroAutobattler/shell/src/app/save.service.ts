@@ -28,6 +28,7 @@ export class SaveService {
   diffReason(stage: string, d: Difficulty): string { return difficultyLockReason(this.state(), stage, d); }
   cleared(stage: string, d: Difficulty): boolean { return clearCount(this.state(), stage, d) > 0; }
   readonly packs = computed(() => this.state().packs);
+  readonly gold = computed(() => this.state().gold);
   readonly replayMeter = computed(() => this.state().replayMeter);
   /** Endless Depths: the deepest wave cleared, and whether the mode is open yet. */
   readonly endlessBest = computed(() => this.state().endless.best);

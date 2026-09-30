@@ -30,18 +30,21 @@ export const copiesNeeded = (level: number, soul: SoulId): number => (isMaxLevel
  * One requirement of an upgrade. Today only copies; the confirm popup lists every entry with have / need, and Confirm is allowed only when all are met.
  * Gold will simply become a second entry here ({ id: 'gold', ... }) and be spent in levelUp().
  */
-export interface UpgradeCost { id: 'copies'; label: string; have: number; need: number; ok: boolean }
+export interface UpgradeCost { id: 'copies' | 'gold'; label: string; have: number; need: number; ok: boolean }
+/** Gold to take a Soul from `level` to the next one (0 at max). */
+export const goldNeeded = (level: number): number => (isMaxLevel(level) ? 0 : BALANCE.level.goldToLevel[level - 1]);
 export function upgradeCosts(save: Save, soul: SoulId): UpgradeCost[] {
   const p = save.souls[soul]; if (isMaxLevel(p.level)) return [];
   const need = copiesNeeded(p.level, soul);
-  return [{ id: 'copies', label: 'Copies', have: p.copies, need, ok: p.copies >= need }];
+  const gold = goldNeeded(p.level);
+  return [{ id: 'copies', label: 'Copies', have: p.copies, need, ok: p.copies >= need }, { id: 'gold', label: 'Gold', have: save.gold, need: gold, ok: save.gold >= gold }];
 }
 export const canAfford = (costs: UpgradeCost[]): boolean => costs.length > 0 && costs.every((c) => c.ok);
 export const canLevelUp = (save: Save, soul: SoulId): boolean => canAfford(upgradeCosts(save, soul));
 /** Pay every cost and gain a level. Returns false (and changes nothing) if the Soul is not ready. */
 export function levelUp(save: Save, soul: SoulId): boolean {
   const costs = upgradeCosts(save, soul); if (!canAfford(costs)) return false;
-  const p = save.souls[soul]; for (const c of costs) if (c.id === 'copies') p.copies -= c.need;
+  const p = save.souls[soul]; for (const c of costs) { if (c.id === 'copies') p.copies -= c.need; else save.gold -= c.need; }
   p.level++; return true;
 }
 /** Debugging: put every Soul back to level 1 (copies are kept). */
@@ -50,6 +53,17 @@ export function resetLevels(save: Save): void { for (const k of SOULS) save.soul
 export function clearCopies(save: Save): void { for (const k of SOULS) save.souls[k].copies = 0; }
 /** Multiplier applied to a Soul's health/damage from its permanent level (level 1 = 1.0). */
 export const levelMult = (level: number, stat: 'hp' | 'dmg'): number => 1 + (Math.max(1, level) - 1) * BALANCE.level[stat];
+
+// ------------------------------------------------------------------------------------------------ gold
+export const GOLD = { tierMult: { easy: 0.6, normal: 1, hard: 1.4, nightmare: 2 } as Record<Difficulty, number>, packPerTier: 15, dailyWin: 50 };
+/** Gold for clearing one campaign wave: more in later stages and on harder tiers. */
+export const waveGold = (stage: string, tier: Difficulty): number => Math.max(1, Math.round((6 + 2 * stageIndex(stage)) * GOLD.tierMult[tier]));
+/** Gold for clearing one Endless wave. */
+export const endlessWaveGold = (wave: number): number => 8 + Math.floor(0.6 * Math.max(1, wave));
+/** Gold for opening a pack that finished at `tier`. */
+export const packGold = (tier: number): number => GOLD.packPerTier * Math.max(1, tier);
+export function addGold(save: Save, n: number): number { const g = Math.max(0, Math.floor(n)); save.gold = Math.min(1e9, save.gold + g); return g; }
+export function addGoldAndSave(n: number, store?: Store | null): number { const s = loadSave(store); const g = addGold(s, n); writeSave(s, store); return g; }
 
 // ------------------------------------------------------------------------------------------------ packs
 export function grantPack(save: Save, tier: number, source: string): PackItem | null {
@@ -64,6 +78,7 @@ export function openOwnedPack(save: Save, packId: number, rng: Rng): PackResult 
   const pack = save.packs[i]; save.packs.splice(i, 1);
   const result = openPack(pack.tier, rng);
   for (const r of result.reveals) save.souls[r.soul].copies += r.copies;
+  addGold(save, packGold(result.finalTier));
   return result;
 }
 

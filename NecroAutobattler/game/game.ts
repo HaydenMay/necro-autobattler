@@ -19,7 +19,7 @@ import { endlessUnlocked } from '../core/progress.ts';
 import { Necromancer } from './necromancer.ts';
 import { audio } from './audio.ts';
 import { clearRun, loadRun, saveRun, serializeState } from '../core/runsave.ts';
-import { playable, recordClearAndSave, recordEndlessWaveAndSave } from '../core/progress.ts';
+import { addGoldAndSave, endlessWaveGold, playable, recordClearAndSave, recordEndlessWaveAndSave, waveGold } from '../core/progress.ts';
 import type { ClearReward } from '../core/progress.ts';
 import type { RunSnapshot } from '../core/runsave.ts';
 import type { State } from '../core/rules.ts';
@@ -32,6 +32,7 @@ type Sel = { type: 'card'; idx: number } | { type: 'unit'; id: number } | null;
 
 export class Game {
   engine: any; scene: any; camera: any; A!: Assets; ui!: Ui;
+  lastGold = 0; runGold = 0;                                     // gold from the wave just cleared, and from this whole run
   s!: State; seed = 1; attempt = 0; phase: Phase = 'build'; battle: Battle | null = null; timeScale = 1;
   sel: Sel = null; swapMode = false; confirmRemove = false; draft: SoulId[] | null = null; lastBattle = '';
   private unitVis = new Map<number, UnitVisual>();        // unit id -> visual (your army, persists between waves)
@@ -254,7 +255,7 @@ export class Game {
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
     this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
-    this.seed = seed; this.attempt = 0; this.endless = null; const sv = loadSave(), pl = playable(sv); setStageDifficulty(pl.stage, pl.difficulty); this.arena.setTheme(currentStageId); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
+    this.runGold = 0; this.lastGold = 0; this.seed = seed; this.attempt = 0; this.endless = null; const sv = loadSave(), pl = playable(sv); setStageDifficulty(pl.stage, pl.difficulty); this.arena.setTheme(currentStageId); this.s = newStage({ ...PROTOTYPE_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
     this.clearBattle(); this.showGrid(true); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();   // (a battle left half-way had hidden the grid)
     this.sel = null; this.swapMode = false; this.draft = null; this.phase = 'build';
     this.syncBuild(); this.ui.render(); this.setCam(this.poses().build); this.toast('Stage start: 4 cards, ' + this.s.cap + ' Dominion. Summon, merge, then press BATTLE.');
@@ -263,7 +264,7 @@ export class Game {
   newEndless() { this.startEndless(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startEndless(seed: number) {
     this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();
-    this.seed = seed; this.attempt = 0; const sv = loadSave(); setEndless(); this.arena.setTheme(ENDLESS_ID);
+    this.runGold = 0; this.lastGold = 0; this.seed = seed; this.attempt = 0; const sv = loadSave(); setEndless(); this.arena.setTheme(ENDLESS_ID);
     this.endless = { startBest: sv.endless.best, cleared: 0, packs: 0 };
     this.s = newStage({ ...ENDLESS_RULES, pool: sv.deck }, seed); this.seenMerges = 0;
     this.clearBattle(); this.showGrid(true); [...this.unitVis.values()].forEach((v) => v.dispose()); this.unitVis.clear(); this.visToUnit.clear();   // (a battle left half-way had hidden the grid)
@@ -466,6 +467,7 @@ export class Game {
     if (b.winner === 0) {
       this.playResult('win', () => {                        // the army is raised again, then the next wave / the draft
         this.cine = false;
+        try { this.lastGold = addGoldAndSave(isEndless() ? endlessWaveGold(s.wave) : waveGold(currentStageId, difficultyName as any)); this.runGold += this.lastGold; window.dispatchEvent(new Event('necro-save-changed')); } catch { this.lastGold = 0; }
         if (isEndless() && this.endless) {
           try {
             const r = recordEndlessWaveAndSave(s.wave); this.endless.cleared = s.wave; window.dispatchEvent(new Event('necro-save-changed'));

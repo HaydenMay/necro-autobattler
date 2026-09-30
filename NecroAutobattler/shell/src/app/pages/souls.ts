@@ -2,10 +2,10 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { SOULS, COST } from '../../../../core/data.ts';
 import type { SoulId } from '../../../../core/data.ts';
 import { BALANCE, ROLE_TEXT, SOUL_NAME, abilityInfo } from '../../../../core/balance.ts';
-import { canAfford, copiesNeeded, isMaxLevel } from '../../../../core/progress.ts';
+import { canAfford, copiesNeeded, goldNeeded, isMaxLevel } from '../../../../core/progress.ts';
 import { RARITIES, RARITY_NAME, RARITY_OF } from '../../../../core/packs.ts';
 import { SaveService } from '../save.service';
-import { artBg, checkIcon, closeIcon, gemIcon, hasArt, rarityColor, soulArt, upgradeIcon } from '../soul-ui';
+import { artBg, checkIcon, closeIcon, gemIcon, goldIcon, hasArt, rarityColor, soulArt, upgradeIcon } from '../soul-ui';
 
 const BG: Record<SoulId, string> = {
   warrior: 'linear-gradient(#6b4a8f,#2c1b45)', archer: 'linear-gradient(#5a4a9a,#251a4a)', goblin: 'linear-gradient(#4f7a3a,#1d2d17)',
@@ -109,7 +109,7 @@ type Filter = 'all' | 'skill' | 'passive';
   `],
   template: `
   <div class="cols"><div class="lcol">
-    <div class="top"><h1>Souls</h1><span class="meta">Deck <b>{{ deck().length }}/{{ save.deckSize }}</b> &middot; avg Dominion <b>{{ avg() }}</b> (1★)</span>
+    <div class="top"><h1>Souls</h1><span class="goldpill" title="Gold: spent with copies to level up a Soul"><img [src]="goldIcon" alt="">{{ save.gold() }}</span><span class="meta">Deck <b>{{ deck().length }}/{{ save.deckSize }}</b> &middot; avg Dominion <b>{{ avg() }}</b> (1★)</span>
       <button class="go small" style="margin-left:auto" (click)="recommended($event)">Recommended</button></div>
     @if (deck().length < save.deckSize) { <p class="note">Only equipped Souls are drawn in a run. You need all {{ save.deckSize }} slots filled to start.</p> }
     <div class="filters">
@@ -123,7 +123,7 @@ type Filter = 'all' | 'skill' | 'passive';
           <button class="tile" [class.art]="art(s)" [style.border-color]="rc(s)" [class.lift]="detail() === s" [class.eq]="save.isEquipped(s)" [class.flash]="flashId() === s" (click)="tapTile(s, $event)">
             <span class="gem">{{ cost(s) }}</span>@if (save.isEquipped(s)) { <span class="tick"><img [src]="checkIcon" alt=""></span> }@if (canLevel(s)) { <span class="uparrow"><img [src]="upgradeIcon" alt=""></span> }
             <span class="port" [class.art]="art(s)" [style.background]="bg(s)"><img [src]="icon(s)" alt=""></span><span class="lv">Level {{ save.progress(s).level }}</span>
-            <span class="bar" [class.ready]="canLevel(s)" [class.max]="isMax(s)"><i [style.width.%]="pct(s)"></i><b>{{ isMax(s) ? 'Max' : save.progress(s).copies + '/' + need(s) }}</b></span>
+            <span class="bar" [class.ready]="copiesOk(s)" [class.max]="isMax(s)"><i [style.width.%]="pct(s)"></i><b>{{ isMax(s) ? 'Max' : save.progress(s).copies + '/' + need(s) }}</b></span>
           </button>
         </div>
       }
@@ -164,7 +164,7 @@ type Filter = 'all' | 'skill' | 'passive';
             <div class="swipehint">swipe or tap the tabs</div>
           </div>
           <div class="acts">
-            <button [class]="canLevel(d) ? 'go' : 'grey'" (click)="upgradeClick(d, $event)">@if (canLevel(d)) { <img class="ic" [src]="upgradeIcon" alt=""> }Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies' : 'Needs ' + save.progress(d).copies + '/' + need(d) + ' copies' }}</small></button>
+            <button [class]="canLevel(d) ? 'go' : 'grey'" (click)="upgradeClick(d, $event)">@if (canLevel(d)) { <img class="ic" [src]="upgradeIcon" alt=""> }Upgrade<small>{{ isMax(d) ? 'Max level' : canLevel(d) ? 'Level ' + save.progress(d).level + ' → ' + (save.progress(d).level + 1) + ' · costs ' + need(d) + ' copies + ' + goldNeed(d) + ' gold' : needText(d) }}</small></button>
             <button [class]="save.isEquipped(d) ? 'blue' : 'go'" (click)="toggle(d, $event)">{{ save.isEquipped(d) ? 'Unequip' : 'Equip' }}</button>
           </div>
       </aside>
@@ -208,7 +208,7 @@ type Filter = 'all' | 'skill' | 'passive';
 })
 export class Souls {
   save = inject(SaveService);
-  checkIcon = checkIcon; closeIcon = closeIcon; upgradeIcon = upgradeIcon; gem = gemIcon;
+  goldIcon = goldIcon; checkIcon = checkIcon; closeIcon = closeIcon; upgradeIcon = upgradeIcon; gem = gemIcon;
   rarityOf = (s: SoulId) => RARITY_OF[s]; rarityName = (s: SoulId) => RARITY_NAME[RARITY_OF[s]];
   filters: Filter[] = ['all', 'skill', 'passive'];
   filter = signal<Filter>('all');
@@ -238,7 +238,12 @@ export class Souls {
   cost = (s: SoulId) => COST[s][0]; base = (s: SoulId) => BALANCE.stats[s]; ability = (s: SoulId) => abilityInfo(s);
   need = (s: SoulId) => copiesNeeded(this.save.progress(s).level, s);
   isMax = (s: SoulId) => isMaxLevel(this.save.progress(s).level);
-  canLevel = (s: SoulId) => !this.isMax(s) && this.save.progress(s).copies >= this.need(s);
+  /** Ready to upgrade right now: enough copies AND enough gold. */
+  canLevel = (s: SoulId) => !this.isMax(s) && canAfford(this.save.costs(s));
+  copiesOk = (s: SoulId) => !this.isMax(s) && this.save.progress(s).copies >= this.need(s);
+  goldNeed = (s: SoulId) => goldNeeded(this.save.progress(s).level);
+  /** What is still missing, in the button's small print. */
+  needText = (s: SoulId) => this.costs(s).filter((c) => !c.ok).map((c) => 'Needs ' + c.have + '/' + c.need + ' ' + c.label.toLowerCase()).join(' · ');
   pct = (s: SoulId) => this.isMax(s) ? 100 : Math.min(100, (100 * this.save.progress(s).copies) / Math.max(1, this.need(s)));
   statAt(s: SoulId, k: 'hp' | 'dmg', level: number) { return Math.round(BALANCE.stats[s][k] * (1 + (level - 1) * BALANCE.level[k])); }
   costs = (s: SoulId) => this.save.costs(s);

@@ -4,10 +4,14 @@
 import { SOULS } from '../core/data.ts';
 import { makeRng } from '../core/rng.ts';
 import { PACK, PACK_TIERS, RARITY_OF, openPack } from '../core/packs.ts';
-import { REWARDS, levelUp, maxLevel } from '../core/progress.ts';
+import { REWARDS, levelUp, maxLevel, packGold, waveGold } from '../core/progress.ts';
 import { defaultSave } from '../core/save.ts';
+import { BALANCE } from '../core/balance.ts';
 
 const RUNS = 400;
+// GOLD=0 ignores gold (copies-only, the old pace) so the two can be compared.  A clear = 10 waves cleared on Stage 1 at the chosen tier, plus gold from every pack opened.
+const GOLD_ON = process.env.GOLD !== '0';
+if (process.env.GOLDMULT) { const k = +process.env.GOLDMULT; BALANCE.level.goldToLevel = BALANCE.level.goldToLevel.map((g) => Math.round(g * k)); }
 
 console.log('== one pack, averaged over 6000 openings ==');
 for (let tier = 1; tier <= PACK_TIERS; tier++) {
@@ -24,7 +28,9 @@ function play(seed: number, difficulty: 'easy' | 'normal' | 'hard' | 'nightmare'
     let tiers: number[] = [];
     if (!firstDone) { firstDone = true; tiers = [REWARDS.firstClearTier[difficulty]]; }
     else { replay++; if (replay >= REWARDS.replayClearsPerPack) { replay = 0; tiers = [REWARDS.replayTier]; } }
-    for (const t of tiers) { const r = openPack(t, rng); packs++; for (const v of r.reveals) s.souls[v.soul].copies += v.copies; }
+    s.gold += 10 * waveGold('crypt', difficulty);
+    for (const t of tiers) { const r = openPack(t, rng); packs++; s.gold += packGold(r.finalTier); for (const v of r.reveals) s.souls[v.soul].copies += v.copies; }
+    if (!GOLD_ON) s.gold = 1e9;
     for (const soul of SOULS) while (levelUp(s, soul)) { /* level as far as the copies allow */ }
     const levels = SOULS.map((x) => s.souls[x].level);
     for (const L of [2, 3, 5, 8]) { if (Math.min(...levels) >= L) mark('all Souls at level ' + L, c); if (Math.max(...levels) >= L) mark('first Soul at level ' + L, c); }

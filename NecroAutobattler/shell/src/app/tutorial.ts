@@ -107,6 +107,7 @@ export class Tutorial {
   /** What the overlay shows right now. */
   view() {
     const id = this.step(), cur = this.steps[id]; if (!id || !cur) return null;
+    if (window.innerHeight > window.innerWidth) return null;                                // portrait: the game asks for landscape, so stay out of the way
     const onRun = this.url.startsWith('/run');
     if (id === 'shop' && document.querySelector('app-pack-open')) return null;              // the opening animation has the stage
     if (!cur.text) return null;

@@ -534,7 +534,7 @@ export class Game {
   /** 2x and 4x battle speed open once the campaign is finished (the last stage cleared on Normal). ?debug or ?speed=1 opens them for testing. */
   speedUnlocked(): boolean { const q = new URLSearchParams(location.search); return !!(q.get('debug') || q.get('speed')) || endlessUnlocked(loadSave()); }
   setSpeed(k: number) {
-    if (k > 1 && !this.speedUnlocked()) { this.toast('Faster battle speeds unlock when you finish the campaign.'); return; }
+    if (k > 1 && !this.speedUnlocked()) return;
     this.timeScale = k; this.ui.render();
   }
 

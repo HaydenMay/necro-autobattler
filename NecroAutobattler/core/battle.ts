@@ -149,7 +149,19 @@ export class Battle {
     if (dist <= f.range) {
       if (this.time >= f.nextAttack) this.startAttack(f); else { f.state = 'idle'; this.frenzyDecay(f); }
     } else {
-      f.state = 'run'; const k = f.speed * dt / Math.max(dist, 1e-4); f.x += dx * k; f.z += dz * k; this.frenzyDecay(f);
+      f.state = 'run'; let mx = dx / Math.max(dist, 1e-4), mz = dz / Math.max(dist, 1e-4);
+      // walk AROUND anyone standing in the way (allies and enemies alike, except the target): each blocker ahead bends the heading away from it
+      let sx = 0, sz = 0;
+      for (const o of this.fighters) {
+        if (o === f || !o.alive || o.id === tg.id) continue;
+        const ox = o.x - f.x, oz = o.z - f.z, along = ox * mx + oz * mz, reach = f.radius + o.radius + 0.35;
+        if (along <= 0 || along > reach + 0.9) continue;
+        const lat = ox * -mz + oz * mx, need = f.radius + o.radius + 0.12; if (Math.abs(lat) >= need) continue;
+        const side = lat === 0 ? (f.id % 2 ? 1 : -1) : (lat > 0 ? -1 : 1), w = (1 - Math.abs(lat) / need) * (1 - Math.max(0, along - reach) / 0.9);
+        sx += -mz * side * w * 1.6; sz += mx * side * w * 1.6;
+      }
+      if (sx || sz) { mx += sx; mz += sz; const l = Math.hypot(mx, mz) || 1; mx /= l; mz /= l; }
+      f.x += mx * f.speed * dt; f.z += mz * f.speed * dt; this.frenzyDecay(f);
     }
   }
 

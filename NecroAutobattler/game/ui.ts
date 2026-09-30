@@ -21,7 +21,7 @@ export class Ui {
     $('btnHome').onclick = () => window.dispatchEvent(new Event('necro-go-home'));
     $('btnBattle').onclick = () => g.startBattle(); $('btnSwap').onclick = () => g.toggleSwap();
     $('btnRemove').onclick = () => g.removeSelected();
-    document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => (b.onclick = () => g.setSpeed(+b.dataset.speed!)));
+    $('btnSpeed').onclick = () => g.setSpeed(g.timeScale > 1 ? 1 : 2);
     document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => (b.onclick = () => g.setCamMode(b.dataset.cam!)));
     $('gear').onclick = () => { this.dbg.classList.toggle('open'); this.renderDebug(); };
     const snd = () => { $('btnMusic').classList.toggle('off', !audio.music); $('btnSfx').classList.toggle('off', !audio.sfx); const si = $('btnSfx').querySelector('img'); if (si) si.src = iconUrl(audio.sfx ? 'sound_on' : 'sound_off'); };
@@ -67,7 +67,7 @@ export class Ui {
       : ph === 'battle' || ph === 'transition' ? 'Battle! Units fight on their own.' : '';
     $('speed').style.display = ph === 'battle' || ph === 'transition' ? 'flex' : 'none';
     const fast = g.speedUnlocked(); if (!fast && g.timeScale > 1) g.timeScale = 1;
-    document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => { const k = +b.dataset.speed!; b.classList.toggle('on', k === g.timeScale); b.classList.toggle('locked', k > 1 && !fast); b.title = k > 1 && !fast ? 'Unlocks when you finish the campaign' : ''; });
+    const sb = $('btnSpeed'); sb.style.display = fast ? '' : 'none'; sb.textContent = g.timeScale + 'x'; sb.classList.toggle('on', g.timeScale > 1);
     document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === g.camMode));
     document.body.classList.toggle('inbattle', ph === 'battle' || ph === 'transition'); audio.setMode(ph === 'battle' || ph === 'transition' ? 'battle' : 'build');
     // overlay

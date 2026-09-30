@@ -493,6 +493,8 @@ def death(f):
     if f > 27: s = min(1.0, (f - 27) / 6); d['root_off'] = va(d['root_off'], (0, 0, 0.012 * math.sin(s * math.pi) * (1 - s)))
     return d
 def spawn(f): return death(DEATH_LEN - f)
+def a_spawn(f, n=64):   # rises from the dead, then cannot help himself: a quick flex to show off
+    return spawn(f) if f <= DEATH_LEN else flex((f - DEATH_LEN) * 72.0 / (n - DEATH_LEN), 72)
 # ---- Ogre: heavy, slow, grumpy. Wrist targets are in metres from the rest pose; rot_R (degrees about X) swings the mace, + = head forward/down.
 RL, RR = tuple(WRIST_L), tuple(WRIST_R)
 ROT0 = 115   # how the mace hangs at rest: head forward and down, resting near the ground (0 = head straight up)
@@ -753,7 +755,10 @@ def k_death(f):
     d['foot_L'] = vl((0, 0, 0), (0.03, 0.02, 0.03), e); d['foot_R'] = vl((0, 0, 0), (-0.03, 0.05, 0.02), e)
     if f > 27: s_ = min(1.0, (f - 27) / 6); d['root_off'] = va(d['root_off'], (0, 0, 0.012 * math.sin(s_ * math.pi) * (1 - s_)))
     return d
-def k_spawn(f): return k_death(DEATH_LEN - f)
+def k_spawn(f, n=64):   # a devout arrival: appears on one knee with the sword planted, bows his head, lifts his eyes to the sky, then rises ready
+    dn = 1 - seg(f, 46, 62); look = seg(f, 14, 26) * (1 - seg(f, 38, 48)); bow = dn * (1 - look)
+    return dict(hips_off=(0, 0, -0.10 * dn), foot_L=(0, -0.05 * dn, 0), foot_R=(0, 0.10 * dn, 0.06 * dn), chest_rot=(-3 + 14 * dn - 10 * look, 0, 0), head_rot=(30 * bow - 34 * look, 0, 0),
+                hand_R=vl(KR, V(-0.02, KY - 0.24, 0.40), dn), rot_R=(lerp(KR0, 180, dn), 0, 0), hand_L=vl(KL, V(0.33, KY + 0.02, 0.17), dn), rot_L=(lerp(0, -15, dn), 0, 0))
 def k_salute(f, n=70):   # snaps the sword up in front of his visor, holds, lowers
     p = f / n; up = seg(p, .08, .26) * (1 - seg(p, .72, .92))
     return dict(hand_R=vl(KR, V(-0.07, KY - 0.24, 0.66), up), rot_R=(lerp(KR0, -8, up), 0, 0), hand_L=va(KL, (0, 0, 0)), chest_rot=(-3 - 8 * up, 0, 0), head_rot=(-5 * up, 0, 0), hips_off=(0, 0, 0.004 * up))
@@ -898,14 +903,14 @@ CLIPSETS = {'ogre': [('Idle', 60, o_idle, True), ('Walk', 36, o_walk, True), ('R
             'goblin': [('Idle', 64, g_idle, True), ('Walk', 28, g_walk, True), ('Run', 18, g_run, True), ('Attack', 30, g_attack, False), ('Hit', 18, g_hit, False), ('Death', DEATH_LEN, g_death, False),
                        ('Spawn', DEATH_LEN, g_spawn, False), ('Scheme', 80, g_scheme, False), ('Peek', 90, g_peek, False), ('Spin', 70, g_spin, False), ('Snicker', 60, g_snicker, False), ('Cheer', 60, g_cheer, False)],
             'knight': [('Idle', 72, k_idle, True), ('Walk', 36, k_walk, True), ('Run', 22, k_run, True), ('Attack', 40, k_swing, False), ('Hit', 18, k_hit, False), ('Death', DEATH_LEN, k_death, False),
-                       ('Spawn', DEATH_LEN, k_spawn, False), ('Salute', 70, k_salute, False), ('Boast', 80, k_boast, False), ('Admire', 84, k_admire, False), ('Pose', 70, k_pose, False), ('Pray', 100, k_pray, False)],
+                       ('Spawn', 64, k_spawn, False), ('Salute', 70, k_salute, False), ('Boast', 80, k_boast, False), ('Admire', 84, k_admire, False), ('Pose', 70, k_pose, False), ('Pray', 100, k_pray, False)],
             'barbarian': [('Idle', 72, b_idle, True), ('Walk', 32, b_walk, True), ('Run', 20, b_run, True), ('Attack', 36, b_sweep, False), ('Hit', 18, b_hit, False), ('Death', DEATH_LEN, b_death, False),
                           ('Spawn', DEATH_LEN, b_spawn, False), ('Roar', 84, b_roar, False), ('ChestBeat', 90, b_chest, False), ('Stomp', 72, b_stomp, False), ('Cheer', 64, b_cheer, False)],
             'necro': [('Idle', 72, n_idle, True), ('Cast', 34, n_cast, False), ('Hurt', 24, n_hurt, False), ('Down', 40, n_down, False), ('Revive', 40, n_revive, False), ('Tap', 66, n_tap, False), ('Cheer', 64, n_cheer, False)],
             'warrior': [('Idle', 60, w_idle, True), ('Walk', 32, w_walk, True), ('Run', 20, w_run, True), ('Attack', 36, w_slash, False), ('Hit', 18, w_hit, False), ('Death', DEATH_LEN, w_death, False),
                         ('Spawn', 64, w_spawn, False), ('Fumble', 130, w_fumble, False), ('ShieldBonk', 84, w_shieldbonk, False), ('Trip', 80, w_trip, False), ('Bonk', 75, w_bonk, False), ('Wobble', 90, w_wobble, False), ('Wave', 64, w_wave, False), ('Cheer', 60, w_cheer, False)],
             'archer': [('Idle', 60, idle, True), ('Walk', 30, walk, True), ('Run', 20, run, True), ('Shoot', 45, shoot, False), ('Flex', 72, flex, False), ('DoubleBiceps', 90, dbl, False), ('BoneCrack', 80, crack, False), ('BowTwirl', 70, twirl, False),
-                       ('Hit', 18, hit, False), ('Death', DEATH_LEN, death, False), ('Spawn', DEATH_LEN, spawn, False)]}
+                       ('Hit', 18, hit, False), ('Death', DEATH_LEN, death, False), ('Spawn', 64, a_spawn, False)]}
 CLIPS = CLIPSETS[CFG.get('clips', 'archer')]
 
 def basis_from_pose(name, mats):

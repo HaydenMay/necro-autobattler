@@ -3,7 +3,7 @@
 // until the first touch/click (`unlock`).
 import { loadSave, updateSettings } from '../core/save.ts';
 
-export type Sfx = 'tap' | 'summon' | 'merge' | 'hit' | 'hitArrow' | 'smash' | 'arrow' | 'death' | 'cast' | 'taunt' | 'shockwave' | 'resurrect' | 'heartLost' | 'victory' | 'defeat' | 'start'
+export type Sfx = 'hitHeavy' | 'deathSoul' | 'deathBone' | 'merge3' | 'boss' | 'split' | 'frenzy' | 'tap' | 'summon' | 'merge' | 'hit' | 'hitArrow' | 'smash' | 'arrow' | 'death' | 'cast' | 'taunt' | 'shockwave' | 'resurrect' | 'heartLost' | 'victory' | 'defeat' | 'start'
   | 'unlock' | 'packCharge' | 'packTierUp' | 'packTear' | 'packFan' | 'packFlip' | 'packRare' | 'packEpic' | 'packLegend' | 'packCollect';
 export type Mode = 'build' | 'battle';
 
@@ -139,7 +139,14 @@ class AudioEngine {
       case 'tap': if (!this.throttle('tap', 40)) return; this.tone(760, 0.06, 'sine', 0.22, 0, 1100); break;
       case 'summon': this.hiss(0.4, 0.14, 'bandpass', 500, 0, 2500); this.tone(220, 0.4, 'sawtooth', 0.1, 0, 660, 0.05, 1800); this.tone(1320, 0.2, 'sine', 0.1, 0.18); break;
       case 'merge': [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.35, 'triangle', 0.2, i * 0.07)); this.hiss(0.5, 0.08, 'highpass', 5000, 0.1); this.tone(110, 0.3, 'sine', 0.35, 0, 50); this.tone(1568, 0.5, 'sine', 0.08, 0.3); break;
-      case 'hit': if (!this.throttle('hit', 45)) return; this.hiss(0.07, 0.24, 'lowpass', 1800); this.tone(170, 0.09, 'sine', 0.22, 0, 80); break;
+      case 'hit': { if (!this.throttle('hit', 45)) return; const v = 0.88 + Math.random() * 0.24; this.hiss(0.07, 0.24, 'lowpass', 1800 * v); this.tone(170 * v, 0.09, 'sine', 0.22, 0, 80); break; }
+      case 'hitHeavy': if (!this.throttle('hitH', 60)) return; this.tone(125, 0.24, 'sine', 0.42, 0, 45); this.hiss(0.15, 0.3, 'lowpass', 2400, 0, 300); this.tone(260, 0.07, 'square', 0.08, 0, 120, 0.002, 1800); break;
+      case 'deathSoul': if (!this.throttle('deathS', 70)) return; this.tone(520, 0.7, 'sine', 0.11, 0, 1300, 0.06); this.tone(780, 0.6, 'triangle', 0.06, 0.05, 1800, 0.06); this.hiss(0.6, 0.07, 'bandpass', 1500, 0, 4000); break;
+      case 'deathBone': if (!this.throttle('deathB', 70)) return; this.hiss(0.2, 0.2, 'bandpass', 2200); [0, 0.06, 0.12].forEach((d, i) => this.tone(330 - i * 40, 0.05, 'square', 0.05, d, undefined, 0.002, 900)); this.tone(140, 0.3, 'sine', 0.14, 0, 60); break;
+      case 'merge3': [392, 494, 587, 784, 988, 1319].forEach((f, i) => this.tone(f, 0.6, 'triangle', 0.16, i * 0.06)); this.tone(65, 1.0, 'sine', 0.45, 0, 32); this.hiss(0.9, 0.14, 'highpass', 4500, 0.05, 9000); this.tone(1568, 0.9, 'sine', 0.08, 0.3); break;
+      case 'boss': this.tone(73, 1.4, 'sawtooth', 0.22, 0, 55, 0.15, 380); this.tone(110, 1.3, 'sawtooth', 0.12, 0.05, 82, 0.15, 500); this.hiss(1.0, 0.2, 'lowpass', 500, 0, 120); this.tone(40, 0.9, 'sine', 0.4, 0.2, 28); break;
+      case 'split': this.tone(1400, 0.12, 'sine', 0.14, 0, 900); this.tone(1700, 0.12, 'sine', 0.12, 0.09, 1050); this.hiss(0.1, 0.08, 'bandpass', 3500); break;
+      case 'frenzy': if (!this.throttle('frenzy', 350)) return; this.tone(240, 0.09, 'sawtooth', 0.06, 0, 420, 0.004, 1600); this.tone(480, 0.08, 'square', 0.03, 0.03, 700, 0.004, 1600); break;
       case 'hitArrow': if (!this.throttle('hitA', 45)) return; this.hiss(0.05, 0.14, 'bandpass', 3000); this.tone(700, 0.06, 'triangle', 0.06, 0, 400); break;
       case 'smash': this.tone(95, 0.38, 'sine', 0.5, 0, 34); this.hiss(0.32, 0.35, 'lowpass', 1000, 0, 200); break;
       case 'arrow': if (!this.throttle('arrow', 60)) return; this.hiss(0.14, 0.1, 'bandpass', 1800, 0, 4200); break;

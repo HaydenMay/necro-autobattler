@@ -380,7 +380,7 @@ export class Game {
   }
   /** The merge moment: a flash of rings and sparks, a punch in size, a rising chime. */
   private mergeFx(v: UnitVisual, x: number, z: number) {
-    audio.play('merge'); v.pulse(); if (!this.inspecting) this.vfx.arrive(x, z, v.star); const target = v.holder.scaling.x;
+    audio.play(v.star >= 3 ? 'merge3' : 'merge'); v.pulse(); if (!this.inspecting) this.vfx.arrive(x, z, v.star); const target = v.holder.scaling.x;
     this.fxRing(x, z, new BABYLON.Color3(1, 0.85, 0.4), 0.2, 2.0, 0.65); this.later(0.12, () => this.fxRing(x, z, new BABYLON.Color3(1, 1, 1), 0.2, 3.0, 0.8));
     this.burst(x, z, [1, 0.85, 0.4, 0.9], [0.8, 0.4, 1, 0.8], 46); this.burst(x, z, [0.85, 0.6, 1, 0.9], [0.5, 0.3, 1, 0.7], 24);
     this.tween(0.55, (t) => v.holder.scaling.setAll(target * (1 + 0.45 * Math.sin(t * Math.PI) * (1 - t * 0.4))), () => v.holder.scaling.setAll(target));
@@ -446,16 +446,17 @@ export class Game {
     });
     for (let c = 0; c < GRID_CELLS; c++) this.tint(c, 'normal');
     this.phase = 'transition'; this.startStepAt = 1.0; this.acc = 0; this.tweenCam(this.poses().battle, 2.2); this.syncBuild(); this.ui.render(); this.battleRoar();
-    for (const f of this.battle.fighters) if (f.boss) this.later(1.15, () => this.vfx.bossIntro(f.x, f.z));
+    for (const f of this.battle.fighters) if (f.boss) this.later(1.15, () => { this.vfx.bossIntro(f.x, f.z); audio.play('boss'); });
   }
   private applyEvents(evs: BEvent[]) {
     const b = this.battle!;
     for (const e of evs) {
       if (e.t === 'swing') { const v = this.fvis.get(e.id); if (v) v.play('attack', e.speed); if (Math.random() < 0.08) { const f = b.byId(e.id); if (f) audio.bark(f.soul, 0, f.team === 0 ? 1 : 0.85); } }
-      else if (e.t === 'hit') { const v = this.fvis.get(e.to); if (v) { v.pulse(); const tf = b.byId(e.to), ff = b.byId(e.from); if (tf && ff) this.vfx.hit(e.to, tf.x, tf.z, v.top * v.holder.scaling.x, e.dmg, ff.team === 0, e.kind === 'smash' || !!tf.boss || e.dmg >= tf.maxHp * 0.12, e.kind); } if (e.kind === 'arrow') audio.play('hitArrow'); else if (e.kind === 'melee') audio.play('hit'); }
+      else if (e.t === 'hit') { const v = this.fvis.get(e.to); let heavy = false; if (v) { v.pulse(); const tf = b.byId(e.to), ff = b.byId(e.from); heavy = e.kind === 'smash' || (!!tf && (!!tf.boss || e.dmg >= tf.maxHp * 0.12)); if (tf && ff) this.vfx.hit(e.to, tf.x, tf.z, v.top * v.holder.scaling.x, e.dmg, ff.team === 0, heavy, e.kind); } if (heavy && e.kind !== 'smash') audio.play('hitHeavy'); else if (e.kind === 'arrow') audio.play('hitArrow'); else if (e.kind === 'melee') audio.play('hit'); }
       else if (e.t === 'arrow') { const f = b.byId(e.from)!, to = b.byId(e.to)!; this.spawnArrow(f.team, f.x, f.z, to.x, to.z, e.dur); audio.play('arrow'); }
-      else if (e.t === 'death') { const v = this.fvis.get(e.id); if (v) { v.play('death'); v.setHp(null); v.setMana(null); const f = b.byId(e.id)!; audio.play('death'); this.vfx.death(f.x, f.z, f.team === 1, v.top * v.holder.scaling.x); if (f.team === 1) this.later(5, () => { if (this.fvis.get(e.id) === v && this.phase !== 'build') { v.holder.setEnabled(false); } }); } }
-      else if (e.t === 'cast') { const f = b.byId(e.id)!; audio.play('cast'); this.fxRing(f.x, f.z, new BABYLON.Color3(0.5, 0.8, 1), 0.15, 1.1, 0.35); }
+      else if (e.t === 'death') { const v = this.fvis.get(e.id); if (v) { v.play('death'); v.setHp(null); v.setMana(null); const f = b.byId(e.id)!; audio.play(f.team === 1 ? 'deathSoul' : 'deathBone'); this.vfx.death(f.x, f.z, f.team === 1, v.top * v.holder.scaling.x); if (f.team === 1) this.later(5, () => { if (this.fvis.get(e.id) === v && this.phase !== 'build') { v.holder.setEnabled(false); } }); } }
+      else if (e.t === 'frenzy') { audio.play('frenzy'); }
+      else if (e.t === 'cast') { const f = b.byId(e.id)!; audio.play(e.skill === 'split' ? 'split' : 'cast'); this.fxRing(f.x, f.z, new BABYLON.Color3(0.5, 0.8, 1), 0.15, 1.1, 0.35); }
       else if (e.t === 'taunt') { const f = b.byId(e.id)!; audio.play('taunt'); this.fxRing(f.x, f.z, new BABYLON.Color3(1, 0.85, 0.3), 0.3, BALANCE.taunt.radius, 0.6); }
       else if (e.t === 'smash') { audio.play('smash'); this.vfx.slam(e.x, e.z, e.r); this.fxRing(e.x, e.z, new BABYLON.Color3(1, 0.5, 0.2), 0.2, e.r * 1.6, 0.45); }
     }

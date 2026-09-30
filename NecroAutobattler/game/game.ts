@@ -93,7 +93,7 @@ export class Game {
     const saved = qs.get('seed') ? null : loadRun();                // ?seed=N always starts fresh (debugging); otherwise pick up where the last visit left off
     if (saved) this.restore(saved); else this.startStage(this.seed);
     let last = performance.now();
-    this.engine.runRenderLoop(() => { const now = performance.now(), raw = now - last; const dt = Math.min(0.05, raw / 1000); last = now; if (!this.active) return; if (!this.frozen) this.frame(dt); scene.render(); this.perfTick(raw); });
+    this.engine.runRenderLoop(() => { const now = performance.now(), raw = now - last; const dt = Math.min(0.05, raw / 1000); last = now; if (!this.active) return; if (this.inspecting) this.frameInspect(dt); else if (!this.frozen) this.frame(dt); scene.render(); this.perfTick(raw); });
   }
   /** The navigation shell hides the battle screen while another tab is open: pause the game so it costs nothing. */
   private active = true;
@@ -101,6 +101,42 @@ export class Game {
   frozen = false;
   step(dt: number) { this.frame(dt); }
   setActive(on: boolean) { this.active = on; }
+
+  // -------------------------------------------------------------------------------------------- inspect (the Souls page's 3D look at one Soul)
+  private inspecting: { soul: SoulId; v: UnitVisual; star: number; team: 0 | 1; spin: boolean; hidden: any[]; grid: boolean } | null = null;
+  /** Show one Soul on its own on the arena floor: slow turntable, buttons for every animation it has, star sizes and the enemy colours. */
+  inspect(soul: SoulId) {
+    if (!this.A || this.inspecting) return;
+    const hidden: any[] = []; const hide = (n: any) => { if (n && n.isEnabled && n.isEnabled()) { n.setEnabled(false); hidden.push(n); } };
+    for (const v of this.unitVis.values()) hide(v.holder); this.fvis.forEach((v) => hide(v.holder)); if (this.necro.holder.isEnabled()) { this.necro.setEnabled(false); hidden.push({ setEnabled: (on: boolean) => this.necro.setEnabled(on) }); } this.ringFx.forEach((r) => hide(r.m)); this.arrows.forEach((a) => hide(a.mesh));
+    const grid = this.tiles.length > 0 && this.tiles[0].isEnabled(); this.showGrid(false);
+    const v = createVisual(this.A, soul, 0, 1); const P = { x: -6, z: 0 }; v.holder.position.set(P.x, 0, P.z); v.holder.rotation.y = Math.PI * 0.85; v.play('idle');
+    this.inspecting = { soul, v, star: 1, team: 0, spin: true, hidden, grid };
+    document.body.classList.add('inspect');
+    this.camera.fov = 0.62; this.camera.position.set(P.x, 1.15, P.z - 3.5); this.camera.setTarget(new BABYLON.Vector3(P.x, 0.56, P.z));
+    this.renderInspectBar();
+  }
+  endInspect() {
+    const i = this.inspecting; if (!i) return;
+    i.v.dispose(); i.hidden.forEach((n) => n.setEnabled(true)); this.showGrid(i.grid && this.phase === 'build');
+    this.inspecting = null; document.body.classList.remove('inspect'); const bar = document.getElementById('inspectbar'); if (bar) bar.innerHTML = '';
+    this.camera.fov = 0.8; this.setCam(this.poses().build);
+  }
+  private frameInspect(dt: number) {
+    const i = this.inspecting!; i.v.update(dt); if (i.spin) i.v.holder.rotation.y += dt * 0.45;
+    this.arena.update(performance.now() / 1000);
+  }
+  private renderInspectBar() {
+    const i = this.inspecting; const bar = document.getElementById('inspectbar'); if (!i || !bar) return;
+    const nice = (n: string) => ({ Spawn: 'Arrival', Attack: 'Attack', Cheer: 'Cheer', Death: 'Fall' } as any)[n] ?? n.replace(/([a-z])([A-Z])/g, '$1 $2');
+    const clips = (i.v.clipNames ? i.v.clipNames() : []).map((n) => `<button data-clip="${n}">${nice(n)}</button>`).join('');
+    bar.innerHTML = `<div class="ib"><button id="ibBack" class="go">Back</button><b class="ibt">${SOUL_NAME[i.soul]}</b>${[1, 2, 3].map((n) => `<button data-star="${n}" class="${i.star === n ? 'on' : ''}">${n}\u2605</button>`).join('')}<button id="ibTeam" class="${i.team ? 'on' : ''}">Enemy colours</button><button id="ibSpin" class="${i.spin ? 'on' : ''}">Turn</button></div><div class="ib ibc">${clips}</div>`;
+    bar.querySelectorAll<HTMLElement>('[data-clip]').forEach((b) => (b.onclick = () => { audio.play('tap'); i.v.previewClip && i.v.previewClip(b.dataset.clip!); }));
+    bar.querySelectorAll<HTMLElement>('[data-star]').forEach((b) => (b.onclick = () => { i.star = +b.dataset.star!; i.v.setStar(i.star); this.renderInspectBar(); }));
+    (document.getElementById('ibTeam') as HTMLElement).onclick = () => { i.team = i.team ? 0 : 1; i.v.setTeam(i.team); this.renderInspectBar(); };
+    (document.getElementById('ibSpin') as HTMLElement).onclick = () => { i.spin = !i.spin; this.renderInspectBar(); };
+    (document.getElementById('ibBack') as HTMLElement).onclick = () => window.dispatchEvent(new Event('necro-go-souls'));
+  }
 
   // -------------------------------------------------------------------------------------------- scene helpers
   /** The placement grid is a build-screen tool: hide it during the fight so the battle looks like a scene, not a board. */

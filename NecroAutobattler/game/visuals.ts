@@ -12,6 +12,8 @@ export interface UnitVisual {
   team: 0 | 1; star: number; state: VState; top: number;
   play(state: VState, speed?: number): void;
   setStar(star: number): void;
+  clipNames?(): string[];            // the animations this unit has (for the inspect view)
+  previewClip?(name: string): void;  // play one of them once, then go back to idle
   setBoss?(on: boolean): void;       // an enemy boss: bigger, with a BOSS tag
   setLevel?(level: number): void;    // the permanent Soul level shown beside the health bar (player units only)
   setTeam(team: 0 | 1): void;
@@ -187,6 +189,16 @@ class TripoVisual implements UnitVisual {
   setTeam(t: 0 | 1) { this.team = t; this.applyMat(); this.deco.set(t, this.star); }
   setStar(st: number) { this.star = st; this.applyMat(); this.holder.scaling.setAll(this.sc(st) * this.base); this.deco.set(this.team, st); this.deco.fit(this.sc(st) * this.base); }
   private bossK = 1;
+  /** The inspect view: which animations this unit has, and a way to play any one of them. */
+  clipNames(): string[] { return Object.keys(this.anims).filter((n) => n !== 'Walk' && n !== 'Hit'); }
+  previewClip(name: string) {
+    const g = this.anims[name]; if (!g) return;
+    if (name === 'Idle') { this.play('idle'); return; }
+    this.queued = false; if (this.cur) this.cur.stop(); g.stop(); g.start(false, 1, g.from, g.to); this.cur = g; this.flavorOn = true; this.state = 'idle'; this.idleT = 0;
+    const pose = [...(this.cfg.flavor?.clips || []), ...(this.cfg.cheers || [])].find((p) => p.clip === name);
+    if (pose && pose.emote) { this.emote(pose.emote, 0.4); if (pose.emote === 'zzz') this.emote(pose.emote, 1.2); }
+    if (VOCAL.has(name) || name === 'Cheer' || name === 'Attack') audio.bark(this.soulId, 0.2);
+  }
   private sc(st: number) { return (this.cfg.starScale || BALANCE.star.scale)[st - 1] * this.bossK; }
   setBoss(on: boolean) { this.bossK = on ? 1.3 : 1; this.holder.scaling.setAll(this.sc(this.star) * this.base); this.deco.fit(this.sc(this.star) * this.base); this.deco.setBoss(on); }
   setHp(f: number | null) { this.deco.setHp(f); }

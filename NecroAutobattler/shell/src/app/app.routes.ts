@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { Home } from './pages/home';
-import { Run } from './pages/run';
+import { Inspect, Run } from './pages/run';
 import { Settings } from './pages/settings';
 import { Shop } from './pages/shop';
 import { Souls } from './pages/souls';
@@ -11,6 +11,7 @@ export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'home' },
   { path: 'home', component: Home },
   { path: 'run', component: Run },
+  { path: 'inspect/:soul', component: Inspect },
   { path: 'souls', component: Souls },
   { path: 'shop', component: Shop },
   { path: 'settings', component: Settings },

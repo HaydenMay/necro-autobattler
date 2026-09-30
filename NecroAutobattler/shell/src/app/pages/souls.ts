@@ -1,3 +1,4 @@
+import { Router } from '@angular/router';
 import { Component, computed, inject, signal } from '@angular/core';
 import { SOULS, COST } from '../../../../core/data.ts';
 import type { SoulId } from '../../../../core/data.ts';
@@ -52,7 +53,7 @@ type Filter = 'all' | 'skill' | 'passive';
     .scrim { position:fixed; inset:0; z-index:15; background:rgba(6,3,12,.72); display:flex; align-items:center; justify-content:center; padding:max(8px,var(--sat)) max(8px,var(--sar)) max(8px,var(--sab)) max(8px,var(--sal)); }
     .modal { position:relative; width:min(540px,100%); max-height:100%; overflow:auto; display:grid; grid-template-columns:minmax(90px,25%) 1fr; gap:var(--gap); padding:calc(var(--gap) + 4px); border-radius:16px; background:#1c2a52; border:2px solid #5a7fd0; box-shadow:0 0 30px rgba(90,127,208,.4); }
     .x { position:absolute; top:8px; right:8px; width:clamp(26px,5vmin,34px); height:clamp(26px,5vmin,34px); padding:0; background:#c93b3b; border-color:#ff9a9a; font-weight:900; }
-    .big { height:clamp(50px,19vmin,110px); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:clamp(30px,10vmin,60px); border:2px solid #8fb0f0; }
+    .big { position:relative; cursor:pointer; height:clamp(50px,19vmin,110px); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:clamp(30px,10vmin,60px); border:2px solid #8fb0f0; }
     .nm { font-size:1.45em; font-weight:800; margin-top:6px; } .sub { color:#d5b3ff; font-weight:800; }
     .sgrid { display:grid; grid-template-columns:1fr 1fr; gap:calc(var(--gap) / 1.5); }
     .st { background:#dfe6f7; color:#15203c; border-radius:8px; padding:.35em .7em; } .st.up { background:#33c26b; color:#062a16; }
@@ -63,6 +64,7 @@ type Filter = 'all' | 'skill' | 'passive';
     .dots { display:flex; gap:8px; justify-content:center; margin:var(--gap) 0 0; } .dots button { width:12px; height:12px; padding:0; border-radius:50%; background:#5a6a90; border:0; } .dots button.on { background:#ffd24a; }
     .acts { display:flex; gap:var(--gap); grid-column:1 / -1; } .acts button { flex:1; padding:.5em .4em; font-size:1em; font-weight:800; }
     .grey { background:#7d8394; border-color:#b8bfd0; color:#e8ebf4; } .grey small { display:block; font-weight:600; opacity:.85; font-size:.75em; }
+    .insp { position:absolute; left:50%; bottom:4px; transform:translateX(-50%); z-index:2; padding:.1em .7em; border-radius:9px; background:rgba(14,9,26,.78); border:1px solid #6b46a3; font-size:clamp(9px,1.6vmin,11px); line-height:1.2; font-weight:800; color:#e8d8ff; white-space:nowrap; pointer-events:none; }
     .port img { width:62%; height:62%; object-fit:contain; filter:drop-shadow(0 2px 3px #000a); } .big img { width:64%; height:78%; object-fit:contain; filter:drop-shadow(0 3px 5px #000a); }
     /* portrait cards: a head-and-shoulders render fills the art window, over a glow in the rarity colour */
     .port.art, .big.art, .cport.art, .fxcard.art { position:relative; overflow:hidden; }
@@ -131,7 +133,7 @@ type Filter = 'all' | 'skill' | 'passive';
   </div>
     @if (detail(); as d) {
       <aside class="dpanel">
-          <div><div class="big" [class.art]="art(d)" [style.background]="bg(d)" [style.border-color]="rc(d)"><img [src]="icon(d)" alt=""></div>
+          <div><div class="big" [class.art]="art(d)" [style.background]="bg(d)" [style.border-color]="rc(d)" (click)="inspect(d)" title="Inspect in 3D"><img [src]="icon(d)" alt=""><span class="insp">Inspect 3D</span></div>
             <div class="nm">{{ name(d) }}</div><div class="sub">Level {{ save.progress(d).level }}</div><div class="rarlab"><img [src]="gem(rarityOf(d))" alt="">{{ rarityName(d) }}</div>
             <div class="note">{{ role(d) }}</div></div>
           <div>
@@ -208,6 +210,8 @@ type Filter = 'all' | 'skill' | 'passive';
 })
 export class Souls {
   save = inject(SaveService);
+  private router = inject(Router);
+  inspect(s: SoulId) { this.router.navigateByUrl('/inspect/' + s); }
   fmt = fmt; goldIcon = goldIcon; checkIcon = checkIcon; closeIcon = closeIcon; upgradeIcon = upgradeIcon; gem = gemIcon;
   rarityOf = (s: SoulId) => RARITY_OF[s]; rarityName = (s: SoulId) => RARITY_NAME[RARITY_OF[s]];
   filters: Filter[] = ['all', 'skill', 'passive'];

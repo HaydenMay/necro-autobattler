@@ -20,7 +20,7 @@ export class App {
   save = inject(SaveService);
   private url = signal(this.router.url);
   /** True while the full-screen run (the 3D game) is showing: no rail, no page. */
-  readonly onRun = computed(() => this.url().startsWith('/run'));
+  readonly onRun = computed(() => this.url().startsWith('/run') || this.url().startsWith('/inspect'));
   /** Home gets the full backdrop; every other page a calmer one. */
   readonly onHome = computed(() => this.url().startsWith('/home'));
 
@@ -43,6 +43,7 @@ export class App {
       setTimeout(() => window.__game?.setActive(on), 0);        // after the host box is shown, so the game sees its real size; paused off-screen
     });
     window.addEventListener('necro-go-home', () => this.router.navigateByUrl('/home'));
+    window.addEventListener('necro-go-souls', () => this.router.navigateByUrl('/souls'));
     window.addEventListener('necro-go-shop', () => this.router.navigateByUrl('/shop'));   // the stage-cleared screen's Open pack button
   }
 

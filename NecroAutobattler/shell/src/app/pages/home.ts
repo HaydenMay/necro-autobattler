@@ -25,6 +25,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     .stage .in { padding:clamp(7px,1.9vh,20px) clamp(10px,2.4vmin,20px); }
     .hero { position:relative; overflow:hidden; height:clamp(42px,11vh,92px); border-bottom:1px solid color-mix(in srgb, var(--accent) 50%, #000); }
     .heroimg { position:absolute; inset:0; background-size:cover; }
+    .necro { position:absolute; z-index:1; right:clamp(4px,2vmin,16px); bottom:-6%; height:190%; aspect-ratio:1; object-fit:cover; object-position:50% 25%; pointer-events:none; filter:drop-shadow(0 3px 8px #000c); }
     .hero::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,rgba(3,7,10,.88),rgba(3,7,10,.35) 70%,rgba(3,7,10,.1)); }
     .herotxt { position:absolute; z-index:1; left:clamp(10px,2.4vmin,20px); right:10px; bottom:clamp(6px,1.4vmin,12px); }
     .stage h2 { margin:0; font-size:1.7em; color:var(--gold); text-shadow:0 2px 0 #000, 0 0 16px color-mix(in srgb, var(--accent) 60%, transparent); } .sub { opacity:.85; font-size:.92em; text-shadow:0 1px 2px #000; margin-bottom:clamp(6px,1.6vmin,12px); } .hero .sub { margin:0; }
@@ -89,7 +90,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
   template: `
     <div class="wrap">
       <div class="box stage" [style.--accent]="look().accent">
-        <div class="hero"><div class="heroimg" [style.background-image]="mood" [style.background-position]="look().pos" [style.filter]="'hue-rotate(' + look().hue + 'deg) saturate(1.2)'"></div>
+        <div class="hero"><img class="necro" src="assets/portraits/necromancer_head.png" alt="" draggable="false"><div class="heroimg" [style.background-image]="mood" [style.background-position]="look().pos" [style.filter]="'hue-rotate(' + look().hue + 'deg) saturate(1.2)'"></div>
           <div class="herotxt"><h2>{{ heroName() }}</h2><div class="sub">{{ heroBlurb() }}</div></div></div>
         <div class="in">
         @if (endlessRun()) { <div class="blurb" style="margin:6px 0 2px">This run: Endless Depths. Finish or start over to change it. A Soul Pack for every 10 waves cleared.</div> } @else {

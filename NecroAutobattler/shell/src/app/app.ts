@@ -34,6 +34,8 @@ export class App {
         location.reload();
       }
     });
+    // A Home Screen app stays suspended for days and never re-reads the site by itself: ask the server which version is current when it starts and whenever it comes back.
+    this.checkForUpdate(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this.checkForUpdate(); });
     // The game loads in the background as soon as the app starts, so Start Battle is instant.
     this.loadGame();
     effect(() => {
@@ -42,6 +44,16 @@ export class App {
     });
     window.addEventListener('necro-go-home', () => this.router.navigateByUrl('/home'));
     window.addEventListener('necro-go-shop', () => this.router.navigateByUrl('/shop'));   // the stage-cleared screen's Open pack button
+  }
+
+  /** This build's stamp is in the URL of its own main.js (?v=...); version.json holds the newest one. A mismatch means we are out of date: reload through a fresh URL, at most once a minute. */
+  private checkForUpdate() {
+    const mine = new RegExp('main\\.js\\?v=(\\d+)').exec([...document.scripts].map((x) => x.src).find((u) => u.includes('main.js')) ?? '')?.[1]; if (!mine) return;      // a local build has no stamp
+    fetch('version.json?_=' + Date.now(), { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+      if (!j || !j.v || String(j.v) === mine) return;
+      try { const last = +(localStorage.getItem('necro-update-reload') || 0); if (Date.now() - last < 60000) return; localStorage.setItem('necro-update-reload', String(Date.now())); } catch { /* storage blocked */ }
+      location.replace(location.pathname + '?u=' + j.v + location.hash);
+    }).catch(() => { /* offline: keep playing */ });
   }
 
   /** The game is a separate bundle (docs/game.js) that needs Babylon first. */

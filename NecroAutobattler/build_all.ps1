@@ -17,4 +17,5 @@ $t = $t -replace 'src="main\.js"', "src=`"main.js?v=$stamp`"" -replace 'href="st
 $mj = "$PSScriptRoot\docs\main.js"; $t = [IO.File]::ReadAllText($mj)
 $t = $t.Replace('"game.js"', "`"game.js?v=$stamp`"").Replace("'game.js'", "'game.js?v=$stamp'")
 [IO.File]::WriteAllText($mj, $t, $enc)
+[IO.File]::WriteAllText("$PSScriptRoot\docs\version.json", "{`"v`":`"$stamp`"}", $enc)
 Write-Host "stamped docs with v=$stamp"

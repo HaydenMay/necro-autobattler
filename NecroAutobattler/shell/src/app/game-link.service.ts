@@ -9,6 +9,7 @@ export class GameLink {
   /** The run in progress (wave, hearts) or null when there is nothing to continue. */
   runInfo(): { wave: number; total: number; hearts: number; difficulty: string; stage: string } | null { return this.ready() && this.game ? this.game.runInfo() : null; }
   newRun() { if (this.ready() && this.game) this.game.newRun(); }
+  abandonRun() { if (this.ready() && this.game) this.game.abandonRun(); }
   newDaily() { if (this.ready() && this.game) this.game.newDaily(); }
   newEndless() { if (this.ready() && this.game) this.game.newEndless(); }
 }

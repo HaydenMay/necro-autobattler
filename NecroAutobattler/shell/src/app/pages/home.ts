@@ -68,6 +68,11 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
     .mark.none { opacity:.4; border-style:dashed; }
     .fresh { animation:freshPulse 1.3s ease-in-out infinite; } @keyframes freshPulse { 50% { box-shadow:0 0 18px var(--go); border-color:var(--go-hi); } }
     /* unlock celebration: the padlock shakes, the shackle swings open, a ring bursts out, then the words appear */
+    .newb { font-weight:800; }
+    .cscrim { position:fixed; inset:0; z-index:36; background:rgba(6,3,12,.78); display:flex; align-items:center; justify-content:center; animation:fadeIn .2s ease-out both; }
+    .cbox2 { width:min(380px,90%); display:flex; flex-direction:column; gap:10px; padding:clamp(12px,2.6vmin,20px); border-radius:16px; background:#1c1632; border:2px solid #7a5cc0; box-shadow:0 0 30px rgba(122,92,192,.45); line-height:1.35; }
+    .cbox2 .ct { font-size:1.3em; color:var(--gold); } .crow2 { display:flex; gap:8px; margin-top:4px; } .crow2 button { flex:1; padding:.55em .4em; }
+    .red { background:linear-gradient(#d65a5a,#a83030); border:2px solid #f0a0a0; color:#fff; font-weight:800; border-radius:12px; }
     .uscrim { position:fixed; inset:0; z-index:35; background:rgba(6,3,12,.8); display:flex; align-items:center; justify-content:center; cursor:pointer; animation:fadeIn .25s ease-out both; }
     @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
     .ubox { display:flex; flex-direction:column; align-items:center; gap:clamp(8px,2vmin,18px); padding:0 16px; }
@@ -94,7 +99,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
         <div class="hero"><img class="necro" src="assets/portraits/necromancer_banner.png" alt="" draggable="false"><div class="heroimg" [style.background-image]="mood" [style.background-position]="look().pos" [style.filter]="'hue-rotate(' + look().hue + 'deg) saturate(1.2)'"></div>
           <div class="herotxt"><h2>{{ heroName() }}</h2><div class="sub">{{ heroBlurb() }}</div></div></div>
         <div class="in">
-        @if (endlessRun()) { <div class="blurb" style="margin:6px 0 2px">This run: Endless Depths. Finish or start over to change it. A Soul Pack for every 10 waves cleared.</div> } @else if (dailyRun()) { <div class="blurb" style="margin:6px 0 2px">This run: the Daily Challenge. Finish or start over to change it. Win it once a day for a Soul Pack and gold.</div> } @else {
+        @if (endlessRun()) { <div class="blurb" style="margin:6px 0 2px">This run: Endless Depths. Finish it, or start a new battle, to change it. A Soul Pack for every 10 waves cleared.</div> } @else if (dailyRun()) { <div class="blurb" style="margin:6px 0 2px">This run: the Daily Challenge. Finish it, or start a new battle, to change it. Win it once a day for a Soul Pack and gold.</div> } @else {
         <div class="path">
           @for (w of waves; track w) {
             @if (w > 1) { <span class="link" [class.done]="w <= current()"></span> }
@@ -109,7 +114,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
           }
         </div>
         <div class="hint">{{ hint() }}</div>
-        <div class="blurb">{{ run() ? 'This run: ' + stageDef().name + ', ' + label(shown()) + '. Finish or start over to change it.' : blurb() }}</div>
+        <div class="blurb">{{ run() ? 'This run: ' + stageDef().name + ', ' + label(shown()) + '. Finish it, or start a new battle, to change it.' : blurb() }}</div>
         <div class="rec">Recommended Soul level: <b [class.ok]="deckAvg() >= rec()" [class.low]="deckAvg() < rec()">{{ rec() }}</b> <span class="muted">(your deck averages {{ deckAvg().toFixed(1) }})</span></div>
         }
         <div class="deck">
@@ -121,7 +126,7 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
         <div class="acts">
           @if (run(); as r) {
             <button class="big" (click)="resume()">Continue <small style="font-size:.5em;letter-spacing:0">Wave {{ r.wave }}{{ endlessRun() ? '' : '/' + r.total }} &middot; @for (h of heartList(r.hearts); track $index) { <img class="ic" [src]="h ? heartFull : heartEmpty" alt=""> }</small></button>
-            <button class="blue" (click)="confirmRestart()">{{ confirming() ? 'Tap again to abandon run' : 'Start over' }}</button>
+            <button class="blue newb" (click)="askNew.set(true)">New battle</button>
           } @else {
             <button class="big" [disabled]="!link.ready() || !deckOk()" (click)="start()">{{ link.ready() ? 'Start Battle' : 'Loading army…' }}</button>
           }
@@ -163,6 +168,16 @@ const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Normal', har
         </button>
       </div>
     </div>
+    @if (askNew(); as _a) {
+      <div class="cscrim" (click)="askNew.set(false)">
+        <div class="cbox2" (click)="$event.stopPropagation()">
+          <b class="ct">Start a new battle?</b>
+          @if (run(); as r) { <div>Your run is on wave {{ r.wave }}{{ endlessRun() || dailyRun() ? '' : '/' + r.total }}. Starting a new battle abandons it.</div> }
+          <div class="muted">Gold and Soul Packs you already earned are kept. You can then choose any stage or mode.</div>
+          <div class="crow2"><button class="go" (click)="askNew.set(false)">Keep playing</button><button class="red" (click)="newBattle()">New battle</button></div>
+        </div>
+      </div>
+    }
     @if (fresh().length) {
       <div class="uscrim" (click)="dismiss()">
         <div class="ubox">
@@ -190,6 +205,7 @@ export class Home implements OnDestroy {
   total = PROTOTYPE_RULES.stageWaves ?? 10;
   waves = Array.from({ length: this.total }, (_, i) => i + 1);
   confirming = signal(false);
+  askNew = signal(false);
   hint = signal('');
   private hintTimer = 0;
   diffs = DIFFICULTY_INFO;
@@ -245,6 +261,8 @@ export class Home implements OnDestroy {
   }
   start() { if (!this.deckOk() || !this.link.ready()) return; this.link.newRun(); this.router.navigateByUrl('/run'); }
   resume() { this.router.navigateByUrl('/run'); }
+  /** Confirmed: drop the run in progress and let the player choose again. */
+  newBattle() { this.askNew.set(false); this.link.abandonRun(); this.tick.update((n) => n + 1); }
   confirmRestart() {
     if (!this.confirming()) { this.confirming.set(true); setTimeout(() => this.confirming.set(false), 3000); return; }
     if (!this.deckOk()) { this.confirming.set(false); return; }

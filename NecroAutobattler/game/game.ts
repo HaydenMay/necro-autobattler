@@ -258,6 +258,8 @@ export class Game {
   /** A run the player has really started (so Home can offer Continue). Null after a stage was won or lost, or before anything was done. */
   runInfo() { const s = this.s; if (!s || s.status !== 'building') return null; return (s.wave > 1 || s.units.length > 0 || this.attempt > 0 || s.stats.failures > 0) ? { wave: s.wave, total: stageWaves(s), hearts: s.hearts, difficulty: difficultyName, stage: currentStageId } : null; }
   /** Fresh run with the currently equipped Soul Deck (Home > Start Battle calls this). */
+  /** Give up the run in progress (Home > New battle, after the player confirms): the saved run is dropped and Home lets them pick any stage or mode. Gold and packs already earned stay. */
+  abandonRun() { this.startStage(Math.floor(Math.random() * 1e6) + 1); clearRun(); }
   newRun() { this.startStage(new URLSearchParams(location.search).get('seed') ? this.seed : Math.floor(Math.random() * 1e6) + 1); }
   startStage(seed: number) {
     this.cine = false; this.reward = null; this.flushTweens(); if (this.necro) this.necro.revive();

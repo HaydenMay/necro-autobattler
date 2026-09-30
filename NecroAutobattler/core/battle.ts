@@ -198,6 +198,7 @@ export class Battle {
     }
     const cur = this.byId(f.target);
     if (cur && cur.alive && this.time < f.retargetAt) return;
+    if (f.soul === 'goblin' && cur && cur.alive && Math.hypot(cur.x - f.x, cur.z - f.z) <= f.range * 1.3) return;   // already in reach of someone: hit them, don't wander off after a juicier target
     f.retargetAt = this.time + BALANCE.sim.retargetEvery * (0.8 + 0.4 * this.rng.next());
     const foes = this.foes(f); if (!foes.length) { f.target = -1; return; }
     let best = foes[0], bs = Infinity;
@@ -209,6 +210,7 @@ export class Battle {
         if (busy && score < BALANCE.opportunist.seekRadius + 2) score -= 3;
         score -= BALANCE.opportunist.woundedWeight * (1 - o.hp / o.maxHp);
       }
+      if (f.soul === 'goblin' && o.id === f.target) score -= 1.5;   // stick with a target unless another is clearly better
       if (score < bs) { bs = score; best = o; }
     }
     f.target = best.id;
